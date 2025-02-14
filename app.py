@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify
 from pymongo import MongoClient
-from passlib.context import CryptContext
+# from passlib.context import CryptContext
 from yt_dlp import YoutubeDL
 from flask_cors import CORS
 
@@ -20,19 +20,19 @@ db = client.get_database('music_app')
 users_collection = db.users
 
 # Initialize Passlib context for scrypt
-pwd_context = CryptContext(schemes=["scrypt"], deprecated="auto")
+# pwd_context = CryptContext(schemes=["scrypt"], deprecated="auto")
 
 # User class
 class User:
-    def __init__(self, user_id, email, password_hash, library):
+    def __init__(self, user_id, email, password, library):
         self.user_id = user_id
         self.email = email
-        self.password_hash = password_hash
+        self.password_hash = password
         self.library = library
 
     def check_password(self, password):
-        # Verify password using passlib's scrypt context
-        return pwd_context.verify(password, self.password_hash)
+        # Verify password by direct comparison (no hashing)
+        return self.password_hash == password
 
 # Fetch user from MongoDB
 def get_user_by_email(email):
@@ -228,13 +228,9 @@ def signup():
             return 'User already exists'
         
         try:
-            # Explicitly use scrypt for hashing
-            password_hash = pwd_context.hash(password)
-            print(f"Generated hash: {password_hash}")  # Debug log
-            
             new_user = {
                 'email': email,
-                'password': password_hash,
+                'password': password,
                 'library': []
             }
             
