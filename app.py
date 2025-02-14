@@ -556,7 +556,12 @@ def test_db_connection():
 
 # Test connection before starting the app
 if __name__ == '__main__':
+    import platform
     if test_db_connection():  # Only start the app if DB connection is successful
-        app.run(host='0.0.0.0', port=5000, debug=True)
+        if platform.system() == 'Windows':
+            # On Windows, disable the reloader to avoid socket errors
+            app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+        else:
+            app.run(host='0.0.0.0', port=5000, debug=True)
     else:
         print("Application startup cancelled due to database connection failure.")
