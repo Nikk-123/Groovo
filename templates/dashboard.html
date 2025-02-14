@@ -241,19 +241,19 @@
     </div>
     
     <div class="library-controls">
-        <button class="library-btn" id="shuffleLibrary">
+        <button class="library-btn" id="shuffleLibrary" title="Shuffle Library">
             <i class="fas fa-random"></i>
         </button>
-        <button class="library-btn" id="repeatLibrary">
+        <button type="button" class="library-btn" id="repeatLibrary" title="Repeat Library">
             <i class="fas fa-redo"></i>
         </button>
     </div>
     
-    <div id="emptyLibraryMessage" style="text-align: center; color: #b3b3b3; padding: 20px;">
+    <div id="emptyLibraryMessage">
         Your library is empty. Add songs to get started!
     </div>
     
-    <ul class="library-list" id="libraryList" style="display: none;">
+    <ul class="library-list" id="libraryList">
         {% for song in user_library %}
         <li class="library-item" 
             data-url="{{ song.url }}"
@@ -266,10 +266,10 @@
                 <p>{{ song.artist }}</p>
             </div>
             <div class="library-item-controls">
-                <button class="play-btn" onclick="Player.play('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.artist }}', 'library')">
+                <button class="play-btn" title="Play" onclick="Player.play('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.artist }}', 'library')">
                     <i class="fas fa-play"></i>
                 </button>
-                <button class="remove-from-library" 
+                <button class="remove-from-library" title="Remove from Library"
                     data-song='{"title": "{{ song.title }}", "url": "{{ song.url }}", "thumbnail": "{{ song.thumbnail }}", "artist": "{{ song.artist }}"}'>
                     <i class="fas fa-trash"></i>
                 </button>
