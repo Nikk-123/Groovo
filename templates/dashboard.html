@@ -230,6 +230,23 @@
             </audio>
         </div>
 
+        <!-- Add this after the expanded player section -->
+        <div id="lyricsModal" class="lyrics-modal">
+            <div class="lyrics-content">
+                <div class="lyrics-header">
+                    <h2>Lyrics</h2>
+                    <button class="close-lyrics">&times;</button>
+                </div>
+                <div class="lyrics-body">
+                    <div id="lyricsContent">
+                        <!-- Lyrics will be loaded here -->
+                    </div>
+                    <div id="lyricsLoader" class="loader" style="display: none;">
+                        <div class="spotify-loader"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
 <!-- Library Section -->
 <div class="library-section" id="librarySection">
@@ -244,7 +261,7 @@
         <button class="library-btn" id="shuffleLibrary" title="Shuffle Library">
             <i class="fas fa-random"></i>
         </button>
-        <button type="button" class="library-btn" id="repeatLibrary" title="Repeat Library">
+        <button class="library-btn" id="repeatLibrary" title="Repeat Library">
             <i class="fas fa-redo"></i>
         </button>
     </div>
@@ -253,7 +270,7 @@
         Your library is empty. Add songs to get started!
     </div>
     
-    <ul class="library-list" id="libraryList">
+    <ul class="library-list" id="libraryList" style="display: none;">
         {% for song in user_library %}
         <li class="library-item" 
             data-url="{{ song.url }}"
@@ -266,10 +283,10 @@
                 <p>{{ song.artist }}</p>
             </div>
             <div class="library-item-controls">
-                <button class="play-btn" title="Play" onclick="Player.play('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.artist }}', 'library')">
+                <button class="play-btn" onclick="Player.play('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.artist }}', 'library')">
                     <i class="fas fa-play"></i>
                 </button>
-                <button class="remove-from-library" title="Remove from Library"
+                <button class="remove-from-library" 
                     data-song='{"title": "{{ song.title }}", "url": "{{ song.url }}", "thumbnail": "{{ song.thumbnail }}", "artist": "{{ song.artist }}"}'>
                     <i class="fas fa-trash"></i>
                 </button>
@@ -320,17 +337,6 @@
     function toggleLibrary() {
         librarySection.classList.toggle('active');
     }
-
-    // Add error event listener to audio element
-    Elements.audio.addEventListener('error', (e) => {
-        console.error('Audio element error:', e);
-        console.error('Audio error code:', Elements.audio.error.code);
-        console.error('Audio error message:', Elements.audio.error.message);
-        PlayerState.isPlaying = false;
-        Player.updatePlayPauseButtons();
-        Player.showControls(false);
-        alert(`Audio playback error: ${Elements.audio.error.message}`);
-    });
     </script>
 </body>
 </html>
