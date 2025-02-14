@@ -59,10 +59,24 @@ body {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* Shuffle and Repeat Button Active State */
+/* Shared button styles */
+.control-btn, .mini-control-btn {
+    background: none;
+    border: none;
+    color: #b3b3b3;
+    cursor: pointer;
+    padding: 8px;
+}
+
+.control-btn:hover, .mini-control-btn:hover {
+    color: #fff;
+}
+
 .control-btn.active,
-.mini-control-btn.active {
-    color: #1DB954; /* Spotify green color */
+.mini-control-btn.active,
+.library-btn.active,
+.home-btn.active {
+    color: #1DB954;
 }
 
 /* Additional styles for mini player and expanded player controls */
