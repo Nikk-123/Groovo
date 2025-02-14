@@ -1035,6 +1035,12 @@ const Lyrics = {
     }
 };
 
+// Function to toggle library section
+function toggleLibrary() {
+    const librarySection = document.getElementById('librarySection');
+    librarySection.classList.toggle('active');
+}
+
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
     Library.load();
@@ -1098,13 +1104,13 @@ document.addEventListener('DOMContentLoaded', () => {
     Elements.homeBtn.classList.add('active');
     Elements.search.input.addEventListener('input', () => Elements.homeBtn.classList.remove('active'));
 
-    // Setup lyrics functionality
-    Elements.lyrics.buttons.mini.addEventListener('click', () => Lyrics.toggle());
-    Elements.lyrics.buttons.main.addEventListener('click', () => Lyrics.toggle());
-    Elements.lyrics.closeBtn.addEventListener('click', () => Lyrics.hide());
-    Elements.lyrics.modal.addEventListener('click', (e) => {
-        if (e.target === Elements.lyrics.modal) Lyrics.hide();
-    });
+    
+
+    // Attach event listener to the playlist button if it exists
+    const playlistButton = document.querySelector('.control-btn[title="Playlist"]');
+    if (playlistButton) {
+        playlistButton.addEventListener('click', toggleLibrary);
+    }
 
     // Request notification permission
     if ('Notification' in window) {
