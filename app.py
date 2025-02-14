@@ -347,9 +347,6 @@ def play():
             "error": f"Internal server error: {str(e)}"
         }), 500
 
-
-
-
 @app.route('/search', methods=['GET'])
 def search_song():
     """Search for a song on YouTube."""
