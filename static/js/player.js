@@ -981,59 +981,6 @@ function showHome() {
     document.querySelector('.home-btn').classList.add('active');
 }
 
-// Add new Lyrics object
-const Lyrics = {
-    isOpen: false,
-
-    async show() {
-        if (!PlayerState.currentSong) {
-            alert('No song is currently playing');
-            return;
-        }
-
-        this.isOpen = true;
-        Elements.lyrics.modal.style.display = 'block';
-        Elements.lyrics.content.style.display = 'none';
-        Elements.lyrics.loader.style.display = 'block';
-
-        try {
-            const response = await fetch(`/lyrics?title=${encodeURIComponent(PlayerState.currentSong.title)}&artist=${encodeURIComponent(PlayerState.currentSong.artist)}`);
-            const data = await response.json();
-
-            if (data.success) {
-                Elements.lyrics.content.innerHTML = `
-                    <h3>${data.title}</h3>
-                    <p>by ${data.artist}</p>
-                    <div class="lyrics-link">
-                        <a href="${data.lyrics_url}" target="_blank" rel="noopener noreferrer">
-                            View on Genius <i class="fas fa-external-link-alt"></i>
-                        </a>
-                    </div>
-                `;
-                Elements.lyrics.buttons.mini.classList.add('active');
-                Elements.lyrics.buttons.main.classList.add('active');
-            } else {
-                Elements.lyrics.content.innerHTML = '<p>Lyrics not found</p>';
-            }
-        } catch (error) {
-            Elements.lyrics.content.innerHTML = '<p>Error loading lyrics</p>';
-        } finally {
-            Elements.lyrics.loader.style.display = 'none';
-            Elements.lyrics.content.style.display = 'block';
-        }
-    },
-
-    hide() {
-        this.isOpen = false;
-        Elements.lyrics.modal.style.display = 'none';
-        Elements.lyrics.buttons.mini.classList.remove('active');
-        Elements.lyrics.buttons.main.classList.remove('active');
-    },
-
-    toggle() {
-        this.isOpen ? this.hide() : this.show();
-    }
-};
 
 // Function to toggle library section
 function toggleLibrary() {
@@ -1105,13 +1052,6 @@ document.addEventListener('DOMContentLoaded', () => {
     Elements.search.input.addEventListener('input', () => Elements.homeBtn.classList.remove('active'));
 
     
-
-    // Attach event listener to the playlist button if it exists
-    const playlistButton = document.querySelector('.control-btn[title="Playlist"]');
-    if (playlistButton) {
-        playlistButton.addEventListener('click', toggleLibrary);
-    }
-
     // Request notification permission
     if ('Notification' in window) {
         Notification.requestPermission();
