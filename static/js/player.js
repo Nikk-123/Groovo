@@ -1040,31 +1040,35 @@ document.addEventListener('DOMContentLoaded', () => {
     Library.load();
     Search.init();
     
-    // Setup event listeners
-    Elements.controls.play.mini.addEventListener('click', PlaybackControls.togglePlayPause);
-    Elements.controls.play.main.addEventListener('click', PlaybackControls.togglePlayPause);
-    Elements.controls.prev.mini.addEventListener('click', PlaybackControls.playPrevious);
-    Elements.controls.prev.main.addEventListener('click', PlaybackControls.playPrevious);
-    Elements.controls.next.mini.addEventListener('click', PlaybackControls.playNext);
-    Elements.controls.next.main.addEventListener('click', PlaybackControls.playNext);
-    
-    // Volume control sync
-    Elements.controls.volume.mini.addEventListener('input', e => Elements.audio.volume = e.target.value);
-    Elements.controls.volume.main.addEventListener('input', e => Elements.audio.volume = e.target.value);
-    
-    // Audio player events
-    Elements.audio.addEventListener('timeupdate', () => {
-        ProgressBar.updateProgress(Elements.audio.currentTime);
+    // Setup core event listeners
+    ['mini', 'main'].forEach(type => {
+        Elements.controls.play[type].addEventListener('click', PlaybackControls.togglePlayPause);
+        Elements.controls.prev[type].addEventListener('click', PlaybackControls.playPrevious);
+        Elements.controls.next[type].addEventListener('click', PlaybackControls.playNext);
+        Elements.controls.shuffle[type].addEventListener('click', PlaybackModes.toggleShuffle);
+        Elements.controls.repeat[type].addEventListener('click', PlaybackModes.toggleRepeat);
     });
     
+    // Setup volume control
+    const handleVolumeChange = (e) => {
+        const newVolume = parseFloat(e.target.value);
+        PlayerState.volume = newVolume;
+        Elements.audio.volume = newVolume;
+        Elements.controls.volume.mini.value = newVolume;
+        Elements.controls.volume.main.value = newVolume;
+    };
+    
+    Elements.controls.volume.mini.addEventListener('input', handleVolumeChange);
+    Elements.controls.volume.main.addEventListener('input', handleVolumeChange);
+    
+    // Set initial volume
+    Elements.audio.volume = PlayerState.volume;
+    Elements.controls.volume.mini.value = PlayerState.volume;
+    Elements.controls.volume.main.value = PlayerState.volume;
+
+    // Audio player events
+    Elements.audio.addEventListener('timeupdate', () => ProgressBar.updateProgress(Elements.audio.currentTime));
     Elements.audio.addEventListener('ended', PlaybackControls.playNext);
-
-    // Request notification permission
-    if ('Notification' in window) {
-        Notification.requestPermission();
-    }
-
-    // Add error event listener to audio element
     Elements.audio.addEventListener('error', (e) => {
         console.error('Audio element error:', e);
         console.error('Audio error code:', Elements.audio.error.code);
@@ -1075,88 +1079,35 @@ document.addEventListener('DOMContentLoaded', () => {
         alert(`Audio playback error: ${Elements.audio.error.message}`);
     });
 
-    // Initialize progress bar functionality
+    // Initialize features
     ProgressBar.init();
-
-    // Add shuffle and repeat button listeners
-    Elements.controls.shuffle.mini.addEventListener('click', () => PlaybackModes.toggleShuffle());
-    Elements.controls.shuffle.main.addEventListener('click', () => PlaybackModes.toggleShuffle());
-    Elements.controls.repeat.mini.addEventListener('click', () => PlaybackModes.toggleRepeat());
-    Elements.controls.repeat.main.addEventListener('click', () => PlaybackModes.toggleRepeat());
-    
-    // Initialize button states
+    PlayerView.init();
     PlaybackModes.updateShuffleButtons();
     PlaybackModes.updateRepeatButtons();
 
-    // Initialize player view
-    PlayerView.init();
-
-    Elements.audio.addEventListener('play', () => {
-        PlayerState.isPlaying = true;
-        Player.updateAllPlayButtons(PlayerState.currentSong?.url);
+    // Play state handlers
+    ['play', 'pause', 'ended'].forEach(event => {
+        Elements.audio.addEventListener(event, () => {
+            PlayerState.isPlaying = event === 'play';
+            Player.updateAllPlayButtons(PlayerState.currentSong?.url);
+            if (event === 'ended') PlaybackControls.playNext();
+        });
     });
 
-    Elements.audio.addEventListener('pause', () => {
-        PlayerState.isPlaying = false;
-        Player.updateAllPlayButtons(PlayerState.currentSong?.url);
-    });
-
-    Elements.audio.addEventListener('ended', () => {
-        PlayerState.isPlaying = false;
-        Player.updateAllPlayButtons(PlayerState.currentSong?.url);
-        PlaybackControls.playNext();
-    });
-
-    // Initialize home button state
+    // Initialize home state
     Elements.homeBtn.classList.add('active');
+    Elements.search.input.addEventListener('input', () => Elements.homeBtn.classList.remove('active'));
 
-    // Add click event listener for search input to remove home active state
-    Elements.search.input.addEventListener('input', () => {
-        Elements.homeBtn.classList.remove('active');
-    });
-
-    // Sync volume between mini and main controls
-    const syncVolume = (e) => {
-        const volume = e.target.value;
-        Elements.audio.volume = volume;
-        Elements.controls.volume.mini.value = volume;
-        Elements.controls.volume.main.value = volume;
-    };
-
-    Elements.controls.volume.mini.addEventListener('input', syncVolume);
-    Elements.controls.volume.main.addEventListener('input', syncVolume);
-
-    // Remove any existing volume listeners
-    Elements.controls.volume.mini.replaceWith(Elements.controls.volume.mini.cloneNode(true));
-    Elements.controls.volume.main.replaceWith(Elements.controls.volume.main.cloneNode(true));
-    
-    // Re-assign elements after cloning
-    Elements.controls.volume.mini = document.getElementById('miniVolumeControl');
-    Elements.controls.volume.main = document.getElementById('volumeControl');
-
-    // Set initial volume
-    Elements.audio.volume = PlayerState.volume;
-    Elements.controls.volume.mini.value = PlayerState.volume;
-    Elements.controls.volume.main.value = PlayerState.volume;
-
-    // Add new volume sync function
-    const handleVolumeChange = (e) => {
-        const newVolume = parseFloat(e.target.value);
-        PlayerState.volume = newVolume;
-        Elements.audio.volume = newVolume;
-        Elements.controls.volume.mini.value = newVolume;
-        Elements.controls.volume.main.value = newVolume;
-    };
-
-    // Add volume event listeners
-    Elements.controls.volume.mini.addEventListener('input', handleVolumeChange);
-    Elements.controls.volume.main.addEventListener('input', handleVolumeChange);
-
-    // Add lyrics button listeners
+    // Setup lyrics functionality
     Elements.lyrics.buttons.mini.addEventListener('click', () => Lyrics.toggle());
     Elements.lyrics.buttons.main.addEventListener('click', () => Lyrics.toggle());
     Elements.lyrics.closeBtn.addEventListener('click', () => Lyrics.hide());
     Elements.lyrics.modal.addEventListener('click', (e) => {
         if (e.target === Elements.lyrics.modal) Lyrics.hide();
     });
+
+    // Request notification permission
+    if ('Notification' in window) {
+        Notification.requestPermission();
+    }
 });
