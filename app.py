@@ -1,27 +1,11 @@
-import webview
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify
 from pymongo import MongoClient
-# from lyricsgenius import Genius
+from passlib.context import CryptContext
 from yt_dlp import YoutubeDL
 from flask_cors import CORS
-import threading
-import sys
-from os.path import join, dirname
 
-# # Add this near your other configurations
-# genius = Genius("DAoR178CrTb0wgpUOaFAxPPrG23RxLQkiY5xyUN37M-qc6vG-ezz2PSH17V0V4EG")
-# genius.verbose = False  # Disable verbose output
-
-if hasattr(sys, '_MEIPASS'):  # If running as a frozen app
-    template_folder = join(sys._MEIPASS, 'templates')
-    static_folder = join(sys._MEIPASS, 'static')
-else:
-    template_folder = 'templates'
-    static_folder = 'static'
-
-# Flask app setup
-app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
-CORS(app, resources={r"/*": {"origins": "*"}})
+app = Flask(__name__, static_folder='static')
+CORS(app)
 app.secret_key = 'REMOVED_SECRET_KEY'  # Change this to a more secure secret key
 
 # MongoDB Atlas setup
@@ -35,21 +19,27 @@ client = MongoClient(
 db = client.get_database('music_app')
 users_collection = db.users
 
+# Initialize Passlib context for scrypt
+pwd_context = CryptContext(schemes=["scrypt"], deprecated="auto")
+
 # User class
 class User:
-    def __init__(self, user_id, email, password, library):
+    def __init__(self, user_id, email, password_hash, library):
         self.user_id = user_id
         self.email = email
-        self.password = password
+        self.password_hash = password_hash
         self.library = library
 
     def check_password(self, password):
-        return self.password == password
+        # Verify password using passlib's scrypt context
+        return pwd_context.verify(password, self.password_hash)
 
+# Fetch user from MongoDB
 def get_user_by_email(email):
     return users_collection.find_one({'email': email})
 
 def fetch_mood_playlists(playlist_size=7):
+    """Fetch mood-based playlists using yt-dlp."""
     moods = {
         'Happy': 'happy upbeat music playlist',
         'Chill': 'chill lofi music playlist',
@@ -85,7 +75,7 @@ def fetch_mood_playlists(playlist_size=7):
                     playlist_songs = []
                     
                     for entry in info.get('entries', []):
-                        if entry:  
+                        if entry:  # Check if entry is not None
                             thumbnails = entry.get('thumbnails', [])
                             thumbnail_url = ''
                             if thumbnails:
@@ -107,20 +97,22 @@ def fetch_mood_playlists(playlist_size=7):
                     mood_playlists[mood] = playlist_songs
                 except Exception as mood_error:
                     print(f"Error fetching playlist for mood '{mood}': {mood_error}")
-                    mood_playlists[mood] = []  
+                    mood_playlists[mood] = []  # Empty list for failed mood
                 
         return mood_playlists
     
     except Exception as e:
         print(f"Error fetching mood playlists: {e}")
         return {}
+                        
 
 def fetch_trending():
+    """Fetches trending music videos using yt-dlp."""
     try:
         options = {
             'quiet': True,
             'extract_flat': True,
-            'playlist_items': '1-28',  
+            'playlist_items': '1-28',  # Fetch top 28 trending videos
             'no_warnings': True,
         }
         
@@ -133,8 +125,8 @@ def fetch_trending():
             trending_songs = []
             for entry in trending_data.get('entries', []):
                 full_title = entry.get('title', '')
-                artist = entry.get('uploader', '')  
-
+                artist = entry.get('uploader', '')  # Try getting uploader first
+                
                 if not artist or artist == "Unknown Artist":
                     parts = full_title.split('-', 1)
                     if len(parts) > 1:
@@ -163,29 +155,32 @@ def fetch_trending():
                     "thumbnail": thumbnail_url
                 })
             
-            return trending_songs  
+            return trending_songs  # Return only the trending songs list
     except Exception as e:
         print(f"Error fetching trending: {e}")
         return []
 
+# Login Route
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
         
-        print(f"Login attempt for email: {email}")  
-
+        print(f"Login attempt for email: {email}")  # Debug log
+        
+        # Fetch user data from the database
         user_data = get_user_by_email(email)
         
         if user_data:
-            print("User found in database")  
+            print("User found in database")  # Debug log
             try:
                 user = User(user_data['_id'], user_data['email'], user_data['password'], user_data['library'])
                 if user.check_password(password):
-                    print("Password verified successfully")  
+                    print("Password verified successfully")  # Debug log
                     session['user_id'] = email
                     
+                    # Check if request wants JSON response
                     if request.headers.get('Accept') == 'application/json':
                         return jsonify({
                             'success': True,
@@ -194,7 +189,7 @@ def login():
                         })
                     return redirect(url_for('dashboard'))
                 else:
-                    print("Password verification failed")  
+                    print("Password verification failed")  # Debug log
                     if request.headers.get('Accept') == 'application/json':
                         return jsonify({
                             'success': False,
@@ -202,7 +197,7 @@ def login():
                         })
                     return render_template('login.html', error="Invalid email or password")
             except Exception as e:
-                print(f"Error during login: {str(e)}")  
+                print(f"Error during login: {str(e)}")  # Debug log
                 if request.headers.get('Accept') == 'application/json':
                     return jsonify({
                         'success': False,
@@ -210,7 +205,7 @@ def login():
                     })
                 return render_template('login.html', error="An error occurred during login")
         else:
-            print("User not found in database")  
+            print("User not found in database")  # Debug log
             if request.headers.get('Accept') == 'application/json':
                 return jsonify({
                     'success': False,
@@ -220,6 +215,8 @@ def login():
     
     return render_template('login.html')
 
+
+# Signup Route
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
@@ -231,23 +228,27 @@ def signup():
             return 'User already exists'
         
         try:
+            # Explicitly use scrypt for hashing
+            password_hash = pwd_context.hash(password)
+            print(f"Generated hash: {password_hash}")  # Debug log
+            
             new_user = {
                 'email': email,
-                'password': password,  
+                'password': password_hash,
                 'library': []
             }
             
             users_collection.insert_one(new_user)
             return redirect(url_for('login'))
         except Exception as e:
-            print(f"Error during signup: {str(e)}")  
+            print(f"Error during signup: {str(e)}")  # Debug log
             return 'An error occurred during signup'
             
     return render_template('signup.html')
 
 @app.route('/logout')
 def logout():
-    session.pop('user_id', None)  
+    session.pop('user_id', None)  # Manually remove user from session
     return redirect(url_for('login'))
 
 @app.route('/')
@@ -256,6 +257,7 @@ def index():
 
 @app.route('/dashboard')
 def dashboard():
+    # Check if user is logged in
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
@@ -263,6 +265,7 @@ def dashboard():
     user_data = get_user_by_email(user_email)
     
     if not user_data:
+        # If user data not found, log them out and redirect to login
         session.pop('user_id', None)
         return redirect(url_for('login'))
     
@@ -275,15 +278,10 @@ def dashboard():
                          trending=trending_songs,
                          mood_playlists=mood_playlists)
 
-@app.route('/play', methods=['POST', 'OPTIONS'])
-def play():
-    if request.method == 'OPTIONS':
-        response = jsonify({'status': 'ok'})
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'POST')
-        return response
 
+
+@app.route('/play', methods=['POST'])
+def play():
     try:
         data = request.get_json()
         video_url = data.get('url')
@@ -300,7 +298,7 @@ def play():
             'prefer_insecure': True,
             'geo_bypass': True,
             'nocheckcertificate': True,
-            'extract_flat': False,
+            'extract_flat': False,  # Changed to get full metadata
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -311,28 +309,12 @@ def play():
             with YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(video_url, download=False)
                 
-                if 'url' in info:
-                    audio_url = info['url']
-                else:
-                    formats = info.get('formats', [])
-                    audio_format = None
-                    
-                    for f in formats:
-                        if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
-                            audio_format = f
-                            break
-                    
-                    if not audio_format:
-                        for f in formats:
-                            if f.get('acodec') != 'none':
-                                audio_format = f
-                                break
-                    
-                    if not audio_format:
-                        raise Exception("No suitable audio format found")
-                    
-                    audio_url = audio_format['url']
+                # Get the direct audio URL
+                audio_url = info.get('url', None)
+                if not audio_url:
+                    raise Exception("No suitable audio format found")
 
+                # Get thumbnail URL
                 thumbnails = info.get('thumbnails', [])
                 thumbnail_url = ''
                 if thumbnails:
@@ -343,18 +325,17 @@ def play():
                     if not thumbnail_url and thumbnails:
                         thumbnail_url = thumbnails[0]['url']
 
+                # Get artist name
                 artist = info.get('artist', info.get('channel', info.get('uploader', 'Unknown Artist')))
 
-                response = jsonify({
+                # Return all metadata with the response
+                return jsonify({
                     'success': True,
                     'audio_url': audio_url,
                     'title': info.get('title', 'Unknown Title'),
                     'thumbnail': thumbnail_url,
                     'artist': artist
                 })
-                
-                response.headers.add('Access-Control-Allow-Origin', '*')
-                return response
 
         except Exception as e:
             print(f"YoutubeDL error: {str(e)}")
@@ -370,8 +351,12 @@ def play():
             "error": f"Internal server error: {str(e)}"
         }), 500
 
+
+
+
 @app.route('/search', methods=['GET'])
 def search_song():
+    """Search for a song on YouTube."""
     query = request.args.get('query')
     if not query:
         return jsonify([])
@@ -382,10 +367,11 @@ def search_song():
             'quiet': True,
             'extract_flat': True,
             'no_warnings': True,
-            'default_search': 'ytsearch10',  
+            'default_search': 'ytsearch10',  # Get top 10 results
         }
 
         with YoutubeDL(ydl_opts) as ydl:
+            # Add 'music' to the search query to get better music results
             search_query = f"ytsearch10:{query} music"
             info = ydl.extract_info(search_query, download=False)
             
@@ -394,19 +380,24 @@ def search_song():
                 if not entry:
                     continue
                     
+                # Get the best thumbnail
                 thumbnails = entry.get('thumbnails', [])
                 thumbnail_url = ''
                 if thumbnails:
+                    # Try to get a medium-quality thumbnail
                     for thumb in thumbnails:
                         if thumb.get('height', 0) >= 180:
                             thumbnail_url = thumb['url']
                             break
+                    # If no medium thumbnail found, use the first available
                     if not thumbnail_url and thumbnails:
                         thumbnail_url = thumbnails[0]['url']
 
+                # Parse title and artist
                 full_title = entry.get('title', '')
                 artist = entry.get('channel', entry.get('uploader', ''))
                 
+                # Try to separate artist and title if they're in the format "Artist - Title"
                 if ' - ' in full_title:
                     parts = full_title.split(' - ', 1)
                     if len(parts) == 2:
@@ -417,6 +408,7 @@ def search_song():
                 else:
                     title = full_title
 
+                # Format duration
                 duration = entry.get('duration')
                 if duration:
                     minutes = int(duration) // 60
@@ -450,15 +442,17 @@ def add_to_library():
         song_data = request.json
         user_email = session['user_id']
         
+        # Add error handling for empty or invalid song data
         if not song_data or not isinstance(song_data, dict):
             return jsonify({
                 'success': False,
                 'message': 'Invalid song data'
             }), 400
 
+        # Update user's library in MongoDB
         result = users_collection.update_one(
             {'email': user_email},
-            {'$addToSet': {'library': song_data}}  
+            {'$addToSet': {'library': song_data}}  # $addToSet prevents duplicates
         )
         
         if result.modified_count > 0:
@@ -488,6 +482,7 @@ def remove_from_library():
         song_data = request.json
         user_email = session['user_id']
         
+        # Remove song from user's library in MongoDB
         result = users_collection.update_one(
             {'email': user_email},
             {'$pull': {'library': {'url': song_data['url']}}}
@@ -521,8 +516,6 @@ def get_library():
             'success': False,
             'message': str(e)
         }), 500
-
-
 
 @app.errorhandler(500)
 def internal_error(error):
@@ -559,30 +552,18 @@ def manifest():
 
 def test_db_connection():
     try:
-        print("Testing MongoDB connection...")
+        # Test the connection
         client.admin.command('ping')
-        print("Successfully connected to MongoDB!")
+        print("✅ Successfully connected to MongoDB!")
         return True
     except Exception as e:
-        print(f"Failed to connect to MongoDB: {str(e)}")
+        print(f"❌ Failed to connect to MongoDB: {str(e)}")
         print("Please check your connection string and make sure MongoDB Atlas is accessible.")
         return False
 
-def start_flask():
-    try:
-        app.run(host='0.0.0.0', port=5000, debug=False, threaded=True, use_reloader=False)
-    except Exception as e:
-        print(f"Error while running Flask: {e}")
-
+# Test connection before starting the app
 if __name__ == '__main__':
-    if test_db_connection():
-        if not hasattr(sys, '_MEIPASS'):
-            app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
-        else:
-            flask_thread = threading.Thread(target=start_flask, daemon=True)
-            flask_thread.start()
-
-            webview.create_window('Spotify 2.0', 'http://127.0.0.1:5000', width=1200, height=800, resizable=True)
-            webview.start()
+    if test_db_connection():  # Only start the app if DB connection is successful
+        app.run(host='0.0.0.0', port=5000, debug=True)
     else:
         print("Application startup cancelled due to database connection failure.")
