@@ -101,18 +101,12 @@ const Elements = {
 const Player = {
     async play(url, title, thumbnail, artist, source = 'trending', mood = '') {
         try {
-            // Set current song at the start of playback
             PlayerState.currentSong = { url, title, thumbnail, artist };
-            
-            // Update the source before playing
             PlayerState.currentSource = source;
             PlayerState.currentMood = mood;
-            
             this.showControls(true);
-            
-            if (!url) {
-                throw new Error('No URL provided');
-            }
+
+            if (!url) throw new Error('No URL provided');
 
             const response = await fetch('/play', {
                 method: 'POST',
@@ -121,23 +115,15 @@ const Player = {
             });
 
             const data = await response.json();
-            
-            if (!response.ok || !data.success) {
-                throw new Error(data.error || 'Failed to get audio URL');
-            }
+            if (!response.ok || !data.success) throw new Error(data.error || 'Failed to get audio URL');
 
-            // Use the metadata from the response if available, otherwise use the passed values
             const songTitle = data.title || title;
             const songThumbnail = data.thumbnail || thumbnail;
             const songArtist = data.artist || artist;
 
-            // Update display before attempting to play
             this.updateDisplay(songTitle, songArtist, songThumbnail);
-            
-            // Set audio source and start playback
             await this.setAudioSource(data.audio_url);
-            
-            // Update queue and metadata after successful playback start
+
             const libraryItem = document.querySelector(`.library-item[data-url="${url}"]`);
             if (libraryItem) {
                 PlayerState.currentSource = 'library';
@@ -156,19 +142,11 @@ const Player = {
                 this.updateQueue(url, songTitle, songThumbnail, songArtist);
             }
 
-            // Update metadata after successful playback
             this.updateMetadata(songTitle, songArtist, songThumbnail);
-
-            // Remove playing class from all library items
-            document.querySelectorAll('.library-item').forEach(item => {
-                item.classList.remove('playing');
-            });
-
-            // Add playing class to current item
+            document.querySelectorAll('.library-item').forEach(item => item.classList.remove('playing'));
             const currentItem = document.querySelector(`.library-item[data-url="${url}"]`);
             if (currentItem) {
                 currentItem.classList.add('playing');
-                // Update play button icon to pause
                 const playBtn = currentItem.querySelector('.play-btn i');
                 if (playBtn) {
                     playBtn.classList.remove('fa-play');
@@ -176,19 +154,10 @@ const Player = {
                 }
             }
 
-            // Update the now playing text
             this.updateNowPlayingSource();
-
-            // After successful playback starts
             PlayerState.isPlaying = true;
             this.updateAllPlayButtons(url);
-
-            // Remove playing class from all items
-            document.querySelectorAll('.library-item, .song-item').forEach(item => {
-                item.classList.remove('playing');
-            });
-
-            // Add playing class to current items
+            document.querySelectorAll('.library-item, .song-item').forEach(item => item.classList.remove('playing'));
             document.querySelectorAll(`.library-item[data-url="${url}"], .song-item[data-url="${url}"]`)
                 .forEach(item => item.classList.add('playing'));
 
@@ -205,34 +174,25 @@ const Player = {
 
     async setAudioSource(audioUrl) {
         try {
-            if (!audioUrl) {
-                throw new Error('No audio URL provided');
-            }
+            if (!audioUrl) throw new Error('No audio URL provided');
 
             console.log('Setting up audio source...');
-            
-            // Reset audio element
             Elements.audio.pause();
             Elements.audio.currentTime = 0;
             Elements.audio.src = '';
-            
-            // Set new source directly
             Elements.audio.src = audioUrl;
-            
-            // Force load the audio
             await Elements.audio.load();
-            
+
             console.log('Attempting to play audio...');
             const playPromise = Elements.audio.play();
-
-        if (playPromise !== undefined) {
+            if (playPromise !== undefined) {
                 await playPromise;
                 console.log('Audio playback started successfully');
                 PlayerState.isPlaying = true;
                 this.updatePlayPauseButtons();
             }
         } catch (error) {
-                    console.error('Playback failed:', error);
+            console.error('Playback failed:', error);
             console.error('Audio URL:', audioUrl);
             PlayerState.isPlaying = false;
             this.updatePlayPauseButtons();
@@ -264,14 +224,13 @@ const Player = {
     updateMetadata(title, artist, thumbnail) {
         try {
             document.title = `${title} - ${artist}`;
-            if ('mediaSession' in navigator && thumbnail) {  // Only set metadata if thumbnail exists
+            if ('mediaSession' in navigator && thumbnail) {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: title || 'Unknown Title',
                     artist: artist || 'Unknown Artist',
-                    artwork: thumbnail ? [{ src: thumbnail }] : []  // Only add artwork if thumbnail exists
+                    artwork: thumbnail ? [{ src: thumbnail }] : []
                 });
 
-                // Add media session action handlers
                 navigator.mediaSession.setActionHandler('play', () => PlaybackControls.togglePlayPause());
                 navigator.mediaSession.setActionHandler('pause', () => PlaybackControls.togglePlayPause());
                 navigator.mediaSession.setActionHandler('previoustrack', () => PlaybackControls.playPrevious());
@@ -279,7 +238,6 @@ const Player = {
             }
         } catch (error) {
             console.warn('MediaMetadata error:', error);
-            // Continue playback even if metadata fails
         }
     },
 
@@ -299,7 +257,6 @@ const Player = {
     },
 
     shuffleLibraryQueue(songs, currentUrl) {
-        // Keep current song, shuffle the rest
         const currentSong = songs.find(song => song.url === currentUrl);
         const otherSongs = songs.filter(song => song.url !== currentUrl);
         PlaybackModes.shuffleQueue(otherSongs);
@@ -331,7 +288,6 @@ const Player = {
     },
 
     updateAllPlayButtons(url) {
-        // Update all play buttons in the library
         document.querySelectorAll('.library-item').forEach(item => {
             const playBtn = item.querySelector('.play-btn i');
             if (playBtn) {
@@ -345,7 +301,6 @@ const Player = {
             }
         });
 
-        // Update all play buttons in search results
         document.querySelectorAll('.song-item').forEach(item => {
             const playBtn = item.querySelector('.play-btn i');
             if (playBtn) {
@@ -359,7 +314,6 @@ const Player = {
             }
         });
 
-        // Update mini and main player buttons
         this.updatePlayPauseButtons();
     }
 };
@@ -374,45 +328,37 @@ const PlaybackControls = {
             Elements.audio.pause();
             PlayerState.isPlaying = false;
         }
-        // Update all play buttons with current song URL
         Player.updateAllPlayButtons(PlayerState.currentSong?.url);
     },
 
     playNext() {
         if (PlayerState.queue.length === 0) {
-            // If queue is empty, try to get songs from library
             const librarySongs = Array.from(document.querySelectorAll('.library-item')).map(item => ({
                 url: item.dataset.url,
                 title: item.dataset.title,
                 thumbnail: item.dataset.thumbnail,
                 artist: item.dataset.artist
             }));
-            
             if (librarySongs.length > 0) {
                 PlayerState.queue = librarySongs;
                 PlayerState.currentSource = 'library';
             } else {
-        return;
-    }
+                return;
+            }
         }
 
         let nextIndex = PlayerState.currentIndex + 1;
-        
         if (nextIndex >= PlayerState.queue.length) {
             if (PlayerState.repeatMode === 'all') {
                 nextIndex = 0;
             } else {
-        return;
-    }
+                return;
+            }
         }
 
         PlayerState.currentIndex = nextIndex;
         const nextSong = PlayerState.queue[nextIndex];
-        
-        // Log the next song for debugging
         console.log('Playing next song:', nextSong);
-        
-        // Ensure all required properties exist before playing
         if (nextSong && nextSong.url) {
             Player.play(
                 nextSong.url,
@@ -427,41 +373,36 @@ const PlaybackControls = {
 
     playPrevious() {
         if (PlayerState.queue.length === 0) {
-            // If queue is empty, try to get songs from library
             const librarySongs = Array.from(document.querySelectorAll('.library-item')).map(item => ({
                 url: item.dataset.url,
                 title: item.dataset.title,
                 thumbnail: item.dataset.thumbnail,
                 artist: item.dataset.artist
             }));
-            
             if (librarySongs.length > 0) {
                 PlayerState.queue = librarySongs;
                 PlayerState.currentSource = 'library';
-    } else {
+            } else {
                 return;
             }
-    }
+        }
 
         if (Elements.audio.currentTime > 3) {
             Elements.audio.currentTime = 0;
             return;
-}
+        }
 
         let prevIndex = PlayerState.currentIndex - 1;
-    
         if (prevIndex < 0) {
             if (PlayerState.repeatMode === 'all') {
                 prevIndex = PlayerState.queue.length - 1;
-    } else {
+            } else {
                 return;
             }
         }
 
         PlayerState.currentIndex = prevIndex;
         const prevSong = PlayerState.queue[prevIndex];
-        
-        // Ensure all required properties exist before playing
         if (prevSong && prevSong.url) {
             Player.play(
                 prevSong.url,
@@ -493,36 +434,30 @@ const Library = {
     },
 
     async add(songData) {
-    try {
-        const response = await fetch('/library/add', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(songData)
-        });
-        
-        const data = await response.json();
-        if (data.success) {
+        try {
+            const response = await fetch('/library/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(songData)
+            });
+            const data = await response.json();
+            if (data.success) {
                 PlayerState.library.push(songData);
                 this.updateDisplay();
-            alert('Song added to library!');
+                alert('Song added to library!');
+            }
+        } catch (error) {
+            console.error('Error adding to library:', error);
+            alert('Failed to add song to library');
         }
-    } catch (error) {
-        console.error('Error adding to library:', error);
-        alert('Failed to add song to library');
-    }
-    },
-
-    async remove(songData) {
-        // Remove method is now handled via handleRemoveClick.
-        // This method is left unused or can be removed.
     },
 
     updateDisplay() {
-    const libraryList = document.getElementById('libraryList');
+        const libraryList = document.getElementById('libraryList');
         const emptyMessage = document.getElementById('emptyLibraryMessage');
-    
+
         if (PlayerState.library.length === 0) {
-        libraryList.style.display = 'none';
+            libraryList.style.display = 'none';
             emptyMessage.style.display = 'block';
             return;
         }
@@ -568,18 +503,9 @@ const Library = {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Remove from DOM
                 const songElem = buttonElement.closest('.library-item');
-                if (songElem) {
-                    songElem.remove();
-                }
-                
-                // Update PlayerState library
-                PlayerState.library = PlayerState.library.filter(
-                    song => song.url !== songData.url
-                );
-                
-                // Update empty library message if needed
+                if (songElem) songElem.remove();
+                PlayerState.library = PlayerState.library.filter(song => song.url !== songData.url);
                 if (PlayerState.library.length === 0) {
                     document.getElementById('libraryList').style.display = 'none';
                     document.getElementById('emptyLibraryMessage').style.display = 'block';
@@ -596,10 +522,8 @@ const Library = {
 
     handlePlayClick(url, title, thumbnail, artist) {
         if (url === PlayerState.currentSong?.url && PlayerState.isPlaying) {
-            // If clicking the currently playing song, pause it
             PlaybackControls.togglePlayPause();
         } else {
-            // Otherwise play the new song
             Player.play(url, title, thumbnail, artist, 'library');
         }
     }
@@ -614,7 +538,6 @@ const Search = {
     async handleSearch() {
         const query = Elements.search.input.value.trim();
         
-        // Show/hide containers based on search state
         if (!query) {
             Elements.search.results.style.display = 'none';
             Elements.search.trending.style.display = 'block';
@@ -622,22 +545,15 @@ const Search = {
             return;
         }
 
-        // Hide trending and mood playlists when searching
         Elements.search.trending.style.display = 'none';
         document.getElementById('moodPlaylistsContainer').style.display = 'none';
-        
-        // Show loader and results container
         Elements.search.loader.style.display = 'block';
         Elements.search.results.style.display = 'block';
         
         try {
             const response = await fetch(`/search?query=${encodeURIComponent(query)}`);
             const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error('Search request failed');
-            }
-            
+            if (!response.ok) throw new Error('Search request failed');
             this.displayResults(data);
         } catch (error) {
             console.error('Search error:', error);
@@ -683,7 +599,6 @@ const Search = {
 
         Elements.search.list.innerHTML = resultsHTML;
 
-        // Add event listeners for "Add to Library" buttons
         document.querySelectorAll('.add-to-library').forEach(button => {
             button.addEventListener('click', () => {
                 const songData = JSON.parse(button.dataset.song);
@@ -713,22 +628,14 @@ const ProgressBar = {
     isDragging: false,
     
     init() {
-        // Add event listeners for both progress bars
         ['mini', 'main'].forEach(type => {
             const progressBar = Elements.progressBars[type];
-            if (!progressBar) return; // Skip if element not found
-            
-            // Click handling
+            if (!progressBar) return;
             progressBar.addEventListener('click', (e) => this.handleProgressClick(e));
-            
-            // Drag handling
             progressBar.addEventListener('mousedown', (e) => this.handleDragStart(e));
-            
-            // Touch handling for mobile
             progressBar.addEventListener('touchstart', (e) => this.handleDragStart(e), { passive: true });
         });
 
-        // Add global mouse/touch move and end listeners
         document.addEventListener('mousemove', (e) => this.handleDragMove(e));
         document.addEventListener('mouseup', (e) => this.handleDragEnd(e));
         document.addEventListener('touchmove', (e) => this.handleDragMove(e), { passive: true });
@@ -736,7 +643,7 @@ const ProgressBar = {
     },
 
     handleProgressClick(e) {
-        e.stopPropagation(); // Prevent click from bubbling to mini-player
+        e.stopPropagation();
         const progressBar = e.currentTarget;
         const rect = progressBar.getBoundingClientRect();
         const clickPosition = (e.clientX - rect.left) / rect.width;
@@ -749,7 +656,7 @@ const ProgressBar = {
     },
 
     handleDragStart(e) {
-        e.stopPropagation(); // Prevent drag from bubbling to mini-player
+        e.stopPropagation();
         this.isDragging = true;
         const progressBar = e.currentTarget;
         progressBar.style.cursor = 'grabbing';
@@ -765,7 +672,6 @@ const ProgressBar = {
         const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
         let clickPosition = (clientX - rect.left) / rect.width;
         
-        // Clamp the position between 0 and 1
         clickPosition = Math.max(0, Math.min(1, clickPosition));
         
         const newTime = clickPosition * Elements.audio.duration;
@@ -786,7 +692,6 @@ const ProgressBar = {
             const clientX = e.type.includes('touch') ? e.changedTouches[0].clientX : e.clientX;
             let clickPosition = (clientX - rect.left) / rect.width;
             
-            // Clamp the position between 0 and 1
             clickPosition = Math.max(0, Math.min(1, clickPosition));
             
             const newTime = clickPosition * Elements.audio.duration;
@@ -806,11 +711,9 @@ const ProgressBar = {
         
         const progress = (currentTime / duration) * 100;
         
-        // Update progress bars
         Elements.progress.mini.bar.style.width = `${progress}%`;
         Elements.progress.main.bar.style.width = `${progress}%`;
         
-        // Update time displays
         Elements.progress.mini.current.textContent = formatTime(currentTime);
         Elements.progress.main.current.textContent = formatTime(currentTime);
         Elements.progress.mini.total.textContent = formatTime(duration);
@@ -823,11 +726,9 @@ const PlaybackModes = {
     toggleShuffle() {
         PlayerState.isShuffleOn = !PlayerState.isShuffleOn;
         
-        // Get the current queue based on source
         let currentQueue = [];
         
         if (PlayerState.currentSource === 'library') {
-            // Get songs from library with all metadata
             currentQueue = Array.from(document.querySelectorAll('.library-item')).map(item => ({
                 url: item.dataset.url,
                 title: item.dataset.title,
@@ -838,39 +739,26 @@ const PlaybackModes = {
             currentQueue = [...PlayerState.queue];
         }
 
-        // Ensure we have a valid queue
         if (!currentQueue || currentQueue.length === 0) {
             console.warn('No songs in queue to shuffle');
             return;
         }
 
         if (PlayerState.isShuffleOn) {
-            // Store original queue
             PlayerState.originalQueue = [...currentQueue];
-            
-            // Get current song with all its metadata
             const currentSong = currentQueue[PlayerState.currentIndex];
-            
-            // Remove current song from the array before shuffling
             const remainingSongs = currentQueue.filter(song => song.url !== currentSong.url);
-            
-            // Shuffle remaining songs
             this.shuffleQueue(remainingSongs);
-            
-            // Put current song at the beginning and add shuffled songs after
             PlayerState.queue = [currentSong, ...remainingSongs];
             PlayerState.currentIndex = 0;
         } else {
-            // Restore original order
             PlayerState.queue = [...PlayerState.originalQueue];
-            
-            // Find current song in original queue
             const currentSong = PlayerState.queue[PlayerState.currentIndex];
             PlayerState.currentIndex = PlayerState.originalQueue.findIndex(song => song.url === currentSong.url);
         }
         
         this.updateShuffleButtons();
-        console.log('Current queue after shuffle:', PlayerState.queue); // Debug log
+        console.log('Current queue after shuffle:', PlayerState.queue);
     },
 
     toggleRepeat() {
@@ -927,9 +815,7 @@ const PlayerView = {
     },
 
     init() {
-        // Open expanded view when clicking mini player (except controls)
         Elements.miniPlayerContent.addEventListener('click', (e) => {
-            // List of elements/classes that should not trigger expansion
             const excludedElements = [
                 '.mini-control-buttons',
                 '.mini-like-btn',
@@ -943,12 +829,11 @@ const PlayerView = {
                 '#miniVolumeBtn',
                 '#miniVolumeControl',
                 '.mini-progress-container',
-                '.play-btn',  // Add this to exclude play buttons
-                '.add-to-library',  // Add this to exclude add to library buttons
-                '.remove-from-library'  // Add this to exclude remove from library buttons
+                '.play-btn',
+                '.add-to-library',
+                '.remove-from-library'
             ];
 
-            // Check if the clicked element or its parents match any excluded elements
             const isExcluded = excludedElements.some(selector => 
                 e.target.closest(selector) !== null || 
                 e.target.matches(selector)
@@ -959,41 +844,29 @@ const PlayerView = {
             }
         });
 
-        // Minimize when clicking the minimize button
         Elements.minimizeBtn.addEventListener('click', () => this.minimize());
     }
 };
 
 // Add this function to handle showing home content
 function showHome() {
-    // Hide search results
     Elements.search.results.style.display = 'none';
     Elements.search.loader.style.display = 'none';
-    
-    // Show trending and mood playlists
     Elements.search.trending.style.display = 'block';
     document.getElementById('moodPlaylistsContainer').style.display = 'block';
-    
-    // Clear search input
     Elements.search.input.value = '';
-    
-    // Add active class to home button and remove from others
     document.querySelector('.home-btn').classList.add('active');
 }
 
-
-// Function to toggle library section
 function toggleLibrary() {
     const librarySection = document.getElementById('librarySection');
     librarySection.classList.toggle('active');
 }
 
-// Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
     Library.load();
     Search.init();
     
-    // Setup core event listeners
     ['mini', 'main'].forEach(type => {
         Elements.controls.play[type].addEventListener('click', PlaybackControls.togglePlayPause);
         Elements.controls.prev[type].addEventListener('click', PlaybackControls.playPrevious);
@@ -1002,7 +875,6 @@ document.addEventListener('DOMContentLoaded', () => {
         Elements.controls.repeat[type].addEventListener('click', PlaybackModes.toggleRepeat);
     });
     
-    // Setup volume control
     const handleVolumeChange = (e) => {
         const newVolume = parseFloat(e.target.value);
         PlayerState.volume = newVolume;
@@ -1014,12 +886,10 @@ document.addEventListener('DOMContentLoaded', () => {
     Elements.controls.volume.mini.addEventListener('input', handleVolumeChange);
     Elements.controls.volume.main.addEventListener('input', handleVolumeChange);
     
-    // Set initial volume
     Elements.audio.volume = PlayerState.volume;
     Elements.controls.volume.mini.value = PlayerState.volume;
     Elements.controls.volume.main.value = PlayerState.volume;
 
-    // Audio player events
     Elements.audio.addEventListener('timeupdate', () => ProgressBar.updateProgress(Elements.audio.currentTime));
     Elements.audio.addEventListener('ended', PlaybackControls.playNext);
     Elements.audio.addEventListener('error', (e) => {
@@ -1032,13 +902,11 @@ document.addEventListener('DOMContentLoaded', () => {
         alert(`Audio playback error: ${Elements.audio.error.message}`);
     });
 
-    // Initialize features
     ProgressBar.init();
     PlayerView.init();
     PlaybackModes.updateShuffleButtons();
     PlaybackModes.updateRepeatButtons();
 
-    // Play state handlers
     ['play', 'pause', 'ended'].forEach(event => {
         Elements.audio.addEventListener(event, () => {
             PlayerState.isPlaying = event === 'play';
@@ -1047,12 +915,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Initialize home state
     Elements.homeBtn.classList.add('active');
     Elements.search.input.addEventListener('input', () => Elements.homeBtn.classList.remove('active'));
 
-    
-    // Request notification permission
     if ('Notification' in window) {
         Notification.requestPermission();
     }
