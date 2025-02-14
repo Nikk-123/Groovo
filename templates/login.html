@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login - Gareeb ka Spotify</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="icon" href="{{ url_for('static', filename='icons/2pic(1).png') }}" sizes="682x461">
+    <link rel="icon" href="{{ url_for('static', filename='icons/2pic(2).png') }}" sizes="680x484">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png">
+
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(to bottom, #1DB954, #191414);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header {
+            width: 100%;
+            padding: 25px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .logo {
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .login-container {
+            background: #000000;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 450px;
+            margin: 40px auto;
+            padding: 40px;
+            color: white;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            background: #282828;
+            color: white;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #1DB954;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #1DB954;
+            color: white;
+            border: none;
+            border-radius: 500px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background: #1ed760;
+            transform: scale(1.02);
+        }
+
+        .divider {
+            margin: 20px 0;
+            text-align: center;
+            position: relative;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .divider::before {
+            left: 0;
+        }
+
+        .divider::after {
+            right: 0;
+        }
+
+        .signup-link {
+            text-align: center;
+            margin-top: 20px;
+            padding: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .signup-link a {
+            color: #1DB954;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .signup-link a:hover {
+            color: #1ed760;
+            text-decoration: underline;
+        }
+
+        .flash-messages {
+            width: 100%;
+            max-width: 450px;
+            margin: 20px auto;
+        }
+
+        .flash {
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .flash.danger {
+            background: #e91429;
+            color: white;
+        }
+
+        .flash.success {
+            background: #1DB954;
+            color: white;
+        }
+
+        /* Media Queries */
+        @media (max-width: 768px) {
+            .login-container {
+                margin: 20px;
+                padding: 30px;
+                max-width: 90%;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+
+            .logo {
+                font-size: 1.5rem;
+            }
+
+            input {
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            button {
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            .flash-messages {
+                margin: 10px;
+                max-width: 90%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .login-container {
+                margin: 10px;
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+                margin-bottom: 20px;
+            }
+
+            .header {
+                padding: 15px 0;
+            }
+
+            .logo {
+                font-size: 1.2rem;
+            }
+
+            .form-group {
+                margin-bottom: 15px;
+            }
+
+            label {
+                font-size: 12px;
+            }
+
+            input {
+                padding: 10px;
+                font-size: 13px;
+            }
+
+            button {
+                padding: 10px;
+                font-size: 13px;
+                margin-top: 15px;
+            }
+
+            .signup-link {
+                padding: 15px;
+                font-size: 13px;
+            }
+
+            .flash {
+                padding: 10px;
+                font-size: 13px;
+            }
+        }
+
+        /* For very small devices */
+        @media (max-width: 320px) {
+            .login-container {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            .logo {
+                font-size: 1rem;
+            }
+
+            input, button {
+                padding: 8px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/" class="logo">
+            <i class="fab fa-spotify"></i>
+            Gareeb ka Spotify
+        </a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages">
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="login-container">
+        <h1>Log in to continue</h1>
+        <form method="POST">
+            <div class="form-group">
+                <label for="email">Email address</label>
+                <input type="email" id="email" name="email" required placeholder="Enter your email">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required placeholder="Password">
+            </div>
+            <button type="submit">LOG IN</button>
+        </form>
+        <div class="divider">or</div>
+        <div class="signup-link">
+            <p>Don't have an account?</p>
+            <a href="/signup">SIGN UP FOR GAREEB KA SPOTIFY</a>
+        </div>
+    </div>
+
+    <script>
+       document.querySelector('form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    // Show loading state or disable button if needed
+    const submitButton = this.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.textContent = 'Logging in...';
+
+    fetch('/login', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Login failed');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Store library data in localStorage
+            if (data.library) {
+                localStorage.setItem('userLibrary', JSON.stringify(data.library));
+            }
+            // Redirect to dashboard
+            window.location.href = data.redirect;
+        } else {
+            // Handle login failure
+            const flashMessages = document.querySelector('.flash-messages');
+            if (!flashMessages) {
+                const div = document.createElement('div');
+                div.className = 'flash-messages';
+                document.body.insertBefore(div, document.querySelector('.login-container'));
+            }
+            const message = document.createElement('div');
+            message.className = 'flash danger';
+            message.textContent = data.message || 'Login failed. Please check your credentials.';
+            document.querySelector('.flash-messages').appendChild(message);
+            
+            submitButton.disabled = false;
+            submitButton.textContent = 'LOG IN';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const message = document.createElement('div');
+        message.className = 'flash danger';
+        message.textContent = 'Login failed. Please try again.';
+        document.querySelector('.flash-messages').appendChild(message);
+        
+        submitButton.disabled = false;
+        submitButton.textContent = 'LOG IN';
+    });
+});
+
+    </script>
+    
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/service-worker.js')
+                .then(function(registration) {
+                    console.log('Service Worker registered with scope:', registration.scope);
+                })
+                .catch(function(error) {
+                    console.log('Service Worker registration failed:', error);
+                });
+        }
+    </script>
+    
+    </body>
+    </html>
+    
