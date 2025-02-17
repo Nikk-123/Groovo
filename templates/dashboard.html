@@ -1,243 +1,399 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Music Dashboard</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
     <div class="top-nav">
-        <div class="left-nav">
-            <h1>Gareeb ka Spotify!</h1>
-            <button type="button" class="home-btn" onclick="showHome()" title="Home">
-                <i class="fas fa-home"></i>
-            </button>
-        </div>
-        <div class="search-section">
-            <input type="text" id="searchInput" placeholder="What do you want to listen to?">
-        </div>
-        <button type="button" class="library-toggle" id="libraryToggle" title="Toggle Library">
-            <i class="fas fa-list"></i>
+      <div class="left-nav">
+        <h1>Gareeb ka Spotify!</h1>
+        <button
+          type="button"
+          class="home-btn"
+          onclick="showHome()"
+          title="Home"
+        >
+          <i class="fas fa-home"></i>
         </button>
-        <div class="profile-menu">
-            <button type="button" class="profile-btn" id="profileBtn" title="Profile">
-                <i class="fas fa-user-circle"></i>
-            </button>
-            <div class="dropdown-menu" id="profileDropdown">
-                <div class="dropdown-header">
-                    <i class="fas fa-user-circle"></i>
-                    <span>{{ user_email }}</span>
-                </div>
-                <div class="dropdown-divider"></div>
-                <a href="{{ url_for('logout') }}" class="dropdown-item">
-                    <i class="fas fa-sign-out-alt"></i>
-                    Log out
-                </a>
-            </div>
+        <!-- Add this button to your dashboard.html with Tailwind and FontAwesome icon -->
+        <button
+          type="button"
+          onclick="location.reload();"
+          class="reload-btn px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 transition duration-300 flex items-center"
+          title="Reload"
+        >
+          <i class="fas fa-sync-alt mr-2"></i>
+        </button>
+      </div>
+      <div class="search-section">
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="What do you want to listen to?"
+        />
+      </div>
+      <button
+        type="button"
+        class="library-toggle"
+        id="libraryToggleMain"
+        title="Toggle Library"
+      >
+        <i class="fas fa-list"></i>
+      </button>
+      <div class="profile-menu">
+        <button
+          type="button"
+          class="profile-btn"
+          id="profileBtn"
+          title="Profile"
+        >
+          <i class="fas fa-user-circle"></i>
+        </button>
+        <div class="dropdown-menu" id="profileDropdown">
+          <div class="dropdown-header">
+            <i class="fas fa-user-circle"></i>
+            <span>{{ user_email }}</span>
+          </div>
+          <div class="dropdown-divider"></div>
+          <a href="{{ url_for('logout') }}" class="dropdown-item">
+            <i class="fas fa-sign-out-alt"></i>
+            Log out
+          </a>
         </div>
+      </div>
     </div>
-    
+
     <div class="main">
-        <div id="searchResultsContainer">
-            <h1>Search Results</h1>
-            <ul id="search-result" class="song-list"></ul>
-        </div>
-        
-        <div id="loader" class="loader">
-            <div class="spotify-loader"></div>
-        </div>
-        
-        <div id="trendingContainer">
-            <h1>Trending Songs</h1>
+      <div id="searchResultsContainer">
+        <h1>Search Results</h1>
+        <ul id="search-result" class="song-list"></ul>
+      </div>
+
+      <div id="loader" class="loader">
+        <div class="spotify-loader"></div>
+      </div>
+
+      <div id="trendingContainer">
+        <h1>Trending Songs</h1>
+        <ul class="song-list">
+          {% for song in trending %}
+          <li
+            class="song-item"
+            data-url="{{ song.url }}"
+            data-title="{{ song.title }}"
+            data-thumbnail="{{ song.thumbnail }}"
+            data-artist="{{ song.artist }}"
+          >
+            <img
+              class="song-thumbnail"
+              src="{{ song.thumbnail }}"
+              alt="{{ song.title }}"
+            />
+            <div class="song-info">
+              <h3>{{ song.title }}</h3>
+              <p>{{ song.artist }}</p>
+              <div class="song-buttons">
+                <button
+                  onclick="Player.play('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.artist }}', 'trending')"
+                  class="play-btn"
+                >
+                  <i class="fas fa-play"></i> Play
+                </button>
+                <button
+                  class="add-to-library"
+                  data-song='{"title": "{{ song.title }}", "url": "{{ song.url }}", "thumbnail": "{{ song.thumbnail }}", "artist": "{{ song.artist }}"}'
+                >
+                  <i class="fas fa-plus"></i> Add
+                </button>
+              </div>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div id="moodPlaylistsContainer">
+        {% for mood, songs in mood_playlists.items() %}
+        <div class="mood-section">
+          <h2>{{ mood }} Mood</h2>
+          <div class="mood-playlist">
             <ul class="song-list">
-                {% for song in trending %}
-                <li class="song-item" 
-                    data-url="{{ song.url }}"
-                    data-title="{{ song.title }}"
-                    data-thumbnail="{{ song.thumbnail }}"
-                    data-artist="{{ song.artist }}">
-                    <img class="song-thumbnail" src="{{ song.thumbnail }}" alt="{{ song.title }}">
-                    <div class="song-info">
-                        <h3>{{ song.title }}</h3>
-                        <p>{{ song.artist }}</p>
-                        <div class="song-buttons">
-                            <button onclick="Player.play('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.artist }}', 'trending')" class="play-btn">
-                                <i class="fas fa-play"></i> Play
-                            </button>
-                            <button class="add-to-library" 
-                                data-song='{"title": "{{ song.title }}", "url": "{{ song.url }}", "thumbnail": "{{ song.thumbnail }}", "artist": "{{ song.artist }}"}'>
-                                <i class="fas fa-plus"></i> Add
-                            </button>
-                        </div>
-                    </div>
-                </li>
-                {% endfor %}
+              {% for song in songs %}
+              <li class="song-item">
+                <img
+                  class="song-thumbnail"
+                  src="{{ song.thumbnail }}"
+                  alt="{{ song.title }}"
+                />
+                <div class="song-info">
+                  <h3>{{ song.title }}</h3>
+                  <p>{{ song.channel }}</p>
+                  <button
+                    onclick="Player.play('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.artist }}', 'mood', '{{ mood }}')"
+                    class="play-btn"
+                  >
+                    Play
+                  </button>
+                </div>
+              </li>
+              {% endfor %}
             </ul>
+          </div>
         </div>
+        {% endfor %}
+      </div>
 
-        <div id="moodPlaylistsContainer">
-            {% for mood, songs in mood_playlists.items() %}
-            <div class="mood-section">
-                <h2>{{ mood }} Mood</h2>
-                <div class="mood-playlist">
-                    <ul class="song-list">
-                        {% for song in songs %}
-                        <li class="song-item">
-                            <img class="song-thumbnail" src="{{ song.thumbnail }}" alt="{{ song.title }}">
-                            <div class="song-info">
-                                <h3>{{ song.title }}</h3>
-                                <p>{{ song.channel }}</p>
-                                <button onclick="Player.play('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.artist }}', 'mood', '{{ mood }}')" class="play-btn">Play</button>
-                            </div>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-   
-        <div class="audio-control-container" id="audioControlContainer">
-            <!-- Mini Player -->
-            <div class="mini-player">
-                <div class="mini-player-content">
-                    <!-- Left: Song Info -->
-                    <div class="mini-song-info">
-                        <img id="miniThumbnail" class="mini-thumbnail" src="" alt="">
-                        <div class="mini-text-info">
-                            <span id="miniSongTitle" class="mini-title"></span>
-                            <span id="miniArtist" class="mini-artist"></span>
-                        </div>
-                        <button type="button" class="mini-like-btn" title="Like">
-                            <i class="far fa-heart"></i>
-                        </button>
-                    </div>
-
-                    <!-- Center: Player Controls -->
-                    <div class="mini-player-controls">
-                        <div class="mini-control-buttons">
-                            <button type="button" class="mini-control-btn shuffle" id="miniShuffleBtn" title="Shuffle">
-                                <i class="fas fa-random"></i>
-                            </button>
-                            <button type="button" id="miniPrevBtn" class="mini-control-btn" title="Previous">
-                                <i class="fas fa-step-backward"></i>
-                            </button>
-                            <button id="miniPlayBtn" class="mini-control-btn play-pause" type="button" title="Play/Pause">
-                                <i class="fas fa-play"></i>
-                            </button>
-                            <button id="miniNextBtn" class="mini-control-btn" type="button" title="Next">
-                                <i class="fas fa-step-forward"></i>
-                            </button>
-                            <button type="button" class="mini-control-btn repeat" id="miniRepeatBtn" title="Repeat">
-                                <i class="fas fa-redo"></i>
-                            </button>
-                        </div>
-                        <div class="mini-progress-container">
-                            <span class="time current-time">0:00</span>
-                            <div class="mini-progress-bar">
-                                <div class="progress"></div>
-                            </div>
-                            <span class="time total-time">0:00</span>
-                        </div>
-                    </div>
-
-                    <!-- Right: Volume Controls -->
-                    <div class="mini-volume-controls">
-                        <button type="button" class="mini-control-btn" id="miniVolumeBtn" title="Volume">
-                            <i class="fas fa-volume-up"></i>
-                        </button>
-                        <label for="miniVolumeControl" class="sr-only">Volume Control</label>
-                        <input type="range" id="miniVolumeControl" min="0" max="1" step="0.01" value="1" title="Volume Control">
-                    </div>
-
-                    <!-- Device Info -->
-                    <div class="mini-device-info">
-                        <i class="fas fa-desktop"></i> <span id="miniDeviceName">This Device</span>
-                    </div>
-                </div>
+      <div class="audio-control-container" id="audioControlContainer">
+        <!-- Mini Player -->
+        <div class="mini-player">
+          <div class="mini-player-content">
+            <!-- Left: Song Info -->
+            <div class="mini-song-info">
+              <img id="miniThumbnail" class="mini-thumbnail" src="" alt="" />
+              <div class="mini-text-info">
+                <span id="miniSongTitle" class="mini-title"></span>
+                <span id="miniArtist" class="mini-artist"></span>
+              </div>
+              <button type="button" class="mini-like-btn" title="Like">
+                <i class="far fa-heart"></i>
+              </button>
             </div>
 
-            <!-- Expanded Player -->
-            <div class="expanded-player" id="expandedPlayer">
-                <div class="expanded-header">
-                    <button type="button" class="minimize-btn" id="minimizeBtn" title="Minimize">
-                        <i class="fas fa-chevron-down"></i>
-                    </button>
-                    <span class="now-playing-text" style="text-align: center; display: block; width: 100%;">Now Playing</span>
+            <!-- Center: Player Controls -->
+            <div class="mini-player-controls">
+              <div class="mini-control-buttons">
+                <button
+                  type="button"
+                  class="mini-control-btn shuffle"
+                  id="miniShuffleBtn"
+                  title="Shuffle"
+                >
+                  <i class="fas fa-random"></i>
+                </button>
+                <button
+                  type="button"
+                  id="miniPrevBtn"
+                  class="mini-control-btn"
+                  title="Previous"
+                >
+                  <i class="fas fa-step-backward"></i>
+                </button>
+                <button
+                  id="miniPlayBtn"
+                  class="mini-control-btn play-pause"
+                  type="button"
+                  title="Play/Pause"
+                >
+                  <i class="fas fa-play"></i>
+                </button>
+                <button
+                  id="miniNextBtn"
+                  class="mini-control-btn"
+                  type="button"
+                  title="Next"
+                >
+                  <i class="fas fa-step-forward"></i>
+                </button>
+                <button
+                  type="button"
+                  class="mini-control-btn repeat"
+                  id="miniRepeatBtn"
+                  title="Repeat"
+                >
+                  <i class="fas fa-redo"></i>
+                </button>
+              </div>
+              <div class="mini-progress-container">
+                <span class="time current-time">0:00</span>
+                <div class="mini-progress-bar">
+                  <div class="progress"></div>
                 </div>
-                <div class="expanded-content">
-                    <div class="album-art-section">
-                        <img id="currentThumbnail" class="album-art" src="" alt="Album Art">
-                    </div>
-                    <div class="song-details">
-                        <h2 id="currentSongTitle" class="song-title"></h2>
-                        <p id="currentArtist" class="song-artist"></p>
-                    </div>
-                    <div class="expanded-controls">
-                        <div class="progress-section">
-                            <span class="time current-time">0:00</span>
-                            <div class="progress-bar">
-                                <div class="progress"></div>
-                            </div>
-                            <span class="time total-time">0:00</span>
-                        </div>
-
-                        <div class="main-controls">
-                            <button id="shuffleBtn" class="control-btn" type="button" title="Shuffle">
-                                <i class="fas fa-random"></i>
-                            </button>
-                            <button id="prevBtn" class="control-btn" type="button" title="Previous">
-                                <i class="fas fa-step-backward"></i>
-                            </button>
-                            <button id="playBtn" class="control-btn play-pause" type="button" title="Play/Pause">
-                                <i class="fas fa-play"></i>
-                            </button>
-                            <button id="nextBtn" class="control-btn" type="button" title="Next">
-                                <i class="fas fa-step-forward"></i>
-                            </button>
-                            <button id="repeatBtn" class="control-btn" type="button" title="Repeat">
-                                <i class="fas fa-redo"></i>
-                            </button>
-                        </div>
-
-                        <div class="additional-controls">
-                            <button type="button" class="library-toggle" id="libraryToggle" title="Toggle Library">
-                                <i class="fas fa-list"></i>
-                            </button>
-                            <div class="volume-control">
-                                <button type="button" class="control-btn" id="volumeBtn" title="Volume Control">
-                                    <i class="fas fa-volume-up"></i>
-                                </button>
-                                <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1" title="Volume Control">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Device Info -->
-                    <div class="expanded-device-info">
-                        <i class="fas fa-desktop"></i> <span id="expandedDeviceName">This Device</span>
-                    </div>
-                </div>
+                <span class="time total-time">0:00</span>
+              </div>
             </div>
-            <audio id="audioPlayer" preload="auto" class="hidden">
-                Your browser does not support the audio element.
-            </audio>
+
+            <!-- Right: Volume Controls -->
+            <div class="mini-volume-controls">
+              <button
+                type="button"
+                class="mini-control-btn"
+                id="miniVolumeBtn"
+                title="Volume"
+              >
+                <i class="fas fa-volume-up"></i>
+              </button>
+              <label for="miniVolumeControl" class="sr-only"
+                >Volume Control</label
+              >
+              <input
+                type="range"
+                id="miniVolumeControl"
+                min="0"
+                max="1"
+                step="0.01"
+                value="1"
+                title="Volume Control"
+              />
+            </div>
+
+            <!-- Device Info -->
+            <div class="mini-device-info">
+              <i class="fas fa-desktop"></i>
+              <span id="miniDeviceName">This Device</span>
+            </div>
+          </div>
         </div>
 
+        <!-- Expanded Player -->
+        <div class="expanded-player" id="expandedPlayer">
+          <div class="expanded-header">
+            <button
+              type="button"
+              class="minimize-btn"
+              id="minimizeBtn"
+              title="Minimize"
+            >
+              <i class="fas fa-chevron-down"></i>
+            </button>
+            <span
+              class="now-playing-text"
+              style="text-align: center; display: block; width: 100%"
+              >Now Playing</span
+            >
+          </div>
+          <div class="expanded-content">
+            <div class="album-art-section">
+              <img
+                id="currentThumbnail"
+                class="album-art"
+                src=""
+                alt="Album Art"
+              />
+            </div>
+            <div class="song-details">
+              <h2 id="currentSongTitle" class="song-title"></h2>
+              <p id="currentArtist" class="song-artist"></p>
+            </div>
+            <div class="expanded-controls">
+              <div class="progress-section">
+                <span class="time current-time">0:00</span>
+                <div class="progress-bar">
+                  <div class="progress"></div>
+                </div>
+                <span class="time total-time">0:00</span>
+              </div>
 
-<!-- Library Section -->
-<div class="library-section" id="librarySection">
-    <div class="library-header">
-        <h2>Your Library</h2>
-        <button type="button" class="library-toggle" onclick="toggleLibrary()" title="Toggle Library">
+              <div class="main-controls">
+                <button
+                  id="shuffleBtn"
+                  class="control-btn"
+                  type="button"
+                  title="Shuffle"
+                >
+                  <i class="fas fa-random"></i>
+                </button>
+                <button
+                  id="prevBtn"
+                  class="control-btn"
+                  type="button"
+                  title="Previous"
+                >
+                  <i class="fas fa-step-backward"></i>
+                </button>
+                <button
+                  id="playBtn"
+                  class="control-btn play-pause"
+                  type="button"
+                  title="Play/Pause"
+                >
+                  <i class="fas fa-play"></i>
+                </button>
+                <button
+                  id="nextBtn"
+                  class="control-btn"
+                  type="button"
+                  title="Next"
+                >
+                  <i class="fas fa-step-forward"></i>
+                </button>
+                <button
+                  id="repeatBtn"
+                  class="control-btn"
+                  type="button"
+                  title="Repeat"
+                >
+                  <i class="fas fa-redo"></i>
+                </button>
+              </div>
+
+              <div class="additional-controls">
+                <button
+                  type="button"
+                  class="library-toggle"
+                  id="libraryToggle"
+                  title="Toggle Library"
+                >
+                  <i class="fas fa-list"></i>
+                </button>
+                <div class="volume-control">
+                  <button
+                    type="button"
+                    class="control-btn"
+                    id="volumeBtn"
+                    title="Volume Control"
+                  >
+                    <i class="fas fa-volume-up"></i>
+                  </button>
+                  <input
+                    type="range"
+                    id="volumeControl"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="1"
+                    title="Volume Control"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Device Info -->
+            <div class="expanded-device-info">
+              <i class="fas fa-desktop"></i>
+              <span id="expandedDeviceName">This Device</span>
+            </div>
+          </div>
+        </div>
+        <audio id="audioPlayer" preload="auto" class="hidden">
+          Your browser does not support the audio element.
+        </audio>
+      </div>
+
+      <!-- Library Section -->
+      <div class="library-section" id="librarySection">
+        <div class="library-header">
+          <h2>Your Library</h2>
+          <button
+            type="button"
+            class="library-toggle"
+            onclick="toggleLibrary()"
+            title="Toggle Library"
+          >
             <i class="fas fa-times"></i>
-        </button>
-    </div>
-    
-    <!-- <div class="library-controls">
+          </button>
+        </div>
+
+        <!-- <div class="library-controls">
         <button class="library-btn" id="shuffleLibrary" title="Shuffle Library">
             <i class="fas fa-random"></i>
         </button>
@@ -245,77 +401,97 @@
             <i class="fas fa-redo"></i>
         </button>
     </div> -->
-    
-    <div id="emptyLibraryMessage">
-        Your library is empty. Add songs to get started!
-    </div>
-    
-    <ul class="library-list" id="libraryList">
-        {% for song in user_library %}
-        <li class="library-item" 
+
+        <div id="emptyLibraryMessage">
+          Your library is empty. Add songs to get started!
+        </div>
+
+        <ul class="library-list" id="libraryList">
+          {% for song in user_library %}
+          <li
+            class="library-item"
             data-url="{{ song.url }}"
             data-title="{{ song.title }}"
             data-thumbnail="{{ song.thumbnail }}"
-            data-artist="{{ song.artist }}">
-            <img class="song-thumbnail" src="{{ song.thumbnail }}" alt="{{ song.title }}">
+            data-artist="{{ song.artist }}"
+          >
+            <img
+              class="song-thumbnail"
+              src="{{ song.thumbnail }}"
+              alt="{{ song.title }}"
+            />
             <div class="library-item-info">
-                <h3>{{ song.title }}</h3>
-                <p>{{ song.artist }}</p>
+              <h3>{{ song.title }}</h3>
+              <p>{{ song.artist }}</p>
             </div>
             <div class="library-item-controls">
-                <button class="play-btn" onclick="Player.play('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.artist }}', 'library')" title="Play">
-                    <i class="fas fa-play"></i>
-                </button>
-                <button class="remove-from-library" data-song='{"title": "{{ song.title }}", "url": "{{ song.url }}", "thumbnail": "{{ song.thumbnail }}", "artist": "{{ song.artist }}"}' title="Remove from Library">
-                    <i class="fas fa-trash"></i>
-                </button>
+              <button
+                class="play-btn"
+                onclick="Player.play('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.artist }}', 'library')"
+                title="Play"
+              >
+                <i class="fas fa-play"></i>
+              </button>
+              <button
+                class="remove-from-library"
+                data-song='{"title": "{{ song.title }}", "url": "{{ song.url }}", "thumbnail": "{{ song.thumbnail }}", "artist": "{{ song.artist }}"}'
+                title="Remove from Library"
+              >
+                <i class="fas fa-trash"></i>
+              </button>
             </div>
-        </li>
-        {% endfor %}
-    </ul>
-</div>
-    
-</div>
-    
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/player.js') }}"></script>
     <script>
-    const profileBtn = document.getElementById('profileBtn');
-    const profileDropdown = document.getElementById('profileDropdown');
+      const profileBtn = document.getElementById("profileBtn");
+      const profileDropdown = document.getElementById("profileDropdown");
 
-    profileBtn.addEventListener('click', (e) => {
+      profileBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        profileDropdown.classList.toggle('show');
-    });
+        profileDropdown.classList.toggle("show");
+      });
 
-    document.addEventListener('click', (e) => {
-        if (!profileDropdown.contains(e.target) && !profileBtn.contains(e.target)) {
-            profileDropdown.classList.remove('show');
+      document.addEventListener("click", (e) => {
+        if (
+          !profileDropdown.contains(e.target) &&
+          !profileBtn.contains(e.target)
+        ) {
+          profileDropdown.classList.remove("show");
         }
-    });
+      });
 
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/static/service-worker.js')
-            .then(function(registration) {
-                console.log('Service Worker registered with scope:', registration.scope);
-            })
-            .catch(function(error) {
-                console.log('Service Worker registration failed:', error);
-            });
-    }
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("/static/service-worker.js")
+          .then(function (registration) {
+            console.log(
+              "Service Worker registered with scope:",
+              registration.scope
+            );
+          })
+          .catch(function (error) {
+            console.log("Service Worker registration failed:", error);
+          });
+      }
 
-    // Get the necessary elements
-    const libraryToggle = document.getElementById('libraryToggle');
-    const librarySection = document.getElementById('librarySection');
+      // Get the necessary elements
+      const libraryToggle = document.getElementById("libraryToggle");
+      const librarySection = document.getElementById("librarySection");
 
-    // Add click event listener to the library toggle button
-    libraryToggle.addEventListener('click', () => {
-        librarySection.classList.toggle('active');
-    });
+      // Add click event listener to the library toggle button
+      libraryToggle.addEventListener("click", () => {
+        librarySection.classList.toggle("active");
+      });
 
-    // Function to toggle library (can be called from other places if needed)
-    function toggleLibrary() {
-        librarySection.classList.toggle('active');
-    }
+      // Function to toggle library (can be called from other places if needed)
+      function toggleLibrary() {
+        librarySection.classList.toggle("active");
+      }
     </script>
-</body>
+  </body>
 </html>
