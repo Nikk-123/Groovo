@@ -106,6 +106,9 @@ const Player = {
             PlayerState.currentMood = mood;
             this.showControls(true);
 
+            // Save the current song to local storage
+            localStorage.setItem('lastPlayedSong', JSON.stringify(PlayerState.currentSong));
+
             if (!url) throw new Error('No URL provided');
 
             const response = await fetch('/play', {
@@ -866,7 +869,16 @@ function toggleLibrary() {
 document.addEventListener('DOMContentLoaded', () => {
     Library.load();
     Search.init();
-    
+
+    // Check for the last played song in local storage
+    const lastPlayedSong = localStorage.getItem('lastPlayedSong');
+    if (lastPlayedSong) {
+        const song = JSON.parse(lastPlayedSong);
+        PlayerState.currentSong = song;
+        Player.updateDisplay(song.title, song.artist, song.thumbnail);
+        Player.showControls(true);
+    }
+
     ['mini', 'main'].forEach(type => {
         Elements.controls.play[type].addEventListener('click', PlaybackControls.togglePlayPause);
         Elements.controls.prev[type].addEventListener('click', PlaybackControls.playPrevious);
