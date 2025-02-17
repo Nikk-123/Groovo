@@ -47,6 +47,7 @@
         class="library-toggle"
         id="libraryToggleMain"
         title="Toggle Library"
+        onclick="toggleLibrary()"
       >
         <i class="fas fa-list"></i>
       </button>
@@ -490,6 +491,7 @@
 
       // Function to toggle library (can be called from other places if needed)
       function toggleLibrary() {
+        const librarySection = document.getElementById("librarySection");
         librarySection.classList.toggle("active");
       }
     </script>
