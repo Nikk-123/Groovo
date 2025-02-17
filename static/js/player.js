@@ -199,6 +199,7 @@ const Player = {
             console.error('Audio URL:', audioUrl);
             PlayerState.isPlaying = false;
             this.updatePlayPauseButtons();
+            alert('Audio playback error: Format error. Please try another song.');
             throw new Error(`Playback failed: ${error.message}`);
         }
     },
@@ -877,6 +878,10 @@ document.addEventListener('DOMContentLoaded', () => {
         PlayerState.currentSong = song;
         Player.updateDisplay(song.title, song.artist, song.thumbnail);
         Player.showControls(true);
+
+        // Set up the audio source but do not play it automatically
+        Elements.audio.src = song.url;
+        Elements.audio.load();
     }
 
     ['mini', 'main'].forEach(type => {
@@ -911,7 +916,7 @@ document.addEventListener('DOMContentLoaded', () => {
         PlayerState.isPlaying = false;
         Player.updatePlayPauseButtons();
         Player.showControls(false);
-        alert(`Audio playback error: ${Elements.audio.error.message}`);
+        alert(`Audio playback error: ${Elements.audio.error.message}. Please try another song.`);
     });
 
     ProgressBar.init();
