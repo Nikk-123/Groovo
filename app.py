@@ -567,13 +567,13 @@ def test_db_connection():
 
 # Function to start Flask in a separate thread
 def run_flask():
-    app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
+    app.run(host="127.0.0.1", port=8000, debug=False, use_reloader=False)
 
 # Launch PyWebview GUI
 if __name__ == "__main__":
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
     
-    webview.create_window("Music App", "http://127.0.0.1:5000")
+    webview.create_window("Music App", "http://127.0.0.1:8000")
     webview.start()
 

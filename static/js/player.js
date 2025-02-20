@@ -510,10 +510,7 @@ const Library = {
                 const songElem = buttonElement.closest('.library-item');
                 if (songElem) songElem.remove();
                 PlayerState.library = PlayerState.library.filter(song => song.url !== songData.url);
-                if (PlayerState.library.length === 0) {
-                    document.getElementById('libraryList').style.display = 'none';
-                    document.getElementById('emptyLibraryMessage').style.display = 'block';
-                }
+                Library.updateDisplay(); // Ensure the library display is updated correctly
             } else {
                 alert(data.message || 'Failed to remove song');
             }
