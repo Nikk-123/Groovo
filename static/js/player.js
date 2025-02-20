@@ -164,6 +164,9 @@ const Player = {
             document.querySelectorAll(`.library-item[data-url="${url}"], .song-item[data-url="${url}"]`)
                 .forEach(item => item.classList.add('playing'));
 
+            // Update like button state
+            this.updateLikeButtonState();
+
         } catch (error) {
             console.error('Error playing song:', error);
             alert('Failed to play the song. Please try another one.');
@@ -319,6 +322,28 @@ const Player = {
         });
 
         this.updatePlayPauseButtons();
+    },
+
+    updateLikeButtonState() {
+        const likeBtn = document.querySelector('.mini-like-btn i');
+        if (PlayerState.library.some(song => song.url === PlayerState.currentSong.url)) {
+            likeBtn.classList.remove('far');
+            likeBtn.classList.add('fas');
+        } else {
+            likeBtn.classList.remove('fas');
+            likeBtn.classList.add('far');
+        }
+    },
+
+    toggleLikeCurrentSong() {
+        const currentSong = PlayerState.currentSong;
+        if (!currentSong) return;
+
+        if (PlayerState.library.some(song => song.url === currentSong.url)) {
+            Library.remove(currentSong);
+        } else {
+            Library.add(currentSong);
+        }
     }
 };
 
@@ -427,12 +452,14 @@ const Library = {
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.library.length > 0) {
+                    PlayerState.library = data.library;
                     document.getElementById('libraryList').style.display = 'block';
                     document.getElementById('emptyLibraryMessage').style.display = 'none';
                 } else {
                     document.getElementById('libraryList').style.display = 'none';
                     document.getElementById('emptyLibraryMessage').style.display = 'block';
                 }
+                this.updateDisplay();
             })
             .catch(error => console.error('Error loading library:', error));
     },
@@ -448,11 +475,32 @@ const Library = {
             if (data.success) {
                 PlayerState.library.push(songData);
                 this.updateDisplay();
+                Player.updateLikeButtonState();
                 alert('Song added to library!');
             }
         } catch (error) {
             console.error('Error adding to library:', error);
             alert('Failed to add song to library');
+        }
+    },
+
+    async remove(songData) {
+        try {
+            const response = await fetch('/library/remove', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(songData)
+            });
+            const data = await response.json();
+            if (data.success) {
+                PlayerState.library = PlayerState.library.filter(song => song.url !== songData.url);
+                this.updateDisplay();
+                Player.updateLikeButtonState();
+                alert('Song removed from library!');
+            }
+        } catch (error) {
+            console.error('Error removing from library:', error);
+            alert('Failed to remove song from library');
         }
     },
 
@@ -935,4 +983,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('Notification' in window) {
         Notification.requestPermission();
     }
+
+    // Add event listener for the like button
+    document.querySelector('.mini-like-btn').addEventListener('click', () => {
+        Player.toggleLikeCurrentSong();
+    });
 });
