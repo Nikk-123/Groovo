@@ -1,0 +1,42 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - main  # Runs when you push to main
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build EXE
+        run: |
+          pip install pyinstaller
+          pyinstaller --onefile app.py  # Adjust based on your build command
+
+      - name: Create Git Tag
+        id: tag
+        run: |
+          TAG="v$(date +'%Y.%m.%d-%H%M')"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          git tag $TAG
+          git push origin $TAG
+
+      - name: Release on GitHub
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/app.exe
+          tag_name: ${{ env.TAG }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
