@@ -3,7 +3,7 @@ name: Auto Release
 on:
   push:
     branches:
-      - main  # Runs when you push to main
+      - main
 
 jobs:
   release:
@@ -23,9 +23,9 @@ jobs:
       - name: Build EXE
         run: |
           pip install pyinstaller
-          pyinstaller --onefile app.py  # Adjust based on your build command
+          pyinstaller --onefile app.py  
 
-      - name: Create Git Tag
+      - name: Generate Tag
         id: tag
         run: |
           TAG="v$(date +'%Y.%m.%d-%H%M')"
