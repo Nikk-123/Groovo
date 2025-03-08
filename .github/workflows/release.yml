@@ -20,15 +20,10 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: |
-          pip install pyinstaller
+        run: pip install pyinstaller
 
       - name: Build Executable
-        run: |
-          pyinstaller --onefile app.py  # Ensure `app.py` is correct
-          mkdir -p dist  # Ensure 'dist' exists
-          mv dist/app dist/app.exe  # Move executable to expected location
-
+        run: pyinstaller --onefile --noconsole app.py
 
       - name: Find latest tag
         id: latest-tag
@@ -40,6 +35,16 @@ jobs:
         with:
           files: dist/app.exe
           tag_name: ${{ env.TAG }}
-          token: ${{ secrets.PAT_TOKEN }}
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+
+  trigger-build:
+    needs: release  # Runs only after release is successful
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Build Workflow
+        run: |
+          curl -X POST -H "Accept: application/vnd.github.v3+json" \
+               -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+               https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches \
+               -d '{"ref": "main"}'
