@@ -6,8 +6,11 @@ from flask_cors import CORS
 import threading
 import sys
 from os.path import join, dirname
+import updater
 
 
+# Run the updater before launching the app
+updater.update_exe()
 
 if hasattr(sys, '_MEIPASS'):  # If running as a frozen app
     template_folder = join(sys._MEIPASS, 'templates')
