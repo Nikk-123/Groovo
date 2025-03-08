@@ -11,27 +11,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          fetch-depth: 0  # Ensure all tags are fetched
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Build EXE
-        run: |
-          pip install pyinstaller
-          pyinstaller --onefile app.py  
-
-      - name: Generate Tag
-        id: tag
-        run: |
-          TAG="v$(date +'%Y.%m.%d-%H%M')"
-          echo "TAG=$TAG" >> $GITHUB_ENV
-          git tag $TAG
-          git push origin $TAG
+      - name: Find latest tag
+        id: latest-tag
+        run: echo "TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+        shell: bash
 
       - name: Release on GitHub
         uses: softprops/action-gh-release@v1
