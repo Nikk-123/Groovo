@@ -4,3 +4,7 @@ pymongo
 yt-dlp
 pywebview
 requests
+Flask
+webview
+psutil
+
