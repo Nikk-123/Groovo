@@ -9,6 +9,7 @@ import os
 import requests
 import subprocess
 import time
+import psutil
 
 # GitHub URLs
 GITHUB_REPO = "Nikk-123/Spotify-3.0"
@@ -39,28 +40,24 @@ def download_latest_exe():
         print(f"Error downloading update: {e}")
     return False
 
-import os
-import sys
-import time
-import subprocess
-import psutil
+
 
 def apply_update():
     try:
         new_exe = "app_new.exe"
-        old_pid = os.getpid()  # Current process ID
+        old_pid = os.getpid()  # Get current process ID
 
-        # Start the new application
-        subprocess.Popen([new_exe], close_fds=True)
+        # Start new application first
+        process = subprocess.Popen([new_exe], close_fds=True)
+        time.sleep(2)  # Give time for the new process to start
 
-        # Wait for a short duration to ensure new process starts
-        time.sleep(2)
-
-        # Kill the old process
-        parent = psutil.Process(old_pid)
-        for child in parent.children(recursive=True):  
-            child.terminate()
-        parent.terminate()
+        # Kill all instances of old app.exe
+        for proc in psutil.process_iter(attrs=['pid', 'name']):
+            if proc.info['name'] == "app.exe" and proc.info['pid'] != process.pid:
+                try:
+                    psutil.Process(proc.info['pid']).terminate()
+                except psutil.NoSuchProcess:
+                    pass  # Process already closed
 
         sys.exit(0)  # Exit the old process
     except Exception as e:
