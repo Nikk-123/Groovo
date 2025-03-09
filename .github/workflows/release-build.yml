@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: windows-latest
+    runs-on: windows-latest  # Use Windows for building EXE
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,44 +24,16 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Get Latest Release Tag or Version from File
-        shell: pwsh
+      - name: Get Latest Release Tag
+        id: get-latest-tag
         run: |
-          if (Test-Path version.txt) {
-              $tag = Get-Content latest_version.txt
-          } else {
-              $tag = (git describe --tags --abbrev=0) -replace '\s',''
-              if (-not $tag) { $tag = "v1.0.0" }
-          }
-          echo "TAG=$tag" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-
-      - name: Increment Version
-        shell: pwsh
-        run: |
-          $latestTag = "${{ env.TAG }}"
-          $versionParts = $latestTag -replace 'v','' -split '\.'
-          $newTag = "v$($versionParts[0]).$($versionParts[1]).$([int]$versionParts[2] + 1)"
-          echo "NEW_TAG=$newTag" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-          echo "$newTag" | Out-File -Encoding utf8 latest_version.txt
-
-      - name: Commit Updated Version
-        shell: pwsh
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "actions@github.com"
-          git add latest_version.txt
-          git commit -m "Update version to ${{ env.NEW_TAG }}"
-          git push origin main
-
-      - name: Create and Push New Tag
-        shell: pwsh
-        run: |
-          git tag ${{ env.NEW_TAG }}
-          git push origin ${{ env.NEW_TAG }}
+          TAG=$(git describe --tags --abbrev=0 || echo "v1.0.0")
+          echo "TAG=$TAG" >> $GITHUB_ENV
+        shell: bash
 
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --noconsole --clean --add-data "templates;templates" --add-data "static;static" --name "app-${{ env.NEW_TAG }}" app.py
+          pyinstaller --onefile --noconsole --clean --add-data "templates;templates" --add-data "static;static" --name "app-${{ env.TAG }}" app.py
 
       - name: Verify EXE Creation
         run: dir dist
@@ -69,13 +41,13 @@ jobs:
       - name: Upload EXE to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: app-exe-${{ env.NEW_TAG }}
-          path: dist/app-${{ env.NEW_TAG }}.exe
+          name: app-exe-${{ env.TAG }}
+          path: dist/app-${{ env.TAG }}.exe
 
       - name: Release on GitHub
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/app-${{ env.NEW_TAG }}.exe
-          tag_name: ${{ env.NEW_TAG }}
+          files: dist/app-${{ env.TAG }}.exe
+          tag_name: ${{ env.TAG }}
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
