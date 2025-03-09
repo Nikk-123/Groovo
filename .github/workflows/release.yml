@@ -26,8 +26,9 @@ jobs:
       - name: Build Executable
         run: |
           pyinstaller --onefile app.py  # Ensure `app.py` is correct
-          mkdir -p dist
-          mv dist/app dist/app.exe  # Move to expected location
+          mkdir -p dist  # Ensure 'dist' exists
+          mv dist/app dist/app.exe  # Move executable to expected location
+
 
       - name: Find latest tag
         id: latest-tag
