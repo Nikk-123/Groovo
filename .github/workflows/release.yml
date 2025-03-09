@@ -14,6 +14,21 @@ jobs:
         with:
           fetch-depth: 0  # Ensure all tags are fetched
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller
+
+      - name: Build Executable
+        run: |
+          pyinstaller --onefile app.py  # Ensure `app.py` is correct
+          mkdir -p dist
+          mv dist/app dist/app.exe  # Move to expected location
+
       - name: Find latest tag
         id: latest-tag
         run: echo "TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
@@ -24,5 +39,6 @@ jobs:
         with:
           files: dist/app.exe
           tag_name: ${{ env.TAG }}
+          token: ${{ secrets.PAT_TOKEN }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
