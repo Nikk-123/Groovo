@@ -1,6 +1,8 @@
-name: Build EXE on Push
+name: Build EXE on Release
 
-on: [push]
+on:
+  workflow_dispatch:  # Only runs when triggered by release.yml
+  repository_dispatch:  # Triggered by the release workflow
 
 jobs:
   build:
@@ -14,15 +16,26 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Get Latest Release Tag
+        id: get-latest-tag
+        run: |
+          TAG=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .tag_name)
+          echo "TAG=$TAG" >> $GITHUB_ENV
+        shell: bash
+
       - name: Install dependencies
-        run: pip install -r requirements.txt pyinstaller
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
 
-      - name: Build EXE
-        run: pyinstaller --onefile --noconsole app.py
+      - name: Build EXE with Version
+        run: pyinstaller --onefile --noconsole --name "app-${{ env.TAG }}" app.py
 
-      - name: Upload EXE to Releases
-        uses: softprops/action-gh-release@v1
+      - name: Verify EXE Creation
+        run: dir dist
+
+      - name: Upload EXE to Artifacts
+        uses: actions/upload-artifact@v3
         with:
-          files: dist/app.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: app-exe-${{ env.TAG }}
+          path: dist/app-${{ env.TAG }}.exe
