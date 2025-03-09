@@ -6,4 +6,4 @@ pywebview
 requests
 Flask
 psutil
-
+python-dotenv
