@@ -46,6 +46,7 @@ jobs:
         shell: bash
 
 
+
       - name: Build EXE with PyInstaller
         run: |
           pyinstaller --onefile --noconsole --clean --add-data "templates;templates" --add-data "static;static" --name "app-${{ env.TAG }}" app.py
