@@ -1,48 +1,48 @@
 import webview
-from flask import Flask, render_template, request, session, redirect, url_for, jsonify
+from flask import Flask
 from pymongo import MongoClient
-from yt_dlp import YoutubeDL
-from flask_cors import CORS
-import threading
-import sys
-import os
 import requests
 import subprocess
 import psutil
 import time
+import threading
+import os
+import sys
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-# GitHub Credentials
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+# GitHub Credentials (For Private Repo)
+GITHUB_PAT = os.getenv("GITHUB_TOKEN")
 GITHUB_REPO = "Nikk-123/Spotify-3.0"
-LATEST_EXE_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+GITHUB_API_RELEASES = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
 # Executable File Names
 EXE_FILE = "app.exe"
 NEW_EXE_FILE = "app_new.exe"
 BACKUP_EXE_FILE = "app_backup.exe"
 
-# Headers for authentication
-HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
+# Headers for authentication (PAT Token)
+HEADERS = {"Authorization": f"token {GITHUB_PAT}"}
 
-# Fetch the latest release asset URL
+# Fetch latest release asset URL (For Private Repo)
 def get_latest_exe_url():
     try:
-        response = requests.get(LATEST_EXE_URL, headers=HEADERS)
+        response = requests.get(GITHUB_API_RELEASES, headers=HEADERS)
         if response.status_code == 200:
             data = response.json()
             assets = data.get("assets", [])
             for asset in assets:
-                if asset["name"] == "app.exe":
-                    return asset["browser_download_url"]
+                if asset["name"] == "app.exe":  # Ensure correct file
+                    return asset["url"]  # Use API URL, not browser URL
+        else:
+            print("GitHub API Error:", response.json())
     except Exception as e:
         print("Error fetching latest EXE URL:", e)
     return None
 
-# Download the latest executable
+# Download latest executable (For Private Repo)
 def download_latest_exe():
     latest_exe_url = get_latest_exe_url()
     if not latest_exe_url:
@@ -50,12 +50,20 @@ def download_latest_exe():
         return False
 
     try:
-        response = requests.get(latest_exe_url, headers=HEADERS, stream=True)
+        # GitHub requires custom headers to download assets
+        asset_headers = {
+            "Authorization": f"token {GITHUB_PAT}",
+            "Accept": "application/octet-stream"
+        }
+        response = requests.get(latest_exe_url, headers=asset_headers, stream=True)
         if response.status_code == 200:
             with open(NEW_EXE_FILE, "wb") as file:
                 for chunk in response.iter_content(1024):
                     file.write(chunk)
+            print("Update downloaded successfully.")
             return True
+        else:
+            print("Error downloading file:", response.json())
     except Exception as e:
         print(f"Error downloading update: {e}")
     return False
