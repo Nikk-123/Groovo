@@ -60,17 +60,18 @@ jobs:
 
       - name: Push New Tag
         run: |
+          # Set up the git user details
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
-          
-          # Use the GITHUB_TOKEN for pushing the tag
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/Nikk-123/Spotify-3.0.git
-          
+        
+          # Create the new tag (using the environment variable NEW_TAG)
           git tag ${{ env.NEW_TAG }}
-          
-          # Push the tag using the GITHUB_TOKEN for authentication
+        
+          # Push the tag to the remote repository using the built-in GITHUB_TOKEN for authentication
           git push origin ${{ env.NEW_TAG }}
+          
         shell: bash
+
 
 
       - name: Release on GitHub
