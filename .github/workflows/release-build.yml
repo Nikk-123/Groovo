@@ -37,13 +37,14 @@ jobs:
 
       - name: Commit and Push latest_version.txt
         run: |
-          git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/Nikk-123/Spotify-3.0.git
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/Nikk-123/Spotify-3.0.git
           git add latest_version.txt
           git commit -m "Update latest_version.txt to ${{ env.TAG }}"
-          git push
+          git push origin main
         shell: bash
+
 
       - name: Build EXE with PyInstaller
         run: |
