@@ -10,6 +10,7 @@ import os
 import sys
 from dotenv import load_dotenv
 from flask_cors import CORS
+from yt_dlp import YoutubeDL
 
 # Load environment variables
 load_dotenv()
