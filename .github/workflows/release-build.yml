@@ -38,7 +38,7 @@ jobs:
         run: dir dist
 
       - name: Upload EXE to Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: app-exe-${{ env.TAG }}
           path: dist/app-${{ env.TAG }}.exe
