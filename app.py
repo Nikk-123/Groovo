@@ -10,19 +10,20 @@ import requests
 import subprocess
 import time
 
-GITHUB_REPO = "your-username/your-repo"
+# GitHub URLs
+GITHUB_REPO = "Nikk-123/Spotify-3.0"
 LATEST_VERSION_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/latest_version.txt"
 LATEST_EXE_URL = f"https://github.com/{GITHUB_REPO}/releases/latest/download/app.exe"
 CURRENT_VERSION = "1.0.0"
 
 def get_latest_version():
-    """Fetch the latest version from GitHub."""
+    """Fetch the latest version number from GitHub."""
     try:
         response = requests.get(LATEST_VERSION_URL)
         if response.status_code == 200:
             return response.text.strip()
     except Exception as e:
-        print(f"Error checking for updates: {e}")
+        print("Error checking for updates:", e)
     return None
 
 def download_latest_exe():
@@ -39,18 +40,18 @@ def download_latest_exe():
     return False
 
 def apply_update():
-    """Apply the downloaded update and restart the application."""
+    """Replace the current executable with the new one and restart the app."""
     time.sleep(2)  # Allow time for the app to close
     try:
         os.replace("app_new.exe", "app.exe")
-        print("Update applied successfully.")
+        print("Update applied successfully. Restarting...")
         subprocess.Popen(["app.exe"])
         sys.exit(0)  # Exit after starting the new process
     except Exception as e:
         print(f"Error applying update: {e}")
 
 def check_for_updates():
-    """Check for updates before launching the application."""
+    """Check for updates in the background."""
     latest_version = get_latest_version()
     if latest_version and latest_version > CURRENT_VERSION:
         print(f"New version available: {latest_version}. Downloading...")
@@ -62,21 +63,19 @@ def check_for_updates():
     else:
         print("You are running the latest version.")
 
-# Run update check before starting the Flask app
-if __name__ == "__main__":
-    check_for_updates()
-
-if hasattr(sys, '_MEIPASS'):  # If running as a frozen app
-    template_folder = join(sys._MEIPASS, 'templates')
-    static_folder = join(sys._MEIPASS, 'static')
-else:
-    template_folder = 'templates'
-    static_folder = 'static'
-
 # Flask app setup
-app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
+app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
-app.secret_key = 'REMOVED_SECRET_KEY'  # Change this to a more secure secret key
+app.secret_key = 'REMOVED_SECRET_KEY'  # Change this to a secure secret key
+
+# Run update check in a separate thread AFTER the app starts
+def start_update_thread():
+    update_thread = threading.Thread(target=check_for_updates, daemon=True)
+    update_thread.start()
+
+if __name__ == "__main__":
+    start_update_thread()  # Start update check in the background
+    app.run(debug=True)
 
 # MongoDB Atlas setup
 MONGO_URI = 'REMOVED_MONGO_URI'
