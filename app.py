@@ -9,9 +9,8 @@ import os
 import requests
 import subprocess
 import psutil
+import time
 from dotenv import load_dotenv
-import tkinter as tk
-from tkinter import messagebox
 
 # Load environment variables
 load_dotenv()
@@ -29,30 +28,25 @@ BACKUP_EXE_FILE = "app_backup.exe"
 # Headers for authentication
 HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
 
-# GUI Alert for Updates
-def show_alert(title, message):
-    root = tk.Tk()
-    root.withdraw()  # Hide the Tkinter main window
-    messagebox.showinfo(title, message)
-
-# Get the latest EXE download URL from GitHub Releases
+# Fetch the latest release asset URL
 def get_latest_exe_url():
     try:
         response = requests.get(LATEST_EXE_URL, headers=HEADERS)
         if response.status_code == 200:
             data = response.json()
-            for asset in data.get("assets", []):
+            assets = data.get("assets", [])
+            for asset in assets:
                 if asset["name"] == "app.exe":
                     return asset["browser_download_url"]
     except Exception as e:
-        show_alert("Update Error", f"Error fetching latest EXE URL: {e}")
+        print("Error fetching latest EXE URL:", e)
     return None
 
 # Download the latest executable
 def download_latest_exe():
     latest_exe_url = get_latest_exe_url()
     if not latest_exe_url:
-        show_alert("Update Failed", "No valid update URL found.")
+        print("No valid update URL found.")
         return False
 
     try:
@@ -63,56 +57,80 @@ def download_latest_exe():
                     file.write(chunk)
             return True
     except Exception as e:
-        show_alert("Update Error", f"Error downloading update: {e}")
+        print(f"Error downloading update: {e}")
     return False
 
 # Check if EXE is running
 def is_exe_running():
     for proc in psutil.process_iter(attrs=['pid', 'name']):
-        if proc.info['name'] == "app.exe":
+        if proc.info['name'].lower() == EXE_FILE.lower():
             return True
     return False
 
-# Apply the update and restart the app
+# Apply the update by replacing the EXE file
 def apply_update():
     try:
-        if is_exe_running():
-            show_alert("Update Available", "Please close the application to apply the update.")
-            return
+        if os.path.exists(NEW_EXE_FILE):
+            if os.path.exists(EXE_FILE):
+                os.rename(EXE_FILE, BACKUP_EXE_FILE)
+            os.rename(NEW_EXE_FILE, EXE_FILE)
 
-        # Backup old EXE before replacing it
-        if os.path.exists(EXE_FILE):
-            os.rename(EXE_FILE, BACKUP_EXE_FILE)
+            # Start the new application
+            process = subprocess.Popen([EXE_FILE], close_fds=True)
+            time.sleep(2)  # Give time for the new process to start
 
-        # Replace EXE file with new version
-        os.rename(NEW_EXE_FILE, EXE_FILE)
+            # Terminate old instances
+            current_pid = os.getpid()
+            for proc in psutil.process_iter(attrs=['pid', 'name']):
+                if proc.info['name'].lower() == EXE_FILE.lower() and proc.info['pid'] != process.pid:
+                    try:
+                        psutil.Process(proc.info['pid']).terminate()
+                    except psutil.NoSuchProcess:
+                        pass  # Process already closed
 
-        # Alert user and restart the application
-        show_alert("Update Successful", "Restarting application with the latest version...")
-        subprocess.Popen([EXE_FILE], close_fds=True)
-        sys.exit(0)  # Exit old process
+            sys.exit(0)  # Exit current process
 
     except Exception as e:
-        show_alert("Update Error", f"Error while applying update: {e}")
+        print(f"Error while applying update: {e}")
 
-# Check for updates and apply if needed
-def check_for_updates():
-    show_alert("Checking for Updates", "Checking if a new version is available...")
-
-    if download_latest_exe():
+# Webview API for Update Prompt
+class UpdateAPI:
+    def apply_update(self):
         apply_update()
-    else:
-        show_alert("No Updates", "You are already running the latest version.")
+
+# Show update alert using Webview
+def show_update_alert():
+    html_content = """
+    <html>
+    <body>
+        <h2>New Update Available</h2>
+        <p>The application needs to update.</p>
+        <button onclick="window.pywebview.api.apply_update()">Update Now</button>
+    </body>
+    </html>
+    """
+    webview.create_window("Update Available", html=html_content, js_api=UpdateAPI())
+    webview.start()
+
+# Check for updates periodically (every 10 minutes)
+def check_for_updates_periodically():
+    while True:
+        print("Checking for updates...")
+        if download_latest_exe():
+            show_update_alert()
+        time.sleep(600)  # Wait for 10 minutes before checking again
+
+# Start update checker in a separate thread
+def start_update_thread():
+    update_thread = threading.Thread(target=check_for_updates_periodically, daemon=True)
+    update_thread.start()
 
 # Flask app setup
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
-app.secret_key = 'Chayan@12'  # Change this to a secure secret key
+app.secret_key = 'Chayan@12'  # Use secure key from .env
 
-# Run update check in a separate thread AFTER the app starts
-def start_update_thread():
-    update_thread = threading.Thread(target=check_for_updates, daemon=True)
-    update_thread.start()
+
 
 # MongoDB Atlas setup
 MONGO_URI = 'mongodb+srv://CHAYAN:CHAYAN%4012@musicapp.ql3my.mongodb.net/?retryWrites=true&w=majority&tlsAllowInvalidCertificates=true'
@@ -125,7 +143,7 @@ client = MongoClient(
 db = client.get_database('music_app')
 users_collection = db.users
 
-# Start update check thread
+# Start update thread
 start_update_thread()
 
 # User class
