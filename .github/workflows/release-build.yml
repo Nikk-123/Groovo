@@ -1,5 +1,8 @@
 name: Auto Release and Build EXE
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
@@ -68,11 +71,9 @@ jobs:
           git tag ${{ env.NEW_TAG }}
         
           # Push the tag to the remote repository using the built-in GITHUB_TOKEN for authentication
-          git push origin ${{ env.NEW_TAG }}
+          git push https://github.com/${{ github.repository }} ${{ env.NEW_TAG }}
           
         shell: bash
-
-
 
       - name: Release on GitHub
         uses: softprops/action-gh-release@v1
