@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: windows-latest  # Use Windows for building EXE
+    runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,39 +24,44 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Get Latest Release Tag
-        id: get-latest-tag
+      - name: Get Latest Release Tag or Version from File
+        shell: pwsh
         run: |
-          TAG=$(git describe --tags --abbrev=0 || echo "v1.0.0")
-          echo "TAG=$TAG" >> $GITHUB_ENV
-        shell: bash
+          if (Test-Path version.txt) {
+              $tag = Get-Content latest_version.txt
+          } else {
+              $tag = (git describe --tags --abbrev=0) -replace '\s',''
+              if (-not $tag) { $tag = "v1.0.0" }
+          }
+          echo "TAG=$tag" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
-      - name: Write Latest Version to File
-        run: echo "${{ env.TAG }}" > latest_version.txt
-        shell: bash
-
-      - name: Debugging GitHub Actions
+      - name: Increment Version
+        shell: pwsh
         run: |
-          git status
-          git remote -v
-          git branch
-        shell: bash
+          $latestTag = "${{ env.TAG }}"
+          $versionParts = $latestTag -replace 'v','' -split '\.'
+          $newTag = "v$($versionParts[0]).$($versionParts[1]).$([int]$versionParts[2] + 1)"
+          echo "NEW_TAG=$newTag" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          echo "$newTag" | Out-File -Encoding utf8 latest_version.txt
 
-      - name: Commit and Push latest_version.txt
-        env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}  # Use Fine-Grained PAT
+      - name: Commit Updated Version
+        shell: pwsh
         run: |
           git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/Nikk-123/Spotify-3.0.git
-          git add latest_version.txt
-          git commit -m "Update latest_version.txt to ${{ env.TAG }}" || echo "No changes to commit"
-          GIT_TRACE=1 GIT_CURL_VERBOSE=1 git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/Nikk-123/Spotify-3.0.git main
-        shell: bash
+          git config --global user.email "actions@github.com"
+          git add version.txt
+          git commit -m "Update version to ${{ env.NEW_TAG }}"
+          git push origin main
+
+      - name: Create and Push New Tag
+        shell: pwsh
+        run: |
+          git tag ${{ env.NEW_TAG }}
+          git push origin ${{ env.NEW_TAG }}
 
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --noconsole --clean --add-data "templates;templates" --add-data "static;static" --name "app-${{ env.TAG }}" app.py
+          pyinstaller --onefile --noconsole --clean --add-data "templates;templates" --add-data "static;static" --name "app-${{ env.NEW_TAG }}" app.py
 
       - name: Verify EXE Creation
         run: dir dist
@@ -64,15 +69,13 @@ jobs:
       - name: Upload EXE to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: app-exe-${{ env.TAG }}
-          path: dist/app-${{ env.TAG }}.exe
+          name: app-exe-${{ env.NEW_TAG }}
+          path: dist/app-${{ env.NEW_TAG }}.exe
 
       - name: Release on GitHub
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            dist/app-${{ env.TAG }}.exe
-            latest_version.txt  # Upload latest_version.txt to the release
-          tag_name: ${{ env.TAG }}
+          files: dist/app-${{ env.NEW_TAG }}.exe
+          tag_name: ${{ env.NEW_TAG }}
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
