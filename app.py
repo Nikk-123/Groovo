@@ -8,21 +8,20 @@ import sys
 import os
 import requests
 import subprocess
-import time
 import psutil
 from dotenv import load_dotenv
+import tkinter as tk
+from tkinter import messagebox
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
-# GitHub Credentials (Use an environment variable for security)
+# GitHub Credentials
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_REPO = "Nikk-123/Spotify-3.0"
-LATEST_VERSION_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/latest_version.txt"
 LATEST_EXE_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
-# Local version tracking
-VERSION_FILE = "current_version.txt"
+# Executable File Names
 EXE_FILE = "app.exe"
 NEW_EXE_FILE = "app_new.exe"
 BACKUP_EXE_FILE = "app_backup.exe"
@@ -30,46 +29,30 @@ BACKUP_EXE_FILE = "app_backup.exe"
 # Headers for authentication
 HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
 
-# Get current version from file
-def get_current_version():
-    if os.path.exists(VERSION_FILE):
-        with open(VERSION_FILE, "r") as f:
-            return f.read().strip()
-    return "Unknown"
+# GUI Alert for Updates
+def show_alert(title, message):
+    root = tk.Tk()
+    root.withdraw()  # Hide the Tkinter main window
+    messagebox.showinfo(title, message)
 
-# Fetch the latest version from GitHub (PRIVATE REPO SUPPORT)
-def get_latest_version():
-    try:
-        response = requests.get(LATEST_VERSION_URL, headers=HEADERS)
-        if response.status_code == 200:
-            data = response.json()
-            download_url = data["download_url"]
-            version_response = requests.get(download_url, headers=HEADERS)
-            if version_response.status_code == 200:
-                return version_response.text.strip()
-    except Exception as e:
-        print("Error checking for updates:", e)
-    return None
-
-# Get the latest release asset (PRIVATE REPO SUPPORT)
+# Get the latest EXE download URL from GitHub Releases
 def get_latest_exe_url():
     try:
         response = requests.get(LATEST_EXE_URL, headers=HEADERS)
         if response.status_code == 200:
             data = response.json()
-            assets = data.get("assets", [])
-            for asset in assets:
+            for asset in data.get("assets", []):
                 if asset["name"] == "app.exe":
                     return asset["browser_download_url"]
     except Exception as e:
-        print("Error fetching latest EXE URL:", e)
+        show_alert("Update Error", f"Error fetching latest EXE URL: {e}")
     return None
 
 # Download the latest executable
 def download_latest_exe():
     latest_exe_url = get_latest_exe_url()
     if not latest_exe_url:
-        print("No valid update URL found.")
+        show_alert("Update Failed", "No valid update URL found.")
         return False
 
     try:
@@ -80,60 +63,46 @@ def download_latest_exe():
                     file.write(chunk)
             return True
     except Exception as e:
-        print(f"Error downloading update: {e}")
+        show_alert("Update Error", f"Error downloading update: {e}")
     return False
 
-# Apply the update by replacing the EXE file
+# Check if EXE is running
+def is_exe_running():
+    for proc in psutil.process_iter(attrs=['pid', 'name']):
+        if proc.info['name'] == "app.exe":
+            return True
+    return False
+
+# Apply the update and restart the app
 def apply_update():
     try:
-        # Rename old_exe to backup_exe before replacing it
+        if is_exe_running():
+            show_alert("Update Available", "Please close the application to apply the update.")
+            return
+
+        # Backup old EXE before replacing it
         if os.path.exists(EXE_FILE):
             os.rename(EXE_FILE, BACKUP_EXE_FILE)
 
-        # Rename new_exe to old_exe
+        # Replace EXE file with new version
         os.rename(NEW_EXE_FILE, EXE_FILE)
 
-        # Update the version file
-        latest_version = get_latest_version()
-        if latest_version:
-            with open(VERSION_FILE, "w") as f:
-                f.write(latest_version)
-
-        # Start the new application
-        process = subprocess.Popen([EXE_FILE], close_fds=True)
-        time.sleep(2)  # Give time for the new process to start
-
-        # Get the current process ID and terminate it
-        current_pid = os.getpid()
-
-        # Kill all instances of the old app.exe except the new one
-        for proc in psutil.process_iter(attrs=['pid', 'name']):
-            if proc.info['name'] == "app.exe" and proc.info['pid'] != process.pid:
-                try:
-                    psutil.Process(proc.info['pid']).terminate()
-                except psutil.NoSuchProcess:
-                    pass  # Process already closed
-
-        sys.exit(0)  # Exit old process safely
+        # Alert user and restart the application
+        show_alert("Update Successful", "Restarting application with the latest version...")
+        subprocess.Popen([EXE_FILE], close_fds=True)
+        sys.exit(0)  # Exit old process
 
     except Exception as e:
-        print(f"Error while applying update: {e}")
+        show_alert("Update Error", f"Error while applying update: {e}")
 
 # Check for updates and apply if needed
 def check_for_updates():
-    """Check for updates in the background."""
-    latest_version = get_latest_version()
-    current_version = get_current_version()
+    show_alert("Checking for Updates", "Checking if a new version is available...")
 
-    if latest_version and latest_version > current_version:
-        print(f"New version available: {latest_version}. Downloading...")
-        if download_latest_exe():
-            print("Download complete. Updating...")
-            apply_update()
-        else:
-            print("Failed to download update.")
+    if download_latest_exe():
+        apply_update()
     else:
-        print("You are running the latest version.")
+        show_alert("No Updates", "You are already running the latest version.")
 
 # Flask app setup
 app = Flask(__name__)
@@ -158,8 +127,6 @@ users_collection = db.users
 
 # Start update check thread
 start_update_thread()
-
-# User class (unchanged)
 
 # User class
 class User:
