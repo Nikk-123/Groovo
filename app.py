@@ -39,16 +39,34 @@ def download_latest_exe():
         print(f"Error downloading update: {e}")
     return False
 
+import os
+import sys
+import time
+import subprocess
+import psutil
+
 def apply_update():
-    """Replace the current executable with the new one and restart the app."""
-    time.sleep(2)  # Allow time for the app to close
     try:
-        os.replace("app_new.exe", "app.exe")
-        print("Update applied successfully. Restarting...")
-        subprocess.Popen(["app.exe"])
-        sys.exit(0)  # Exit after starting the new process
+        new_exe = "app_new.exe"
+        old_pid = os.getpid()  # Current process ID
+
+        # Start the new application
+        subprocess.Popen([new_exe], close_fds=True)
+
+        # Wait for a short duration to ensure new process starts
+        time.sleep(2)
+
+        # Kill the old process
+        parent = psutil.Process(old_pid)
+        for child in parent.children(recursive=True):  
+            child.terminate()
+        parent.terminate()
+
+        sys.exit(0)  # Exit the old process
     except Exception as e:
-        print(f"Error applying update: {e}")
+        print(f"Error while applying update: {e}")
+
+
 
 def check_for_updates():
     """Check for updates in the background."""
