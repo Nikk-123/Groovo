@@ -3,3 +3,4 @@ flask-cors
 pymongo
 yt-dlp
 pywebview
+requests
