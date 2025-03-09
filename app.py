@@ -10,29 +10,72 @@ import requests
 import subprocess
 import time
 import psutil
+from dotenv import load_dotenv
 
-# GitHub URLs
+# Load environment variables from .env file
+load_dotenv()
+
+# GitHub Credentials (Use an environment variable for security)
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_REPO = "Nikk-123/Spotify-3.0"
-LATEST_VERSION_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/latest_version.txt"
-LATEST_EXE_URL = f"https://github.com/{GITHUB_REPO}/releases/latest/download/app.exe"
-CURRENT_VERSION = "1.0.0"
+LATEST_VERSION_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/latest_version.txt"
+LATEST_EXE_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
+# Local version tracking
+VERSION_FILE = "current_version.txt"
+EXE_FILE = "app.exe"
+NEW_EXE_FILE = "app_new.exe"
+BACKUP_EXE_FILE = "app_backup.exe"
+
+# Headers for authentication
+HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
+
+# Get current version from file
+def get_current_version():
+    if os.path.exists(VERSION_FILE):
+        with open(VERSION_FILE, "r") as f:
+            return f.read().strip()
+    return "Unknown"
+
+# Fetch the latest version from GitHub (PRIVATE REPO SUPPORT)
 def get_latest_version():
-    """Fetch the latest version number from GitHub."""
     try:
-        response = requests.get(LATEST_VERSION_URL)
+        response = requests.get(LATEST_VERSION_URL, headers=HEADERS)
         if response.status_code == 200:
-            return response.text.strip()
+            data = response.json()
+            download_url = data["download_url"]
+            version_response = requests.get(download_url, headers=HEADERS)
+            if version_response.status_code == 200:
+                return version_response.text.strip()
     except Exception as e:
         print("Error checking for updates:", e)
     return None
 
-def download_latest_exe():
-    """Download the latest executable from GitHub."""
+# Get the latest release asset (PRIVATE REPO SUPPORT)
+def get_latest_exe_url():
     try:
-        response = requests.get(LATEST_EXE_URL, stream=True)
+        response = requests.get(LATEST_EXE_URL, headers=HEADERS)
         if response.status_code == 200:
-            with open("app_new.exe", "wb") as file:
+            data = response.json()
+            assets = data.get("assets", [])
+            for asset in assets:
+                if asset["name"] == "app.exe":
+                    return asset["browser_download_url"]
+    except Exception as e:
+        print("Error fetching latest EXE URL:", e)
+    return None
+
+# Download the latest executable
+def download_latest_exe():
+    latest_exe_url = get_latest_exe_url()
+    if not latest_exe_url:
+        print("No valid update URL found.")
+        return False
+
+    try:
+        response = requests.get(latest_exe_url, headers=HEADERS, stream=True)
+        if response.status_code == 200:
+            with open(NEW_EXE_FILE, "wb") as file:
                 for chunk in response.iter_content(1024):
                     file.write(chunk)
             return True
@@ -40,22 +83,24 @@ def download_latest_exe():
         print(f"Error downloading update: {e}")
     return False
 
-
+# Apply the update by replacing the EXE file
 def apply_update():
     try:
-        new_exe = "app_new.exe"
-        old_exe = "app.exe"
-        backup_exe = "app_backup.exe"
-
         # Rename old_exe to backup_exe before replacing it
-        if os.path.exists(old_exe):
-            os.rename(old_exe, backup_exe)
+        if os.path.exists(EXE_FILE):
+            os.rename(EXE_FILE, BACKUP_EXE_FILE)
 
         # Rename new_exe to old_exe
-        os.rename(new_exe, old_exe)
+        os.rename(NEW_EXE_FILE, EXE_FILE)
+
+        # Update the version file
+        latest_version = get_latest_version()
+        if latest_version:
+            with open(VERSION_FILE, "w") as f:
+                f.write(latest_version)
 
         # Start the new application
-        process = subprocess.Popen([old_exe], close_fds=True)
+        process = subprocess.Popen([EXE_FILE], close_fds=True)
         time.sleep(2)  # Give time for the new process to start
 
         # Get the current process ID and terminate it
@@ -74,15 +119,13 @@ def apply_update():
     except Exception as e:
         print(f"Error while applying update: {e}")
 
-
-
-
-
-
+# Check for updates and apply if needed
 def check_for_updates():
     """Check for updates in the background."""
     latest_version = get_latest_version()
-    if (latest_version and latest_version > CURRENT_VERSION):
+    current_version = get_current_version()
+
+    if latest_version and latest_version > current_version:
         print(f"New version available: {latest_version}. Downloading...")
         if download_latest_exe():
             print("Download complete. Updating...")
@@ -112,6 +155,11 @@ client = MongoClient(
 )
 db = client.get_database('music_app')
 users_collection = db.users
+
+# Start update check thread
+start_update_thread()
+
+# User class (unchanged)
 
 # User class
 class User:
