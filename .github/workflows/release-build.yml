@@ -31,6 +31,20 @@ jobs:
           echo "TAG=$TAG" >> $GITHUB_ENV
         shell: bash
 
+      - name: Write Latest Version to File
+        run: echo "${{ env.TAG }}" > latest_version.txt
+        shell: bash
+
+      - name: Commit and Push latest_version.txt
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add latest_version.txt
+          git commit -m "Update latest_version.txt to ${{ env.TAG }}"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+
       - name: Build EXE with PyInstaller
         run: |
           pyinstaller --onefile --noconsole --clean --add-data "templates;templates" --add-data "static;static" --name "app-${{ env.TAG }}" app.py
@@ -47,7 +61,9 @@ jobs:
       - name: Release on GitHub
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/app-${{ env.TAG }}.exe
+          files: |
+            dist/app-${{ env.TAG }}.exe
+            latest_version.txt  # Upload latest_version.txt to the release
           tag_name: ${{ env.TAG }}
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
