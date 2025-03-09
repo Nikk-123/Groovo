@@ -1,0 +1,52 @@
+name: Auto Release and Build EXE
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest  # Use Windows for building EXE
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Ensure all tags are fetched
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Get Latest Release Tag
+        id: get-latest-tag
+        run: |
+          TAG=$(git describe --tags --abbrev=0 || echo "v1.0.0")
+          echo "TAG=$TAG" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Build EXE with Version
+        run: pyinstaller --onefile --noconsole --name "app-${{ env.TAG }}" app.py
+
+      - name: Verify EXE Creation
+        run: dir dist
+
+      - name: Upload EXE to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-exe-${{ env.TAG }}
+          path: dist/app-${{ env.TAG }}.exe
+
+      - name: Release on GitHub
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/app-${{ env.TAG }}.exe
+          tag_name: ${{ env.TAG }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
