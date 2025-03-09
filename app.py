@@ -53,7 +53,7 @@ def apply_update():
 def check_for_updates():
     """Check for updates in the background."""
     latest_version = get_latest_version()
-    if latest_version and latest_version > CURRENT_VERSION:
+    if (latest_version and latest_version > CURRENT_VERSION):
         print(f"New version available: {latest_version}. Downloading...")
         if download_latest_exe():
             print("Download complete. Updating...")
@@ -72,10 +72,6 @@ app.secret_key = 'Chayan@12'  # Change this to a secure secret key
 def start_update_thread():
     update_thread = threading.Thread(target=check_for_updates, daemon=True)
     update_thread.start()
-
-if __name__ == "__main__":
-    start_update_thread()  # Start update check in the background
-    app.run(debug=True)
 
 # MongoDB Atlas setup
 MONGO_URI = 'mongodb+srv://CHAYAN:CHAYAN%4012@musicapp.ql3my.mongodb.net/?retryWrites=true&w=majority&tlsAllowInvalidCertificates=true'
@@ -575,8 +571,6 @@ def get_library():
             'message': str(e)
         }), 500
 
-
-
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({
@@ -621,15 +615,24 @@ def test_db_connection():
         print("Please check your connection string and make sure MongoDB Atlas is accessible.")
         return False
 
-# Function to start Flask in a separate thread
-def run_flask():
-    app.run(host="127.0.0.1", port=8000, debug=False, use_reloader=False)
-
-# Launch PyWebview GUI
 if __name__ == "__main__":
-    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    start_update_thread()  # Start update check in the background
+    
+    # Function to start Flask in a separate thread
+    def start_flask():
+        try:
+            app.run(debug=True, use_reloader=False)  # Ensure reloader is off for threading
+        except Exception as e:
+            print(f"Error starting Flask: {e}")
+
+    # Run Flask in a separate thread
+    flask_thread = threading.Thread(target=start_flask)
+    flask_thread.daemon = True
     flask_thread.start()
     
-    webview.create_window("Music App", "http://127.0.0.1:8000")
-    webview.start()
-
+    # Start the GUI with Flask's local server
+    try:
+        webview.create_window("Spotify-3.0", "http://127.0.0.1:5000/")
+        webview.start()
+    except Exception as e:
+        print(f"Error starting webview: {e}")
