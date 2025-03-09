@@ -44,26 +44,36 @@ def download_latest_exe():
 def apply_update():
     try:
         new_exe = "app_new.exe"
-        
-        # Start new application
-        process = subprocess.Popen([new_exe], close_fds=True)
-        time.sleep(2)  # Give time for new process to start
-        
-        # Get current process ID and terminate it
+        old_exe = "app.exe"
+        backup_exe = "app_backup.exe"
+
+        # Rename old_exe to backup_exe before replacing it
+        if os.path.exists(old_exe):
+            os.rename(old_exe, backup_exe)
+
+        # Rename new_exe to old_exe
+        os.rename(new_exe, old_exe)
+
+        # Start the new application
+        process = subprocess.Popen([old_exe], close_fds=True)
+        time.sleep(2)  # Give time for the new process to start
+
+        # Get the current process ID and terminate it
         current_pid = os.getpid()
-        
-        # Kill all instances of old app.exe except the new one
+
+        # Kill all instances of the old app.exe except the new one
         for proc in psutil.process_iter(attrs=['pid', 'name']):
             if proc.info['name'] == "app.exe" and proc.info['pid'] != process.pid:
                 try:
                     psutil.Process(proc.info['pid']).terminate()
                 except psutil.NoSuchProcess:
                     pass  # Process already closed
-        
+
         sys.exit(0)  # Exit old process safely
 
     except Exception as e:
         print(f"Error while applying update: {e}")
+
 
 
 
