@@ -35,17 +35,24 @@ jobs:
         run: echo "${{ env.TAG }}" > latest_version.txt
         shell: bash
 
+      - name: Debugging GitHub Actions
+        run: |
+          git status
+          git remote -v
+          git branch
+        shell: bash
+
       - name: Commit and Push latest_version.txt
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}  # Use Fine-Grained PAT
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
           git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/Nikk-123/Spotify-3.0.git
           git add latest_version.txt
-          git commit -m "Update latest_version.txt to ${{ env.TAG }}"
-          git push origin main
+          git commit -m "Update latest_version.txt to ${{ env.TAG }}" || echo "No changes to commit"
+          GIT_TRACE=1 GIT_CURL_VERBOSE=1 git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/Nikk-123/Spotify-3.0.git main
         shell: bash
-
-
 
       - name: Build EXE with PyInstaller
         run: |
