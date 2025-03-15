@@ -169,12 +169,14 @@ const Player = {
 
         } catch (error) {
             console.error('Error playing song:', error);
-            alert('Failed to play the song. Please try another one.');
-            this.showControls(false);
-            PlayerState.isPlaying = false;
-            this.updateAllPlayButtons(url);
-            PlayerState.currentSong = null;
-            throw error;
+            if (!PlayerState.isPlaying) {
+                alert('Failed to play the song. Please try another one.');
+                this.showControls(false);
+                PlayerState.isPlaying = false;
+                this.updateAllPlayButtons(url);
+                PlayerState.currentSong = null;
+                throw error;
+            }
         }
     },
 
@@ -202,8 +204,10 @@ const Player = {
             console.error('Audio URL:', audioUrl);
             PlayerState.isPlaying = false;
             this.updatePlayPauseButtons();
-            alert('Audio playback error: Format error. Please try another song.');
-            throw new Error(`Playback failed: ${error.message}`);
+            if (!Elements.audio.src) {
+                alert('Audio playback error: Format error. Please try another song.');
+                throw new Error(`Playback failed: ${error.message}`);
+            }
         }
     },
 
