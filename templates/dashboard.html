@@ -17,7 +17,7 @@
     <div class="top-nav">
       <div class="left-nav">
         <h1>Gareeb ka Spotify!</h1>
-        <p>Version: {{ latest_version }}</p>
+        <p>Version: Unknown Version</p>
         <button
           type="button"
           class="home-btn"
@@ -487,6 +487,17 @@
         const librarySection = document.getElementById("librarySection");
         librarySection.classList.toggle("active");
       }
+
+      document.addEventListener('DOMContentLoaded', async () => {
+        // Fetch and display the latest version
+        try {
+          const response = await fetch('/api/version');
+          const data = await response.json();
+          document.querySelector('.top-nav p').textContent = `Version: ${data.version}`;
+        } catch (error) {
+          console.error('Error fetching version:', error);
+        }
+      });
     </script>
   </body>
 </html>

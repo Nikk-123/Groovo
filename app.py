@@ -30,6 +30,10 @@ HEADERS = {"Authorization": f"token {GITHUB_PAT}"}
 
 # Fetch latest release asset URL (For Private Repo)
 def get_latest_exe_url():
+    if not GITHUB_PAT:
+        print("GitHub PAT is not set. Please set the GITHUB_TOKEN environment variable.")
+        return None
+
     try:
         response = requests.get(GITHUB_API_RELEASES, headers=HEADERS)
         if response.status_code == 200:
@@ -689,6 +693,21 @@ def manifest():
             }
         ]
     })
+
+@app.route('/api/version', methods=['GET'])
+def get_version():
+    if not GITHUB_PAT:
+        return jsonify({'version': "Unknown Version", 'error': "GitHub PAT is not set"}), 401
+
+    try:
+        response = requests.get(GITHUB_API_RELEASES, headers=HEADERS)
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify({'version': data.get("tag_name", "Unknown Version")})
+        else:
+            return jsonify({'version': "Unknown Version"}), response.status_code
+    except Exception as e:
+        return jsonify({'version': "Unknown Version", 'error': str(e)}), 500
 
 def test_db_connection():
     try:
