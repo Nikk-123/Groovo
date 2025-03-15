@@ -211,6 +211,17 @@ const Player = {
         }
     },
 
+    async fetchLatestVersion() {
+        try {
+            const response = await fetch('https://api.github.com/repos/Nikk-123/Spotify-3.0/releases/latest');
+            const data = await response.json();
+            return data.tag_name || 'Unknown Version';
+        } catch (error) {
+            console.error('Error fetching latest version:', error);
+            return 'Unknown Version';
+        }
+    },
+
     updateQueue(url, title, thumbnail, artist) {
         if (!PlayerState.queue.find(song => song.url === url)) {
             PlayerState.queue.push({ url, title, thumbnail, artist });
@@ -916,7 +927,7 @@ function toggleLibrary() {
     librarySection.classList.toggle('active');
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     Library.load();
     Search.init();
 
@@ -992,4 +1003,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelector('.mini-like-btn').addEventListener('click', () => {
         Player.toggleLikeCurrentSong();
     });
+
+    const latestVersion = await Player.fetchLatestVersion();
+    document.querySelector('.top-nav p').textContent = `Version: ${latestVersion}`;
 });
