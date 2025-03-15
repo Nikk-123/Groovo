@@ -375,6 +375,18 @@ def logout():
 def index():
     return redirect(url_for('login'))
 
+def get_latest_version():
+    try:
+        response = requests.get(GITHUB_API_RELEASES, headers=HEADERS)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("tag_name", "Unknown Version")
+        else:
+            print("GitHub API Error:", response.json())
+    except Exception as e:
+        print("Error fetching latest version:", e)
+    return "Unknown Version"
+
 @app.route('/dashboard')
 def dashboard():
     if 'user_id' not in session:
@@ -389,12 +401,14 @@ def dashboard():
     
     trending_songs = fetch_trending()
     mood_playlists = fetch_mood_playlists()
+    latest_version = get_latest_version()
     
     return render_template('dashboard.html', 
                          user_email=user_email,
                          user_library=user_data.get('library', []),
                          trending=trending_songs,
-                         mood_playlists=mood_playlists)
+                         mood_playlists=mood_playlists,
+                         latest_version=latest_version)
 
 @app.route('/play', methods=['POST', 'OPTIONS'])
 def play():
