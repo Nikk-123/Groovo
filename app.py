@@ -430,12 +430,14 @@ def play():
         if not video_url:
             return jsonify({"success": False, "error": "No URL provided"}), 400
 
+        # Configure yt-dlp options for better audio extraction
         ydl_opts = {
             'format': 'bestaudio/best',
             'quiet': True,
             'no_warnings': True,
             'extract_audio': True,
-            'no_check_certificate': True,
+            'audio_format': 'mp3',
+            'audio_quality': 0,  # Best quality
             'prefer_insecure': True,
             'geo_bypass': True,
             'nocheckcertificate': True,
@@ -443,19 +445,26 @@ def play():
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
-            }]
+                'preferredquality': '0',
+            }],
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
         }
 
         try:
             with YoutubeDL(ydl_opts) as ydl:
+                # Extract video info
                 info = ydl.extract_info(video_url, download=False)
                 
+                # Get the best audio URL
                 if 'url' in info:
                     audio_url = info['url']
                 else:
                     formats = info.get('formats', [])
                     audio_format = None
                     
+                    # Try to find the best audio format
                     for f in formats:
                         if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
                             audio_format = f
@@ -472,6 +481,7 @@ def play():
                     
                     audio_url = audio_format['url']
 
+                # Get thumbnail URL
                 thumbnails = info.get('thumbnails', [])
                 thumbnail_url = ''
                 if thumbnails:
@@ -482,14 +492,17 @@ def play():
                     if not thumbnail_url and thumbnails:
                         thumbnail_url = thumbnails[0]['url']
 
+                # Get artist name
                 artist = info.get('artist', info.get('channel', info.get('uploader', 'Unknown Artist')))
 
+                # Return the response
                 response = jsonify({
                     'success': True,
                     'audio_url': audio_url,
                     'title': info.get('title', 'Unknown Title'),
                     'thumbnail': thumbnail_url,
-                    'artist': artist
+                    'artist': artist,
+                    'duration': info.get('duration', 0)
                 })
                 
                 response.headers.add('Access-Control-Allow-Origin', '*')
