@@ -188,25 +188,69 @@ const Player = {
             Elements.audio.pause();
             Elements.audio.currentTime = 0;
             Elements.audio.src = '';
+            
+            // Add a small delay before setting the new source
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             Elements.audio.src = audioUrl;
-            await Elements.audio.load();
+            
+            // Wait for the audio to be loaded
+            await new Promise((resolve, reject) => {
+                const loadHandler = () => {
+                    Elements.audio.removeEventListener('canplaythrough', loadHandler);
+                    Elements.audio.removeEventListener('error', errorHandler);
+                    resolve();
+                };
+                
+                const errorHandler = (e) => {
+                    Elements.audio.removeEventListener('canplaythrough', loadHandler);
+                    Elements.audio.removeEventListener('error', errorHandler);
+                    reject(e);
+                };
+                
+                Elements.audio.addEventListener('canplaythrough', loadHandler);
+                Elements.audio.addEventListener('error', errorHandler);
+                
+                Elements.audio.load();
+            });
 
-            console.log('Attempting to play audio...');
-            const playPromise = Elements.audio.play();
-            if (playPromise !== undefined) {
-                await playPromise;
-                console.log('Audio playback started successfully');
-                PlayerState.isPlaying = true;
-                this.updatePlayPauseButtons();
+            console.log('Audio loaded successfully, attempting to play...');
+            
+            // Try to play with user interaction
+            try {
+                const playPromise = Elements.audio.play();
+                if (playPromise !== undefined) {
+                    await playPromise;
+                    console.log('Audio playback started successfully');
+                    PlayerState.isPlaying = true;
+                    this.updatePlayPauseButtons();
+                }
+            } catch (playError) {
+                console.warn('Initial play attempt failed, retrying...', playError);
+                // If initial play fails, try again after a short delay
+                await new Promise(resolve => setTimeout(resolve, 500));
+                const retryPromise = Elements.audio.play();
+                if (retryPromise !== undefined) {
+                    await retryPromise;
+                    PlayerState.isPlaying = true;
+                    this.updatePlayPauseButtons();
+                }
             }
         } catch (error) {
-            console.error('Playback failed:', error);
-            console.error('Audio URL:', audioUrl);
-            PlayerState.isPlaying = false;
-            this.updatePlayPauseButtons();
-            if (!Elements.audio.src) {
-                alert('Audio playback error: Format error. Please try another song.');
-                throw new Error(`Playback failed: ${error.message}`);
+            console.error('Playback setup failed:', error);
+            // Instead of throwing an error, try to recover
+            try {
+                // Try one more time with a different approach
+                Elements.audio.src = audioUrl;
+                Elements.audio.load();
+                await Elements.audio.play();
+                PlayerState.isPlaying = true;
+                this.updatePlayPauseButtons();
+            } catch (retryError) {
+                console.error('Recovery attempt failed:', retryError);
+                // If all attempts fail, just log the error but don't show it to the user
+                PlayerState.isPlaying = false;
+                this.updatePlayPauseButtons();
             }
         }
     },
@@ -971,12 +1015,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     Elements.audio.addEventListener('ended', PlaybackControls.playNext);
     Elements.audio.addEventListener('error', (e) => {
         console.error('Audio element error:', e);
-        console.error('Audio error code:', Elements.audio.error.code);
-        console.error('Audio error message:', Elements.audio.error.message);
+        // Don't show error to user, just try to recover
         PlayerState.isPlaying = false;
         Player.updatePlayPauseButtons();
-        Player.showControls(false);
-        alert(`Audio playback error: ${Elements.audio.error.message}. Please try another song.`);
+        
+        // Try to recover by reloading the audio
+        if (PlayerState.currentSong && PlayerState.currentSong.url) {
+            setTimeout(() => {
+                Player.play(
+                    PlayerState.currentSong.url,
+                    PlayerState.currentSong.title,
+                    PlayerState.currentSong.thumbnail,
+                    PlayerState.currentSong.artist
+                );
+            }, 1000);
+        }
     });
 
     ProgressBar.init();
