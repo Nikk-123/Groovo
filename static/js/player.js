@@ -130,6 +130,7 @@ const Player = {
 
             if (!url) throw new Error('No URL provided');
 
+            console.log('Fetching audio URL for:', title);
             const response = await fetch('/play', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -137,8 +138,17 @@ const Player = {
             });
 
             const data = await response.json();
-            if (!response.ok || !data.success) throw new Error(data.error || 'Failed to get audio URL');
+            if (!response.ok || !data.success) {
+                console.error('Failed to get audio URL:', data.error);
+                throw new Error(data.error || 'Failed to get audio URL');
+            }
 
+            if (!data.audio_url) {
+                console.error('No audio URL in response');
+                throw new Error('No audio URL in response');
+            }
+
+            console.log('Received audio URL:', data.audio_url);
             const songTitle = data.title || title;
             const songThumbnail = data.thumbnail || thumbnail;
             const songArtist = data.artist || artist;
@@ -205,7 +215,9 @@ const Player = {
         try {
             if (!audioUrl) throw new Error('No audio URL provided');
 
-            console.log('Setting up audio source...');
+            console.log('Setting up audio source with URL:', audioUrl);
+            
+            // First, stop any current playback
             Elements.audio.pause();
             Elements.audio.currentTime = 0;
             Elements.audio.src = '';
@@ -213,17 +225,21 @@ const Player = {
             // Add a small delay before setting the new source
             await new Promise(resolve => setTimeout(resolve, 100));
             
+            // Set the new source
             Elements.audio.src = audioUrl;
+            console.log('Audio source set, loading...');
             
             // Wait for the audio to be loaded
             await new Promise((resolve, reject) => {
                 const loadHandler = () => {
+                    console.log('Audio can play through');
                     Elements.audio.removeEventListener('canplaythrough', loadHandler);
                     Elements.audio.removeEventListener('error', errorHandler);
                     resolve();
                 };
                 
                 const errorHandler = (e) => {
+                    console.error('Audio loading error:', e);
                     Elements.audio.removeEventListener('canplaythrough', loadHandler);
                     Elements.audio.removeEventListener('error', errorHandler);
                     reject(e);
@@ -239,31 +255,50 @@ const Player = {
             
             // Try to play with user interaction
             try {
+                // Set volume before playing
+                Elements.audio.volume = PlayerState.volume;
+                
+                // Try to play
                 const playPromise = Elements.audio.play();
                 if (playPromise !== undefined) {
                     await playPromise;
                     console.log('Audio playback started successfully');
                     PlayerState.isPlaying = true;
                     this.updatePlayPauseButtons();
+                } else {
+                    console.log('Play promise was undefined, trying alternative play method');
+                    Elements.audio.play();
                 }
             } catch (playError) {
-                console.warn('Initial play attempt failed, retrying...', playError);
+                console.warn('Initial play attempt failed:', playError);
                 // If initial play fails, try again after a short delay
                 await new Promise(resolve => setTimeout(resolve, 500));
-                const retryPromise = Elements.audio.play();
-                if (retryPromise !== undefined) {
-                    await retryPromise;
-                    PlayerState.isPlaying = true;
-                    this.updatePlayPauseButtons();
+                try {
+                    console.log('Retrying play after delay...');
+                    const retryPromise = Elements.audio.play();
+                    if (retryPromise !== undefined) {
+                        await retryPromise;
+                        PlayerState.isPlaying = true;
+                        this.updatePlayPauseButtons();
+                    } else {
+                        Elements.audio.play();
+                    }
+                } catch (retryError) {
+                    console.warn('Retry attempt failed:', retryError);
+                    // Try one final time with a different approach
+                    Elements.audio.currentTime = 0;
+                    Elements.audio.play();
                 }
             }
         } catch (error) {
             console.error('Playback setup failed:', error);
             // Instead of throwing an error, try to recover
             try {
+                console.log('Attempting recovery...');
                 // Try one more time with a different approach
                 Elements.audio.src = audioUrl;
                 Elements.audio.load();
+                Elements.audio.volume = PlayerState.volume;
                 await Elements.audio.play();
                 PlayerState.isPlaying = true;
                 this.updatePlayPauseButtons();
