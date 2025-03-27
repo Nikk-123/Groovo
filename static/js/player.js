@@ -13,7 +13,9 @@ const PlayerState = {
     audioBuffer: null,
     lastPlayRequest: 0,
     playCooldown: 1000,
-    isProcessingPlay: false
+    isProcessingPlay: false,
+    retryCount: 0,
+    maxRetries: 3
 };
 
 // DOM Elements
@@ -79,6 +81,14 @@ const Player = {
     async play(url, title, thumbnail, artist) {
         if (!url) return;
         
+        // Validate and clean YouTube URL
+        const cleanUrl = this.cleanYouTubeUrl(url);
+        if (!cleanUrl) {
+            console.error('Invalid YouTube URL:', url);
+            alert('Invalid YouTube URL. Please try another song.');
+            return;
+        }
+
         const now = Date.now();
         if (now - PlayerState.lastPlayRequest < PlayerState.playCooldown || PlayerState.isProcessingPlay) {
             return;
@@ -87,21 +97,30 @@ const Player = {
         try {
             PlayerState.isProcessingPlay = true;
             PlayerState.lastPlayRequest = now;
+            PlayerState.retryCount = 0; // Reset retry count for new song
 
             // Update state
-            PlayerState.currentSong = { url, title, thumbnail, artist };
+            PlayerState.currentSong = { url: cleanUrl, title, thumbnail, artist };
             this.updateDisplay(title, artist, thumbnail);
             this.showControls(true);
+
+            console.log('Fetching audio for URL:', cleanUrl); // Debug log
 
             // Fetch audio URL
             const response = await fetch('/play', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url })
+                body: JSON.stringify({ url: cleanUrl })
             });
 
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+
             const data = await response.json();
-            if (!response.ok || !data.success || !data.audio_url) {
+            console.log('Server response:', data); // Debug log
+
+            if (!data.success || !data.audio_url) {
                 throw new Error(data.error || 'Failed to get audio URL');
             }
 
@@ -109,17 +128,47 @@ const Player = {
             await this.setupAudioPlayback(data.audio_url);
 
             // Update UI
-            this.updateUIState(url);
+            this.updateUIState(cleanUrl);
             this.updateMetadata(title, artist, thumbnail);
 
             PlayerState.isPlaying = true;
-            this.updateAllPlayButtons(url);
+            this.updateAllPlayButtons(cleanUrl);
 
         } catch (error) {
             console.error('Error playing song:', error);
-            this.handlePlaybackError();
+            await this.handlePlaybackError();
         } finally {
             PlayerState.isProcessingPlay = false;
+        }
+    },
+
+    cleanYouTubeUrl(url) {
+        try {
+            // Handle different YouTube URL formats
+            const urlObj = new URL(url);
+            if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
+                let videoId;
+                
+                if (urlObj.hostname.includes('youtube.com')) {
+                    videoId = urlObj.searchParams.get('v');
+                } else {
+                    videoId = urlObj.pathname.slice(1);
+                }
+
+                if (!videoId) {
+                    console.error('No video ID found in URL:', url);
+                    return null;
+                }
+
+                // Return clean YouTube URL
+                return `https://www.youtube.com/watch?v=${videoId}`;
+            }
+            
+            console.error('Not a YouTube URL:', url);
+            return null;
+        } catch (error) {
+            console.error('Error cleaning URL:', error);
+            return null;
         }
     },
 
@@ -138,6 +187,10 @@ const Player = {
 
             // Fetch and decode audio
             const response = await fetch(audioUrl);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch audio: ${response.status}`);
+            }
+            
             const arrayBuffer = await response.arrayBuffer();
             PlayerState.audioBuffer = await PlayerState.audioContext.decodeAudioData(arrayBuffer);
 
@@ -149,6 +202,10 @@ const Player = {
 
             // Setup event handlers
             PlayerState.audioSource.onended = () => PlaybackControls.playNext();
+            PlayerState.audioSource.onerror = (error) => {
+                console.error('Audio source error:', error);
+                this.handlePlaybackError();
+            };
 
             // Start playback
             PlayerState.audioSource.start(0);
@@ -216,8 +273,31 @@ const Player = {
         }
     },
 
-    handlePlaybackError() {
+    async handlePlaybackError() {
         if (!PlayerState.isPlaying) {
+            PlayerState.retryCount++;
+            
+            if (PlayerState.retryCount < PlayerState.maxRetries) {
+                console.log(`Retrying playback (attempt ${PlayerState.retryCount}/${PlayerState.maxRetries})...`);
+                // Wait a bit before retrying
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                if (PlayerState.currentSong) {
+                    try {
+                        await this.play(
+                            PlayerState.currentSong.url,
+                            PlayerState.currentSong.title,
+                            PlayerState.currentSong.thumbnail,
+                            PlayerState.currentSong.artist
+                        );
+                        return; // If successful, return early
+                    } catch (retryError) {
+                        console.error('Retry failed:', retryError);
+                    }
+                }
+            }
+
+            // If we've exhausted retries or retry failed
             alert('Failed to play the song. Please try another one.');
             this.showControls(false);
             PlayerState.isPlaying = false;
