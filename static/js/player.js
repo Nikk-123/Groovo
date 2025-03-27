@@ -12,6 +12,9 @@ const PlayerState = {
     currentMood: '', // For mood playlists
     currentSong: null, // Add this new property
     volume: 1, // Add this new property
+    lastPlayRequest: 0, // Add this line
+    playCooldown: 1000, // Add this line - 1 second cooldown
+    isProcessingPlay: false // Add this line
 };
 
 // DOM Elements
@@ -100,7 +103,23 @@ const Elements = {
 // Player Core Functions
 const Player = {
     async play(url, title, thumbnail, artist, source = 'trending', mood = '') {
+        // Add debouncing check
+        const now = Date.now();
+        if (now - PlayerState.lastPlayRequest < PlayerState.playCooldown) {
+            console.log('Play request ignored - cooldown period');
+            return;
+        }
+        
+        // Prevent concurrent play requests
+        if (PlayerState.isProcessingPlay) {
+            console.log('Play request ignored - already processing');
+            return;
+        }
+
         try {
+            PlayerState.isProcessingPlay = true;
+            PlayerState.lastPlayRequest = now;
+
             PlayerState.currentSong = { url, title, thumbnail, artist };
             PlayerState.currentSource = source;
             PlayerState.currentMood = mood;
@@ -177,6 +196,8 @@ const Player = {
                 PlayerState.currentSong = null;
                 throw error;
             }
+        } finally {
+            PlayerState.isProcessingPlay = false;
         }
     },
 
@@ -975,6 +996,71 @@ document.addEventListener('DOMContentLoaded', async () => {
     Library.load();
     Search.init();
 
+    // Add debounced click handler function
+    const debouncedClickHandler = debounce((handler) => {
+        handler();
+    }, 500);
+
+    // Update click handlers with debouncing
+    ['mini', 'main'].forEach(type => {
+        Elements.controls.play[type].addEventListener('click', (e) => {
+            e.preventDefault();
+            debouncedClickHandler(() => PlaybackControls.togglePlayPause());
+        });
+        
+        Elements.controls.prev[type].addEventListener('click', (e) => {
+            e.preventDefault();
+            debouncedClickHandler(() => PlaybackControls.playPrevious());
+        });
+        
+        Elements.controls.next[type].addEventListener('click', (e) => {
+            e.preventDefault();
+            debouncedClickHandler(() => PlaybackControls.playNext());
+        });
+        
+        Elements.controls.shuffle[type].addEventListener('click', (e) => {
+            e.preventDefault();
+            debouncedClickHandler(() => PlaybackModes.toggleShuffle());
+        });
+        
+        Elements.controls.repeat[type].addEventListener('click', (e) => {
+            e.preventDefault();
+            debouncedClickHandler(() => PlaybackModes.toggleRepeat());
+        });
+    });
+
+    // Update library item click handlers
+    document.addEventListener('click', (e) => {
+        const playBtn = e.target.closest('.play-btn');
+        if (playBtn) {
+            e.preventDefault();
+            const libraryItem = playBtn.closest('.library-item');
+            if (libraryItem) {
+                const url = libraryItem.dataset.url;
+                const title = libraryItem.dataset.title;
+                const thumbnail = libraryItem.dataset.thumbnail;
+                const artist = libraryItem.dataset.artist;
+                debouncedClickHandler(() => Player.play(url, title, thumbnail, artist, 'library'));
+            }
+        }
+    });
+
+    // Update song item click handlers
+    document.addEventListener('click', (e) => {
+        const playBtn = e.target.closest('.play-btn');
+        if (playBtn) {
+            e.preventDefault();
+            const songItem = playBtn.closest('.song-item');
+            if (songItem) {
+                const url = songItem.dataset.url;
+                const title = songItem.dataset.title;
+                const thumbnail = songItem.dataset.thumbnail;
+                const artist = songItem.dataset.artist;
+                debouncedClickHandler(() => Player.play(url, title, thumbnail, artist, 'search'));
+            }
+        }
+    });
+
     // Check for the last played song in local storage
     const lastPlayedSong = localStorage.getItem('lastPlayedSong');
     if (lastPlayedSong) {
@@ -988,14 +1074,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         Elements.audio.load();
     }
 
-    ['mini', 'main'].forEach(type => {
-        Elements.controls.play[type].addEventListener('click', PlaybackControls.togglePlayPause);
-        Elements.controls.prev[type].addEventListener('click', PlaybackControls.playPrevious);
-        Elements.controls.next[type].addEventListener('click', PlaybackControls.playNext);
-        Elements.controls.shuffle[type].addEventListener('click', PlaybackModes.toggleShuffle);
-        Elements.controls.repeat[type].addEventListener('click', PlaybackModes.toggleRepeat);
-    });
-    
     const handleVolumeChange = (e) => {
         const newVolume = parseFloat(e.target.value);
         PlayerState.volume = newVolume;
