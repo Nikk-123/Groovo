@@ -14,7 +14,10 @@ const PlayerState = {
     volume: 1, // Add this new property
     lastPlayRequest: 0, // Add this line
     playCooldown: 1000, // Add this line - 1 second cooldown
-    isProcessingPlay: false // Add this line
+    isProcessingPlay: false, // Add this line
+    audioContext: null,
+    audioSource: null,
+    audioBuffer: null
 };
 
 // DOM Elements
@@ -103,16 +106,19 @@ const Elements = {
 // Player Core Functions
 const Player = {
     async play(url, title, thumbnail, artist, source = 'trending', mood = '') {
-        // Add debouncing check
-        const now = Date.now();
-        if (now - PlayerState.lastPlayRequest < PlayerState.playCooldown) {
-            console.log('Play request ignored - cooldown period');
+        if (!url) {
+            console.error('No URL provided');
             return;
         }
-        
+
+        // Prevent rapid clicking
+        const now = Date.now();
+        if (now - PlayerState.lastPlayRequest < PlayerState.playCooldown) {
+            return;
+        }
+
         // Prevent concurrent play requests
         if (PlayerState.isProcessingPlay) {
-            console.log('Play request ignored - already processing');
             return;
         }
 
@@ -120,16 +126,16 @@ const Player = {
             PlayerState.isProcessingPlay = true;
             PlayerState.lastPlayRequest = now;
 
+            // Update UI state
             PlayerState.currentSong = { url, title, thumbnail, artist };
             PlayerState.currentSource = source;
             PlayerState.currentMood = mood;
             this.showControls(true);
 
-            // Save the current song to local storage
+            // Save to local storage
             localStorage.setItem('lastPlayedSong', JSON.stringify(PlayerState.currentSong));
 
-            if (!url) throw new Error('No URL provided');
-
+            // Fetch audio URL
             console.log('Fetching audio URL for:', title);
             const response = await fetch('/play', {
                 method: 'POST',
@@ -139,175 +145,148 @@ const Player = {
 
             const data = await response.json();
             if (!response.ok || !data.success) {
-                console.error('Failed to get audio URL:', data.error);
                 throw new Error(data.error || 'Failed to get audio URL');
             }
 
             if (!data.audio_url) {
-                console.error('No audio URL in response');
                 throw new Error('No audio URL in response');
             }
 
-            console.log('Received audio URL:', data.audio_url);
-            const songTitle = data.title || title;
-            const songThumbnail = data.thumbnail || thumbnail;
-            const songArtist = data.artist || artist;
+            // Update display
+            this.updateDisplay(data.title || title, data.artist || artist, data.thumbnail || thumbnail);
+            
+            // Set up audio playback
+            await this.setupAudioPlayback(data.audio_url);
 
-            this.updateDisplay(songTitle, songArtist, songThumbnail);
-            await this.setAudioSource(data.audio_url);
+            // Update queue and playlist state
+            this.updatePlaylistState(url, data.title || title, data.thumbnail || thumbnail, data.artist || artist);
 
-            const libraryItem = document.querySelector(`.library-item[data-url="${url}"]`);
-            if (libraryItem) {
-                PlayerState.currentSource = 'library';
-                const librarySongs = Array.from(document.querySelectorAll('.library-item')).map(item => ({
-                    url: item.dataset.url,
-                    title: item.dataset.title,
-                    thumbnail: item.dataset.thumbnail,
-                    artist: item.dataset.artist
-                }));
-                PlayerState.queue = PlayerState.isShuffleOn ? 
-                    this.shuffleLibraryQueue(librarySongs, url) : 
-                    librarySongs;
-                PlayerState.currentIndex = PlayerState.queue.findIndex(song => song.url === url);
-            } else {
-                PlayerState.currentSource = 'playlist';
-                this.updateQueue(url, songTitle, songThumbnail, songArtist);
-            }
+            // Update UI elements
+            this.updateUIState(url);
 
-            this.updateMetadata(songTitle, songArtist, songThumbnail);
-            document.querySelectorAll('.library-item').forEach(item => item.classList.remove('playing'));
-            const currentItem = document.querySelector(`.library-item[data-url="${url}"]`);
-            if (currentItem) {
-                currentItem.classList.add('playing');
-                const playBtn = currentItem.querySelector('.play-btn i');
-                if (playBtn) {
-                    playBtn.classList.remove('fa-play');
-                    playBtn.classList.add('fa-pause');
-                }
-            }
+            // Update metadata
+            this.updateMetadata(data.title || title, data.artist || artist, data.thumbnail || thumbnail);
 
-            this.updateNowPlayingSource();
+            // Set playing state
             PlayerState.isPlaying = true;
             this.updateAllPlayButtons(url);
-            document.querySelectorAll('.library-item, .song-item').forEach(item => item.classList.remove('playing'));
-            document.querySelectorAll(`.library-item[data-url="${url}"], .song-item[data-url="${url}"]`)
-                .forEach(item => item.classList.add('playing'));
-
-            // Update like button state
-            this.updateLikeButtonState();
 
         } catch (error) {
             console.error('Error playing song:', error);
-            if (!PlayerState.isPlaying) {
-                alert('Failed to play the song. Please try another one.');
-                this.showControls(false);
-                PlayerState.isPlaying = false;
-                this.updateAllPlayButtons(url);
-                PlayerState.currentSong = null;
-                throw error;
-            }
+            this.handlePlaybackError();
         } finally {
             PlayerState.isProcessingPlay = false;
         }
     },
 
-    async setAudioSource(audioUrl) {
+    async setupAudioPlayback(audioUrl) {
         try {
-            if (!audioUrl) throw new Error('No audio URL provided');
-
-            console.log('Setting up audio source with URL:', audioUrl);
-            
-            // First, stop any current playback
-            Elements.audio.pause();
-            Elements.audio.currentTime = 0;
-            Elements.audio.src = '';
-            
-            // Add a small delay before setting the new source
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            // Set the new source
-            Elements.audio.src = audioUrl;
-            console.log('Audio source set, loading...');
-            
-            // Wait for the audio to be loaded
-            await new Promise((resolve, reject) => {
-                const loadHandler = () => {
-                    console.log('Audio can play through');
-                    Elements.audio.removeEventListener('canplaythrough', loadHandler);
-                    Elements.audio.removeEventListener('error', errorHandler);
-                    resolve();
-                };
-                
-                const errorHandler = (e) => {
-                    console.error('Audio loading error:', e);
-                    Elements.audio.removeEventListener('canplaythrough', loadHandler);
-                    Elements.audio.removeEventListener('error', errorHandler);
-                    reject(e);
-                };
-                
-                Elements.audio.addEventListener('canplaythrough', loadHandler);
-                Elements.audio.addEventListener('error', errorHandler);
-                
-                Elements.audio.load();
-            });
-
-            console.log('Audio loaded successfully, attempting to play...');
-            
-            // Try to play with user interaction
-            try {
-                // Set volume before playing
-                Elements.audio.volume = PlayerState.volume;
-                
-                // Try to play
-                const playPromise = Elements.audio.play();
-                if (playPromise !== undefined) {
-                    await playPromise;
-                    console.log('Audio playback started successfully');
-                    PlayerState.isPlaying = true;
-                    this.updatePlayPauseButtons();
-                } else {
-                    console.log('Play promise was undefined, trying alternative play method');
-                    Elements.audio.play();
-                }
-            } catch (playError) {
-                console.warn('Initial play attempt failed:', playError);
-                // If initial play fails, try again after a short delay
-                await new Promise(resolve => setTimeout(resolve, 500));
-                try {
-                    console.log('Retrying play after delay...');
-                    const retryPromise = Elements.audio.play();
-                    if (retryPromise !== undefined) {
-                        await retryPromise;
-                        PlayerState.isPlaying = true;
-                        this.updatePlayPauseButtons();
-                    } else {
-                        Elements.audio.play();
-                    }
-                } catch (retryError) {
-                    console.warn('Retry attempt failed:', retryError);
-                    // Try one final time with a different approach
-                    Elements.audio.currentTime = 0;
-                    Elements.audio.play();
-                }
+            // Stop any current playback
+            if (PlayerState.audioSource) {
+                PlayerState.audioSource.stop();
+                PlayerState.audioSource = null;
             }
+
+            // Create new audio context if needed
+            if (!PlayerState.audioContext) {
+                PlayerState.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            // Fetch and decode audio data
+            const response = await fetch(audioUrl);
+            const arrayBuffer = await response.arrayBuffer();
+            PlayerState.audioBuffer = await PlayerState.audioContext.decodeAudioData(arrayBuffer);
+
+            // Create and configure audio source
+            PlayerState.audioSource = PlayerState.audioContext.createBufferSource();
+            PlayerState.audioSource.buffer = PlayerState.audioBuffer;
+            PlayerState.audioSource.connect(PlayerState.audioContext.destination);
+            PlayerState.audioSource.volume = PlayerState.volume;
+
+            // Set up event handlers
+            PlayerState.audioSource.onended = () => {
+                PlaybackControls.playNext();
+            };
+
+            // Start playback
+            PlayerState.audioSource.start(0);
+            PlayerState.isPlaying = true;
+
         } catch (error) {
-            console.error('Playback setup failed:', error);
-            // Instead of throwing an error, try to recover
-            try {
-                console.log('Attempting recovery...');
-                // Try one more time with a different approach
-                Elements.audio.src = audioUrl;
-                Elements.audio.load();
-                Elements.audio.volume = PlayerState.volume;
-                await Elements.audio.play();
-                PlayerState.isPlaying = true;
-                this.updatePlayPauseButtons();
-            } catch (retryError) {
-                console.error('Recovery attempt failed:', retryError);
-                // If all attempts fail, just log the error but don't show it to the user
-                PlayerState.isPlaying = false;
-                this.updatePlayPauseButtons();
+            console.error('Error setting up audio playback:', error);
+            throw error;
+        }
+    },
+
+    updatePlaylistState(url, title, thumbnail, artist) {
+        const libraryItem = document.querySelector(`.library-item[data-url="${url}"]`);
+        if (libraryItem) {
+            PlayerState.currentSource = 'library';
+            const librarySongs = Array.from(document.querySelectorAll('.library-item')).map(item => ({
+                url: item.dataset.url,
+                title: item.dataset.title,
+                thumbnail: item.dataset.thumbnail,
+                artist: item.dataset.artist
+            }));
+            PlayerState.queue = PlayerState.isShuffleOn ? 
+                this.shuffleLibraryQueue(librarySongs, url) : 
+                librarySongs;
+            PlayerState.currentIndex = PlayerState.queue.findIndex(song => song.url === url);
+        } else {
+            PlayerState.currentSource = 'playlist';
+            this.updateQueue(url, title, thumbnail, artist);
+        }
+    },
+
+    updateUIState(url) {
+        // Update playing state for library items
+        document.querySelectorAll('.library-item').forEach(item => {
+            item.classList.remove('playing');
+            const playBtn = item.querySelector('.play-btn i');
+            if (playBtn) {
+                playBtn.classList.remove('fa-pause');
+                playBtn.classList.add('fa-play');
             }
+        });
+
+        const currentItem = document.querySelector(`.library-item[data-url="${url}"]`);
+        if (currentItem) {
+            currentItem.classList.add('playing');
+            const playBtn = currentItem.querySelector('.play-btn i');
+            if (playBtn) {
+                playBtn.classList.remove('fa-play');
+                playBtn.classList.add('fa-pause');
+            }
+        }
+
+        // Update playing state for song items
+        document.querySelectorAll('.song-item').forEach(item => {
+            item.classList.remove('playing');
+            const playBtn = item.querySelector('.play-btn i');
+            if (playBtn) {
+                playBtn.classList.remove('fa-pause');
+                playBtn.classList.add('fa-play');
+            }
+        });
+
+        const currentSongItem = document.querySelector(`.song-item[data-url="${url}"]`);
+        if (currentSongItem) {
+            currentSongItem.classList.add('playing');
+            const playBtn = currentSongItem.querySelector('.play-btn i');
+            if (playBtn) {
+                playBtn.classList.remove('fa-play');
+                playBtn.classList.add('fa-pause');
+            }
+        }
+    },
+
+    handlePlaybackError() {
+        if (!PlayerState.isPlaying) {
+            alert('Failed to play the song. Please try another one.');
+            this.showControls(false);
+            PlayerState.isPlaying = false;
+            this.updateAllPlayButtons(PlayerState.currentSong?.url);
+            PlayerState.currentSong = null;
         }
     },
 
@@ -465,31 +444,20 @@ const Player = {
 // Playback Control Functions
 const PlaybackControls = {
     togglePlayPause() {
-        if (Elements.audio.paused) {
-            Elements.audio.play();
-            PlayerState.isPlaying = true;
-        } else {
-            Elements.audio.pause();
+        if (!PlayerState.audioSource) return;
+
+        if (PlayerState.isPlaying) {
+            PlayerState.audioSource.stop();
             PlayerState.isPlaying = false;
+        } else {
+            PlayerState.audioSource.start(0);
+            PlayerState.isPlaying = true;
         }
         Player.updateAllPlayButtons(PlayerState.currentSong?.url);
     },
 
     playNext() {
-        if (PlayerState.queue.length === 0) {
-            const librarySongs = Array.from(document.querySelectorAll('.library-item')).map(item => ({
-                url: item.dataset.url,
-                title: item.dataset.title,
-                thumbnail: item.dataset.thumbnail,
-                artist: item.dataset.artist
-            }));
-            if (librarySongs.length > 0) {
-                PlayerState.queue = librarySongs;
-                PlayerState.currentSource = 'library';
-            } else {
-                return;
-            }
-        }
+        if (PlayerState.queue.length === 0) return;
 
         let nextIndex = PlayerState.currentIndex + 1;
         if (nextIndex >= PlayerState.queue.length) {
@@ -500,41 +468,18 @@ const PlaybackControls = {
             }
         }
 
-        PlayerState.currentIndex = nextIndex;
         const nextSong = PlayerState.queue[nextIndex];
-        console.log('Playing next song:', nextSong);
-        if (nextSong && nextSong.url) {
-            Player.play(
-                nextSong.url,
-                nextSong.title || 'Unknown Title',
-                nextSong.thumbnail || '',
-                nextSong.artist || 'Unknown Artist'
-            );
-        } else {
-            console.error('Invalid song data:', nextSong);
-        }
+        Player.play(
+            nextSong.url,
+            nextSong.title,
+            nextSong.thumbnail,
+            nextSong.artist,
+            PlayerState.currentSource
+        );
     },
 
     playPrevious() {
-        if (PlayerState.queue.length === 0) {
-            const librarySongs = Array.from(document.querySelectorAll('.library-item')).map(item => ({
-                url: item.dataset.url,
-                title: item.dataset.title,
-                thumbnail: item.dataset.thumbnail,
-                artist: item.dataset.artist
-            }));
-            if (librarySongs.length > 0) {
-                PlayerState.queue = librarySongs;
-                PlayerState.currentSource = 'library';
-            } else {
-                return;
-            }
-        }
-
-        if (Elements.audio.currentTime > 3) {
-            Elements.audio.currentTime = 0;
-            return;
-        }
+        if (PlayerState.queue.length === 0) return;
 
         let prevIndex = PlayerState.currentIndex - 1;
         if (prevIndex < 0) {
@@ -545,18 +490,14 @@ const PlaybackControls = {
             }
         }
 
-        PlayerState.currentIndex = prevIndex;
         const prevSong = PlayerState.queue[prevIndex];
-        if (prevSong && prevSong.url) {
-            Player.play(
-                prevSong.url,
-                prevSong.title || 'Unknown Title',
-                prevSong.thumbnail || '',
-                prevSong.artist || 'Unknown Artist'
-            );
-        } else {
-            console.error('Invalid song data:', prevSong);
-        }
+        Player.play(
+            prevSong.url,
+            prevSong.title,
+            prevSong.thumbnail,
+            prevSong.artist,
+            PlayerState.currentSource
+        );
     }
 };
 
