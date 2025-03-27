@@ -1,23 +1,19 @@
-// State Management
+// Core State Management
 const PlayerState = {
     queue: [],
     currentIndex: 0,
     isPlaying: false,
     library: [],
     isShuffleOn: false,
-    repeatMode: 'none', // 'none', 'all', 'one'
-    originalPlaylist: [],
-    originalQueue: [],
-    currentSource: '', // 'search', 'library', 'trending', or 'mood'
-    currentMood: '', // For mood playlists
-    currentSong: null, // Add this new property
-    volume: 1, // Add this new property
-    lastPlayRequest: 0, // Add this line
-    playCooldown: 1000, // Add this line - 1 second cooldown
-    isProcessingPlay: false, // Add this line
+    repeatMode: 'none',
+    currentSong: null,
+    volume: 1,
     audioContext: null,
     audioSource: null,
-    audioBuffer: null
+    audioBuffer: null,
+    lastPlayRequest: 0,
+    playCooldown: 1000,
+    isProcessingPlay: false
 };
 
 // DOM Elements
@@ -51,30 +47,16 @@ const Elements = {
             main: document.getElementById('volumeControl')
         }
     },
-    progress: {
-        mini: {
-            bar: document.querySelector('.mini-player .progress'),
-            current: document.querySelector('.mini-player .current-time'),
-            total: document.querySelector('.mini-player .total-time')
-        },
-        main: {
-            bar: document.querySelector('.expanded-player .progress'),
-            current: document.querySelector('.expanded-player .current-time'),
-            total: document.querySelector('.expanded-player .total-time')
-        }
-    },
     display: {
         mini: {
             thumbnail: document.getElementById('miniThumbnail'),
             title: document.getElementById('miniSongTitle'),
-            artist: document.getElementById('miniArtist'),
-            device: document.getElementById('miniDeviceName')
+            artist: document.getElementById('miniArtist')
         },
         main: {
             thumbnail: document.getElementById('currentThumbnail'),
             title: document.getElementById('currentSongTitle'),
-            artist: document.getElementById('currentArtist'),
-            device: document.getElementById('expandedDeviceName')
+            artist: document.getElementById('currentArtist')
         }
     },
     search: {
@@ -88,37 +70,17 @@ const Elements = {
         mini: document.querySelector('.mini-player .progress-bar'),
         main: document.querySelector('.expanded-player .progress-bar')
     },
-    miniPlayerContent: document.querySelector('.mini-player-content'),
     minimizeBtn: document.querySelector('.minimize-btn'),
-    homeBtn: document.querySelector('.home-btn'),
-    lyrics: {
-        modal: document.getElementById('lyricsModal'),
-        content: document.getElementById('lyricsContent'),
-        loader: document.getElementById('lyricsLoader'),
-        closeBtn: document.querySelector('.close-lyrics'),
-        buttons: {
-            mini: document.getElementById('miniLyricsBtn'),
-            main: document.getElementById('lyricsBtn')
-        }
-    }
+    homeBtn: document.querySelector('.home-btn')
 };
 
-// Player Core Functions
+// Core Player Functions
 const Player = {
-    async play(url, title, thumbnail, artist, source = 'trending', mood = '') {
-        if (!url) {
-            console.error('No URL provided');
-            return;
-        }
-
-        // Prevent rapid clicking
+    async play(url, title, thumbnail, artist) {
+        if (!url) return;
+        
         const now = Date.now();
-        if (now - PlayerState.lastPlayRequest < PlayerState.playCooldown) {
-            return;
-        }
-
-        // Prevent concurrent play requests
-        if (PlayerState.isProcessingPlay) {
+        if (now - PlayerState.lastPlayRequest < PlayerState.playCooldown || PlayerState.isProcessingPlay) {
             return;
         }
 
@@ -126,17 +88,12 @@ const Player = {
             PlayerState.isProcessingPlay = true;
             PlayerState.lastPlayRequest = now;
 
-            // Update UI state
+            // Update state
             PlayerState.currentSong = { url, title, thumbnail, artist };
-            PlayerState.currentSource = source;
-            PlayerState.currentMood = mood;
+            this.updateDisplay(title, artist, thumbnail);
             this.showControls(true);
 
-            // Save to local storage
-            localStorage.setItem('lastPlayedSong', JSON.stringify(PlayerState.currentSong));
-
             // Fetch audio URL
-            console.log('Fetching audio URL for:', title);
             const response = await fetch('/play', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -144,30 +101,17 @@ const Player = {
             });
 
             const data = await response.json();
-            if (!response.ok || !data.success) {
+            if (!response.ok || !data.success || !data.audio_url) {
                 throw new Error(data.error || 'Failed to get audio URL');
             }
 
-            if (!data.audio_url) {
-                throw new Error('No audio URL in response');
-            }
-
-            // Update display
-            this.updateDisplay(data.title || title, data.artist || artist, data.thumbnail || thumbnail);
-            
-            // Set up audio playback
+            // Setup audio playback
             await this.setupAudioPlayback(data.audio_url);
 
-            // Update queue and playlist state
-            this.updatePlaylistState(url, data.title || title, data.thumbnail || thumbnail, data.artist || artist);
-
-            // Update UI elements
+            // Update UI
             this.updateUIState(url);
+            this.updateMetadata(title, artist, thumbnail);
 
-            // Update metadata
-            this.updateMetadata(data.title || title, data.artist || artist, data.thumbnail || thumbnail);
-
-            // Set playing state
             PlayerState.isPlaying = true;
             this.updateAllPlayButtons(url);
 
@@ -181,7 +125,7 @@ const Player = {
 
     async setupAudioPlayback(audioUrl) {
         try {
-            // Stop any current playback
+            // Stop current playback
             if (PlayerState.audioSource) {
                 PlayerState.audioSource.stop();
                 PlayerState.audioSource = null;
@@ -192,7 +136,7 @@ const Player = {
                 PlayerState.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
 
-            // Fetch and decode audio data
+            // Fetch and decode audio
             const response = await fetch(audioUrl);
             const arrayBuffer = await response.arrayBuffer();
             PlayerState.audioBuffer = await PlayerState.audioContext.decodeAudioData(arrayBuffer);
@@ -203,10 +147,8 @@ const Player = {
             PlayerState.audioSource.connect(PlayerState.audioContext.destination);
             PlayerState.audioSource.volume = PlayerState.volume;
 
-            // Set up event handlers
-            PlayerState.audioSource.onended = () => {
-                PlaybackControls.playNext();
-            };
+            // Setup event handlers
+            PlayerState.audioSource.onended = () => PlaybackControls.playNext();
 
             // Start playback
             PlayerState.audioSource.start(0);
@@ -218,94 +160,12 @@ const Player = {
         }
     },
 
-    updatePlaylistState(url, title, thumbnail, artist) {
-        const libraryItem = document.querySelector(`.library-item[data-url="${url}"]`);
-        if (libraryItem) {
-            PlayerState.currentSource = 'library';
-            const librarySongs = Array.from(document.querySelectorAll('.library-item')).map(item => ({
-                url: item.dataset.url,
-                title: item.dataset.title,
-                thumbnail: item.dataset.thumbnail,
-                artist: item.dataset.artist
-            }));
-            PlayerState.queue = PlayerState.isShuffleOn ? 
-                this.shuffleLibraryQueue(librarySongs, url) : 
-                librarySongs;
-            PlayerState.currentIndex = PlayerState.queue.findIndex(song => song.url === url);
-        } else {
-            PlayerState.currentSource = 'playlist';
-            this.updateQueue(url, title, thumbnail, artist);
-        }
-    },
-
-    updateUIState(url) {
-        // Update playing state for library items
-        document.querySelectorAll('.library-item').forEach(item => {
-            item.classList.remove('playing');
-            const playBtn = item.querySelector('.play-btn i');
-            if (playBtn) {
-                playBtn.classList.remove('fa-pause');
-                playBtn.classList.add('fa-play');
-            }
+    updateDisplay(title, artist, thumbnail) {
+        ['mini', 'main'].forEach(type => {
+            Elements.display[type].thumbnail.src = thumbnail;
+            Elements.display[type].title.textContent = title;
+            Elements.display[type].artist.textContent = artist;
         });
-
-        const currentItem = document.querySelector(`.library-item[data-url="${url}"]`);
-        if (currentItem) {
-            currentItem.classList.add('playing');
-            const playBtn = currentItem.querySelector('.play-btn i');
-            if (playBtn) {
-                playBtn.classList.remove('fa-play');
-                playBtn.classList.add('fa-pause');
-            }
-        }
-
-        // Update playing state for song items
-        document.querySelectorAll('.song-item').forEach(item => {
-            item.classList.remove('playing');
-            const playBtn = item.querySelector('.play-btn i');
-            if (playBtn) {
-                playBtn.classList.remove('fa-pause');
-                playBtn.classList.add('fa-play');
-            }
-        });
-
-        const currentSongItem = document.querySelector(`.song-item[data-url="${url}"]`);
-        if (currentSongItem) {
-            currentSongItem.classList.add('playing');
-            const playBtn = currentSongItem.querySelector('.play-btn i');
-            if (playBtn) {
-                playBtn.classList.remove('fa-play');
-                playBtn.classList.add('fa-pause');
-            }
-        }
-    },
-
-    handlePlaybackError() {
-        if (!PlayerState.isPlaying) {
-            alert('Failed to play the song. Please try another one.');
-            this.showControls(false);
-            PlayerState.isPlaying = false;
-            this.updateAllPlayButtons(PlayerState.currentSong?.url);
-            PlayerState.currentSong = null;
-        }
-    },
-
-    async fetchLatestVersion() {
-        try {
-            const response = await fetch('https://api.github.com/repos/Nikk-123/Spotify-3.0/releases/latest');
-            const data = await response.json();
-            return data.tag_name || 'Unknown Version';
-        } catch (error) {
-            console.error('Error fetching latest version:', error);
-            return 'Unknown Version';
-        }
-    },
-
-    updateQueue(url, title, thumbnail, artist) {
-        if (!PlayerState.queue.find(song => song.url === url)) {
-            PlayerState.queue.push({ url, title, thumbnail, artist });
-            PlayerState.currentIndex = PlayerState.queue.length - 1;
-        }
     },
 
     showControls(show) {
@@ -314,11 +174,25 @@ const Player = {
         Elements.miniPlayer.style.display = show ? 'flex' : 'none';
     },
 
-    updateDisplay(title, artist, thumbnail) {
-        ['mini', 'main'].forEach(type => {
-            Elements.display[type].thumbnail.src = thumbnail;
-            Elements.display[type].title.textContent = title;
-            Elements.display[type].artist.textContent = artist;
+    updateUIState(url) {
+        // Update library items
+        document.querySelectorAll('.library-item').forEach(item => {
+            const isPlaying = item.dataset.url === url && PlayerState.isPlaying;
+            item.classList.toggle('playing', isPlaying);
+            const playBtn = item.querySelector('.play-btn i');
+            if (playBtn) {
+                playBtn.className = `fas fa-${isPlaying ? 'pause' : 'play'}`;
+            }
+        });
+
+        // Update song items
+        document.querySelectorAll('.song-item').forEach(item => {
+            const isPlaying = item.dataset.url === url && PlayerState.isPlaying;
+            item.classList.toggle('playing', isPlaying);
+            const playBtn = item.querySelector('.play-btn i');
+            if (playBtn) {
+                playBtn.className = `fas fa-${isPlaying ? 'pause' : 'play'}`;
+            }
         });
     },
 
@@ -342,106 +216,24 @@ const Player = {
         }
     },
 
-    updatePlayPauseButtons() {
-        const icon = PlayerState.isPlaying ? 'fa-pause' : 'fa-play';
-        Elements.controls.play.mini.innerHTML = `<i class="fas ${icon}"></i>`;
-        Elements.controls.play.main.innerHTML = `<i class="fas ${icon}"></i>`;
-    },
-
-    showNotification(title, artist, thumbnail) {
-        if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('Now Playing', {
-                body: `${title} - ${artist}`,
-                icon: thumbnail
-            });
-        }
-    },
-
-    shuffleLibraryQueue(songs, currentUrl) {
-        const currentSong = songs.find(song => song.url === currentUrl);
-        const otherSongs = songs.filter(song => song.url !== currentUrl);
-        PlaybackModes.shuffleQueue(otherSongs);
-        return [currentSong, ...otherSongs];
-    },
-
-    updateNowPlayingSource() {
-        const sourceText = document.querySelector('.now-playing-text');
-        if (sourceText) {
-            let displayText = 'Now Playing from ';
-            switch (PlayerState.currentSource) {
-                case 'search':
-                    displayText += 'Search';
-                    break;
-                case 'library':
-                    displayText += 'Your Library';
-                    break;
-                case 'trending':
-                    displayText += 'Trending';
-                    break;
-                case 'mood':
-                    displayText += `${PlayerState.currentMood} Mood`;
-                    break;
-                default:
-                    displayText = 'Now Playing';
-            }
-            sourceText.textContent = displayText;
+    handlePlaybackError() {
+        if (!PlayerState.isPlaying) {
+            alert('Failed to play the song. Please try another one.');
+            this.showControls(false);
+            PlayerState.isPlaying = false;
+            this.updateAllPlayButtons(PlayerState.currentSong?.url);
+            PlayerState.currentSong = null;
         }
     },
 
     updateAllPlayButtons(url) {
-        document.querySelectorAll('.library-item').forEach(item => {
-            const playBtn = item.querySelector('.play-btn i');
-            if (playBtn) {
-                if (item.dataset.url === url && PlayerState.isPlaying) {
-                    playBtn.classList.remove('fa-play');
-                    playBtn.classList.add('fa-pause');
-                } else {
-                    playBtn.classList.remove('fa-pause');
-                    playBtn.classList.add('fa-play');
-                }
-            }
-        });
-
-        document.querySelectorAll('.song-item').forEach(item => {
-            const playBtn = item.querySelector('.play-btn i');
-            if (playBtn) {
-                if (item.dataset.url === url && PlayerState.isPlaying) {
-                    playBtn.classList.remove('fa-play');
-                    playBtn.classList.add('fa-pause');
-                } else {
-                    playBtn.classList.remove('fa-pause');
-                    playBtn.classList.add('fa-play');
-                }
-            }
-        });
-
-        this.updatePlayPauseButtons();
-    },
-
-    updateLikeButtonState() {
-        const likeBtn = document.querySelector('.mini-like-btn i');
-        if (PlayerState.library.some(song => song.url === PlayerState.currentSong.url)) {
-            likeBtn.classList.remove('far');
-            likeBtn.classList.add('fas');
-        } else {
-            likeBtn.classList.remove('fas');
-            likeBtn.classList.add('far');
-        }
-    },
-
-    toggleLikeCurrentSong() {
-        const currentSong = PlayerState.currentSong;
-        if (!currentSong) return;
-
-        if (PlayerState.library.some(song => song.url === currentSong.url)) {
-            Library.remove(currentSong);
-        } else {
-            Library.add(currentSong);
-        }
+        const icon = PlayerState.isPlaying ? 'fa-pause' : 'fa-play';
+        Elements.controls.play.mini.innerHTML = `<i class="fas ${icon}"></i>`;
+        Elements.controls.play.main.innerHTML = `<i class="fas ${icon}"></i>`;
     }
 };
 
-// Playback Control Functions
+// Playback Controls
 const PlaybackControls = {
     togglePlayPause() {
         if (!PlayerState.audioSource) return;
@@ -469,13 +261,7 @@ const PlaybackControls = {
         }
 
         const nextSong = PlayerState.queue[nextIndex];
-        Player.play(
-            nextSong.url,
-            nextSong.title,
-            nextSong.thumbnail,
-            nextSong.artist,
-            PlayerState.currentSource
-        );
+        Player.play(nextSong.url, nextSong.title, nextSong.thumbnail, nextSong.artist);
     },
 
     playPrevious() {
@@ -491,33 +277,23 @@ const PlaybackControls = {
         }
 
         const prevSong = PlayerState.queue[prevIndex];
-        Player.play(
-            prevSong.url,
-            prevSong.title,
-            prevSong.thumbnail,
-            prevSong.artist,
-            PlayerState.currentSource
-        );
+        Player.play(prevSong.url, prevSong.title, prevSong.thumbnail, prevSong.artist);
     }
 };
 
 // Library Management
 const Library = {
-    load() {
-        fetch('/library/get')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.library.length > 0) {
-                    PlayerState.library = data.library;
-                    document.getElementById('libraryList').style.display = 'block';
-                    document.getElementById('emptyLibraryMessage').style.display = 'none';
-                } else {
-                    document.getElementById('libraryList').style.display = 'none';
-                    document.getElementById('emptyLibraryMessage').style.display = 'block';
-                }
+    async load() {
+        try {
+            const response = await fetch('/library/get');
+            const data = await response.json();
+            if (data.success) {
+                PlayerState.library = data.library;
                 this.updateDisplay();
-            })
-            .catch(error => console.error('Error loading library:', error));
+            }
+        } catch (error) {
+            console.error('Error loading library:', error);
+        }
     },
 
     async add(songData) {
@@ -531,7 +307,6 @@ const Library = {
             if (data.success) {
                 PlayerState.library.push(songData);
                 this.updateDisplay();
-                Player.updateLikeButtonState();
                 alert('Song added to library!');
             }
         } catch (error) {
@@ -551,7 +326,6 @@ const Library = {
             if (data.success) {
                 PlayerState.library = PlayerState.library.filter(song => song.url !== songData.url);
                 this.updateDisplay();
-                Player.updateLikeButtonState();
                 alert('Song removed from library!');
             }
         } catch (error) {
@@ -592,45 +366,12 @@ const Library = {
                         <i class="fas ${song.url === PlayerState.currentSong?.url && PlayerState.isPlaying ? 'fa-pause' : 'fa-play'}"></i>
                     </button>
                     <button class="remove-from-library" 
-                        onclick="Library.handleRemoveClick(this)" 
-                        data-song='{"title": "${song.title}", "url": "${song.url}", "thumbnail": "${song.thumbnail}", "artist": "${song.artist}"}'>
+                        onclick="Library.remove(${JSON.stringify(song)})">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </li>
         `;
-    },
-
-    handleRemoveClick(buttonElement) {
-        const songData = JSON.parse(buttonElement.getAttribute('data-song'));
-        fetch('/library/remove', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(songData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const songElem = buttonElement.closest('.library-item');
-                if (songElem) songElem.remove();
-                PlayerState.library = PlayerState.library.filter(song => song.url !== songData.url);
-                Library.updateDisplay(); // Ensure the library display is updated correctly
-            } else {
-                alert(data.message || 'Failed to remove song');
-            }
-        })
-        .catch(error => {
-            console.error('Error removing song:', error);
-            alert('An error occurred while removing the song.');
-        });
-    },
-
-    handlePlayClick(url, title, thumbnail, artist) {
-        if (url === PlayerState.currentSong?.url && PlayerState.isPlaying) {
-            PlaybackControls.togglePlayPause();
-        } else {
-            Player.play(url, title, thumbnail, artist, 'library');
-        }
     }
 };
 
@@ -674,7 +415,7 @@ const Search = {
             return;
         }
 
-        const resultsHTML = results.map(song => `
+        Elements.search.list.innerHTML = results.map(song => `
             <li class="song-item" 
                 data-url="${song.url}"
                 data-title="${song.title}"
@@ -685,31 +426,16 @@ const Search = {
                     <h3>${song.title}</h3>
                     <p>${song.artist}</p>
                     <div class="song-buttons">
-                        <button onclick="Player.play('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}', 'search')" class="play-btn">
+                        <button onclick="Player.play('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')" class="play-btn">
                             <i class="fas fa-play"></i> Play
                         </button>
-                        <button class="add-to-library" 
-                            data-song='${JSON.stringify({
-                                title: song.title,
-                                url: song.url,
-                                thumbnail: song.thumbnail,
-                                artist: song.artist
-                            })}'>
+                        <button onclick="Library.add(${JSON.stringify(song)})" class="add-to-library">
                             <i class="fas fa-plus"></i> Add
                         </button>
                     </div>
                 </div>
             </li>
         `).join('');
-
-        Elements.search.list.innerHTML = resultsHTML;
-
-        document.querySelectorAll('.add-to-library').forEach(button => {
-            button.addEventListener('click', () => {
-                const songData = JSON.parse(button.dataset.song);
-                Library.add(songData);
-            });
-        });
     }
 };
 
@@ -722,395 +448,43 @@ function debounce(func, wait) {
     };
 }
 
-function formatTime(seconds) {
-    const minutes = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
-}
-
-// Add this new object for progress bar functionality
-const ProgressBar = {
-    isDragging: false,
-    
-    init() {
-        ['mini', 'main'].forEach(type => {
-            const progressBar = Elements.progressBars[type];
-            if (!progressBar) return;
-            progressBar.addEventListener('click', (e) => this.handleProgressClick(e));
-            progressBar.addEventListener('mousedown', (e) => this.handleDragStart(e));
-            progressBar.addEventListener('touchstart', (e) => this.handleDragStart(e), { passive: true });
-        });
-
-        document.addEventListener('mousemove', (e) => this.handleDragMove(e));
-        document.addEventListener('mouseup', (e) => this.handleDragEnd(e));
-        document.addEventListener('touchmove', (e) => this.handleDragMove(e), { passive: true });
-        document.addEventListener('touchend', (e) => this.handleDragEnd(e));
-    },
-
-    handleProgressClick(e) {
-        e.stopPropagation();
-        const progressBar = e.currentTarget;
-        const rect = progressBar.getBoundingClientRect();
-        const clickPosition = (e.clientX - rect.left) / rect.width;
-        const newTime = clickPosition * Elements.audio.duration;
-        
-        if (isFinite(newTime)) {
-            Elements.audio.currentTime = newTime;
-            this.updateProgress(newTime);
-        }
-    },
-
-    handleDragStart(e) {
-        e.stopPropagation();
-        this.isDragging = true;
-        const progressBar = e.currentTarget;
-        progressBar.style.cursor = 'grabbing';
-    },
-
-    handleDragMove(e) {
-        if (!this.isDragging) return;
-        
-        const progressBar = e.target.closest('.progress-bar');
-        if (!progressBar) return;
-        
-        const rect = progressBar.getBoundingClientRect();
-        const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
-        let clickPosition = (clientX - rect.left) / rect.width;
-        
-        clickPosition = Math.max(0, Math.min(1, clickPosition));
-        
-        const newTime = clickPosition * Elements.audio.duration;
-        if (isFinite(newTime)) {
-            Elements.audio.currentTime = newTime;
-            this.updateProgress(newTime);
-        }
-    },
-
-    handleDragEnd(e) {
-        if (!this.isDragging) return;
-        
-        const progressBar = e.target.closest('.progress-bar');
-        if (progressBar) {
-            progressBar.style.cursor = 'pointer';
-            
-            const rect = progressBar.getBoundingClientRect();
-            const clientX = e.type.includes('touch') ? e.changedTouches[0].clientX : e.clientX;
-            let clickPosition = (clientX - rect.left) / rect.width;
-            
-            clickPosition = Math.max(0, Math.min(1, clickPosition));
-            
-            const newTime = clickPosition * Elements.audio.duration;
-            if (isFinite(newTime)) {
-                Elements.audio.currentTime = newTime;
-            }
-        }
-        
-        this.isDragging = false;
-    },
-
-    updateProgress(currentTime) {
-        if (this.isDragging) return;
-        
-        const duration = Elements.audio.duration;
-        if (!isFinite(duration)) return;
-        
-        const progress = (currentTime / duration) * 100;
-        
-        Elements.progress.mini.bar.style.width = `${progress}%`;
-        Elements.progress.main.bar.style.width = `${progress}%`;
-        
-        Elements.progress.mini.current.textContent = formatTime(currentTime);
-        Elements.progress.main.current.textContent = formatTime(currentTime);
-        Elements.progress.mini.total.textContent = formatTime(duration);
-        Elements.progress.main.total.textContent = formatTime(duration);
-    }
-};
-
-// Add this new object for managing playback modes
-const PlaybackModes = {
-    toggleShuffle() {
-        PlayerState.isShuffleOn = !PlayerState.isShuffleOn;
-        
-        let currentQueue = [];
-        
-        if (PlayerState.currentSource === 'library') {
-            currentQueue = Array.from(document.querySelectorAll('.library-item')).map(item => ({
-                url: item.dataset.url,
-                title: item.dataset.title,
-                thumbnail: item.dataset.thumbnail,
-                artist: item.dataset.artist
-            }));
-        } else {
-            currentQueue = [...PlayerState.queue];
-        }
-
-        if (!currentQueue || currentQueue.length === 0) {
-            console.warn('No songs in queue to shuffle');
-            return;
-        }
-
-        if (PlayerState.isShuffleOn) {
-            PlayerState.originalQueue = [...currentQueue];
-            const currentSong = currentQueue[PlayerState.currentIndex];
-            const remainingSongs = currentQueue.filter(song => song.url !== currentSong.url);
-            this.shuffleQueue(remainingSongs);
-            PlayerState.queue = [currentSong, ...remainingSongs];
-            PlayerState.currentIndex = 0;
-        } else {
-            PlayerState.queue = [...PlayerState.originalQueue];
-            const currentSong = PlayerState.queue[PlayerState.currentIndex];
-            PlayerState.currentIndex = PlayerState.originalQueue.findIndex(song => song.url === currentSong.url);
-        }
-        
-        this.updateShuffleButtons();
-        console.log('Current queue after shuffle:', PlayerState.queue);
-    },
-
-    toggleRepeat() {
-        const modes = ['none', 'all', 'one'];
-        const currentIndex = modes.indexOf(PlayerState.repeatMode);
-        PlayerState.repeatMode = modes[(currentIndex + 1) % modes.length];
-        this.updateRepeatButtons();
-    },
-
-    shuffleQueue(queue) {
-        for (let i = queue.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [queue[i], queue[j]] = [queue[j], queue[i]];
-        }
-    },
-
-    updateShuffleButtons() {
-        const shuffleClass = PlayerState.isShuffleOn ? 'active' : '';
-        Elements.controls.shuffle.mini.classList.toggle('active', PlayerState.isShuffleOn);
-        Elements.controls.shuffle.main.classList.toggle('active', PlayerState.isShuffleOn);
-    },
-
-    updateRepeatButtons() {
-        ['mini', 'main'].forEach(type => {
-            const btn = Elements.controls.repeat[type];
-            btn.classList.remove('active', 'one');
-            
-            switch (PlayerState.repeatMode) {
-                case 'all':
-                    btn.classList.add('active');
-                    btn.innerHTML = '<i class="fas fa-redo"></i>';
-                    break;
-                case 'one':
-                    btn.classList.add('active', 'one');
-                    btn.innerHTML = '<i class="fas fa-redo-alt"></i>';
-                    break;
-                default:
-                    btn.innerHTML = '<i class="fas fa-redo"></i>';
-            }
-        });
-    }
-};
-
-// Add this new object to handle player view transitions
-const PlayerView = {
-    expand() {
-        Elements.expandedPlayer.classList.add('show');
-        document.body.style.overflow = 'hidden';
-    },
-
-    minimize() {
-        Elements.expandedPlayer.classList.remove('show');
-        document.body.style.overflow = '';
-    },
-
-    init() {
-        Elements.miniPlayerContent.addEventListener('click', (e) => {
-            const excludedElements = [
-                '.mini-control-buttons',
-                '.mini-like-btn',
-                '.volume-control',
-                '.progress-bar',
-                '#miniPlayBtn',
-                '#miniPrevBtn',
-                '#miniNextBtn',
-                '#miniShuffleBtn',
-                '#miniRepeatBtn',
-                '#miniVolumeBtn',
-                '#miniVolumeControl',
-                '.mini-progress-container',
-                '.play-btn',
-                '.add-to-library',
-                '.remove-from-library'
-            ];
-
-            const isExcluded = excludedElements.some(selector => 
-                e.target.closest(selector) !== null || 
-                e.target.matches(selector)
-            );
-
-            if (!isExcluded) {
-                this.expand();
-            }
-        });
-
-        Elements.minimizeBtn.addEventListener('click', () => this.minimize());
-    }
-};
-
-// Add this function to handle showing home content
-function showHome() {
-    Elements.search.results.style.display = 'none';
-    Elements.search.loader.style.display = 'none';
-    Elements.search.trending.style.display = 'block';
-    document.getElementById('moodPlaylistsContainer').style.display = 'block';
-    Elements.search.input.value = '';
-    document.querySelector('.home-btn').classList.add('active');
-}
-
-function toggleLibrary() {
-    const librarySection = document.getElementById('librarySection');
-    librarySection.classList.toggle('active');
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
     Library.load();
     Search.init();
 
-    // Add debounced click handler function
-    const debouncedClickHandler = debounce((handler) => {
-        handler();
-    }, 500);
-
-    // Update click handlers with debouncing
+    // Setup event listeners
     ['mini', 'main'].forEach(type => {
-        Elements.controls.play[type].addEventListener('click', (e) => {
-            e.preventDefault();
-            debouncedClickHandler(() => PlaybackControls.togglePlayPause());
-        });
-        
-        Elements.controls.prev[type].addEventListener('click', (e) => {
-            e.preventDefault();
-            debouncedClickHandler(() => PlaybackControls.playPrevious());
-        });
-        
-        Elements.controls.next[type].addEventListener('click', (e) => {
-            e.preventDefault();
-            debouncedClickHandler(() => PlaybackControls.playNext());
-        });
-        
-        Elements.controls.shuffle[type].addEventListener('click', (e) => {
-            e.preventDefault();
-            debouncedClickHandler(() => PlaybackModes.toggleShuffle());
-        });
-        
-        Elements.controls.repeat[type].addEventListener('click', (e) => {
-            e.preventDefault();
-            debouncedClickHandler(() => PlaybackModes.toggleRepeat());
-        });
+        Elements.controls.play[type].addEventListener('click', PlaybackControls.togglePlayPause);
+        Elements.controls.prev[type].addEventListener('click', PlaybackControls.playPrevious);
+        Elements.controls.next[type].addEventListener('click', PlaybackControls.playNext);
     });
 
-    // Update library item click handlers
-    document.addEventListener('click', (e) => {
-        const playBtn = e.target.closest('.play-btn');
-        if (playBtn) {
-            e.preventDefault();
-            const libraryItem = playBtn.closest('.library-item');
-            if (libraryItem) {
-                const url = libraryItem.dataset.url;
-                const title = libraryItem.dataset.title;
-                const thumbnail = libraryItem.dataset.thumbnail;
-                const artist = libraryItem.dataset.artist;
-                debouncedClickHandler(() => Player.play(url, title, thumbnail, artist, 'library'));
-            }
-        }
-    });
-
-    // Update song item click handlers
-    document.addEventListener('click', (e) => {
-        const playBtn = e.target.closest('.play-btn');
-        if (playBtn) {
-            e.preventDefault();
-            const songItem = playBtn.closest('.song-item');
-            if (songItem) {
-                const url = songItem.dataset.url;
-                const title = songItem.dataset.title;
-                const thumbnail = songItem.dataset.thumbnail;
-                const artist = songItem.dataset.artist;
-                debouncedClickHandler(() => Player.play(url, title, thumbnail, artist, 'search'));
-            }
-        }
-    });
-
-    // Check for the last played song in local storage
-    const lastPlayedSong = localStorage.getItem('lastPlayedSong');
-    if (lastPlayedSong) {
-        const song = JSON.parse(lastPlayedSong);
-        PlayerState.currentSong = song;
-        Player.updateDisplay(song.title, song.artist, song.thumbnail);
-        Player.showControls(true);
-
-        // Set up the audio source but do not play it automatically
-        Elements.audio.src = song.url;
-        Elements.audio.load();
-    }
-
+    // Volume control
     const handleVolumeChange = (e) => {
         const newVolume = parseFloat(e.target.value);
         PlayerState.volume = newVolume;
-        Elements.audio.volume = newVolume;
-        Elements.controls.volume.mini.value = newVolume;
-        Elements.controls.volume.main.value = newVolume;
+        if (PlayerState.audioSource) {
+            PlayerState.audioSource.volume = newVolume;
+        }
     };
     
     Elements.controls.volume.mini.addEventListener('input', handleVolumeChange);
     Elements.controls.volume.main.addEventListener('input', handleVolumeChange);
-    
-    Elements.audio.volume = PlayerState.volume;
-    Elements.controls.volume.mini.value = PlayerState.volume;
-    Elements.controls.volume.main.value = PlayerState.volume;
 
-    Elements.audio.addEventListener('timeupdate', () => ProgressBar.updateProgress(Elements.audio.currentTime));
-    Elements.audio.addEventListener('ended', PlaybackControls.playNext);
-    Elements.audio.addEventListener('error', (e) => {
-        console.error('Audio element error:', e);
-        // Don't show error to user, just try to recover
-        PlayerState.isPlaying = false;
-        Player.updatePlayPauseButtons();
-        
-        // Try to recover by reloading the audio
-        if (PlayerState.currentSong && PlayerState.currentSong.url) {
-            setTimeout(() => {
-                Player.play(
-                    PlayerState.currentSong.url,
-                    PlayerState.currentSong.title,
-                    PlayerState.currentSong.thumbnail,
-                    PlayerState.currentSong.artist
-                );
-            }, 1000);
-        }
+    // Player view transitions
+    Elements.miniPlayerContent.addEventListener('click', () => {
+        Elements.expandedPlayer.classList.add('show');
+        document.body.style.overflow = 'hidden';
     });
 
-    ProgressBar.init();
-    PlayerView.init();
-    PlaybackModes.updateShuffleButtons();
-    PlaybackModes.updateRepeatButtons();
-
-    ['play', 'pause', 'ended'].forEach(event => {
-        Elements.audio.addEventListener(event, () => {
-            PlayerState.isPlaying = event === 'play';
-            Player.updateAllPlayButtons(PlayerState.currentSong?.url);
-            if (event === 'ended') PlaybackControls.playNext();
-        });
+    Elements.minimizeBtn.addEventListener('click', () => {
+        Elements.expandedPlayer.classList.remove('show');
+        document.body.style.overflow = '';
     });
 
-    Elements.homeBtn.classList.add('active');
-    Elements.search.input.addEventListener('input', () => Elements.homeBtn.classList.remove('active'));
-
+    // Request notification permission
     if ('Notification' in window) {
         Notification.requestPermission();
     }
-
-    // Add event listener for the like button
-    document.querySelector('.mini-like-btn').addEventListener('click', () => {
-        Player.toggleLikeCurrentSong();
-    });
-
-    const latestVersion = await Player.fetchLatestVersion();
-    document.querySelector('.top-nav p').textContent = `Version: ${latestVersion}`;
 });
