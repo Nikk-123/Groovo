@@ -1386,5 +1386,20 @@ body {
     color: #1DB954;
 }
 
+.mini-control-btn.repeat.active,
+.control-btn.repeat.active {
+    color: #1DB954;
+}
+
+.mini-control-btn.repeat.once::after,
+.control-btn.repeat.once::after {
+    content: '1';
+    position: absolute;
+    font-size: 8px;
+    bottom: 2px;
+    right: 2px;
+    color: #1DB954;
+}
+
 
 
