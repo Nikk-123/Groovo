@@ -5,7 +5,7 @@ const PlayerState = {
     isPlaying: false,
     library: [],
     isShuffleOn: false,
-    repeatMode: 'none',
+    repeatMode: 'off',
     currentSong: null,
     volume: 1.0,
     audio: new Audio(), // Replace AudioContext with HTML5 Audio
@@ -319,9 +319,58 @@ const PlaybackControls = {
         }
     },
 
+    toggleRepeat() {
+        // Cycle through repeat modes: off -> all -> once -> off
+        switch (PlayerState.repeatMode) {
+            case 'off':
+                PlayerState.repeatMode = 'all';
+                break;
+            case 'all':
+                PlayerState.repeatMode = 'once';
+                break;
+            case 'once':
+                PlayerState.repeatMode = 'off';
+                break;
+        }
+
+        // Update button states
+        const repeatButtons = [
+            document.getElementById('miniRepeatBtn'),
+            document.getElementById('repeatBtn')
+        ];
+        
+        repeatButtons.forEach(btn => {
+            if (btn) {
+                // Remove all states first
+                btn.classList.remove('active', 'once');
+                
+                // Apply new states
+                if (PlayerState.repeatMode === 'all') {
+                    btn.classList.add('active');
+                } else if (PlayerState.repeatMode === 'once') {
+                    btn.classList.add('active', 'once');
+                }
+                
+                // Update tooltip
+                btn.title = `Repeat (${PlayerState.repeatMode})`;
+            }
+        });
+    },
+
     playNext() {
         const queue = PlayerState.isShuffleOn ? PlayerState.shuffledQueue : PlayerState.queue;
         if (queue.length === 0) return;
+
+        // If repeat once is enabled, replay the current song
+        if (PlayerState.repeatMode === 'once' && PlayerState.currentSong) {
+            Player.play(
+                PlayerState.currentSong.url,
+                PlayerState.currentSong.title,
+                PlayerState.currentSong.thumbnail,
+                PlayerState.currentSong.artist
+            );
+            return;
+        }
 
         let nextIndex = PlayerState.currentIndex + 1;
         if (nextIndex >= queue.length) {
@@ -591,6 +640,20 @@ document.addEventListener('DOMContentLoaded', () => {
             shuffleBtn.addEventListener('click', PlaybackControls.toggleShuffle);
             // Set initial state
             shuffleBtn.classList.toggle('active', PlayerState.isShuffleOn);
+        }
+    });
+
+    // Add repeat button listeners
+    ['mini', 'main'].forEach(type => {
+        const repeatBtn = type === 'mini' ? 
+            document.getElementById('miniRepeatBtn') : 
+            document.getElementById('repeatBtn');
+        
+        if (repeatBtn) {
+            repeatBtn.addEventListener('click', PlaybackControls.toggleRepeat);
+            // Set initial state
+            repeatBtn.classList.toggle('active', PlayerState.repeatMode !== 'off');
+            repeatBtn.classList.toggle('once', PlayerState.repeatMode === 'once');
         }
     });
 });
