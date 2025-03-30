@@ -14,12 +14,15 @@ body {
     overflow-x: hidden;
 }
 
-.library-item.playing {
+/* Playing state for items */
+.library-item.playing,
+.song-item.playing {
     background-color: rgba(30, 215, 96, 0.2) !important;
     position: relative;
 }
 
-.library-item.playing::before {
+.library-item.playing::before,
+.song-item.playing::before {
     content: '';
     position: absolute;
     left: 0;
@@ -1374,8 +1377,6 @@ body {
     color: #b3b3b3;
 }
 
-
-
 .control-btn.lyrics, .mini-control-btn.lyrics {
     color: #b3b3b3;
 }
@@ -1383,3 +1384,6 @@ body {
 .control-btn.lyrics.active, .mini-control-btn.lyrics.active {
     color: #1DB954;
 }
+
+
+

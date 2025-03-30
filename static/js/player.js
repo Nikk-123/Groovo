@@ -7,10 +7,8 @@ const PlayerState = {
     isShuffleOn: false,
     repeatMode: 'none',
     currentSong: null,
-    volume: 1,
-    audioContext: null,
-    audioSource: null,
-    audioBuffer: null,
+    volume: 1.0,
+    audio: new Audio(), // Replace AudioContext with HTML5 Audio
     lastPlayRequest: 0,
     playCooldown: 1000,
     isProcessingPlay: false,
@@ -18,7 +16,7 @@ const PlayerState = {
     maxRetries: 3
 };
 
-// DOM Elements
+// DOM Elements (unchanged)
 const Elements = {
     audio: document.getElementById('audioPlayer'),
     miniPlayer: document.querySelector('.mini-player'),
@@ -80,8 +78,7 @@ const Elements = {
 const Player = {
     async play(url, title, thumbnail, artist) {
         if (!url) return;
-        
-        // Validate and clean YouTube URL
+
         const cleanUrl = this.cleanYouTubeUrl(url);
         if (!cleanUrl) {
             console.error('Invalid YouTube URL:', url);
@@ -97,16 +94,14 @@ const Player = {
         try {
             PlayerState.isProcessingPlay = true;
             PlayerState.lastPlayRequest = now;
-            PlayerState.retryCount = 0; // Reset retry count for new song
+            PlayerState.retryCount = 0;
 
-            // Update state
             PlayerState.currentSong = { url: cleanUrl, title, thumbnail, artist };
             this.updateDisplay(title, artist, thumbnail);
             this.showControls(true);
 
-            console.log('Fetching audio for URL:', cleanUrl); // Debug log
+            console.log('Fetching audio for URL:', cleanUrl);
 
-            // Fetch audio URL
             const response = await fetch('/play', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -118,16 +113,13 @@ const Player = {
             }
 
             const data = await response.json();
-            console.log('Server response:', data); // Debug log
+            console.log('Server response:', data);
 
             if (!data.success || !data.audio_url) {
                 throw new Error(data.error || 'Failed to get audio URL');
             }
 
-            // Setup audio playback
-            await this.setupAudioPlayback(data.audio_url);
-
-            // Update UI
+            await this.setupAudioPlayback(data.audio_url, data.duration);
             this.updateUIState(cleanUrl);
             this.updateMetadata(title, artist, thumbnail);
 
@@ -144,27 +136,17 @@ const Player = {
 
     cleanYouTubeUrl(url) {
         try {
-            // Handle different YouTube URL formats
             const urlObj = new URL(url);
             if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
                 let videoId;
-                
                 if (urlObj.hostname.includes('youtube.com')) {
                     videoId = urlObj.searchParams.get('v');
                 } else {
                     videoId = urlObj.pathname.slice(1);
                 }
-
-                if (!videoId) {
-                    console.error('No video ID found in URL:', url);
-                    return null;
-                }
-
-                // Return clean YouTube URL
+                if (!videoId) return null;
                 return `https://www.youtube.com/watch?v=${videoId}`;
             }
-            
-            console.error('Not a YouTube URL:', url);
             return null;
         } catch (error) {
             console.error('Error cleaning URL:', error);
@@ -172,43 +154,26 @@ const Player = {
         }
     },
 
-    async setupAudioPlayback(audioUrl) {
+    async setupAudioPlayback(audioUrl, duration) {
         try {
-            // Stop current playback
-            if (PlayerState.audioSource) {
-                PlayerState.audioSource.stop();
-                PlayerState.audioSource = null;
-            }
-
-            // Create new audio context if needed
-            if (!PlayerState.audioContext) {
-                PlayerState.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-
-            // Fetch and decode audio
-            const response = await fetch(audioUrl);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch audio: ${response.status}`);
-            }
+            // Pause and reset current audio
+            PlayerState.audio.pause();
+            PlayerState.audio.src = audioUrl;
+            PlayerState.audio.volume = PlayerState.volume;
             
-            const arrayBuffer = await response.arrayBuffer();
-            PlayerState.audioBuffer = await PlayerState.audioContext.decodeAudioData(arrayBuffer);
-
-            // Create and configure audio source
-            PlayerState.audioSource = PlayerState.audioContext.createBufferSource();
-            PlayerState.audioSource.buffer = PlayerState.audioBuffer;
-            PlayerState.audioSource.connect(PlayerState.audioContext.destination);
-            PlayerState.audioSource.volume = PlayerState.volume;
-
             // Setup event handlers
-            PlayerState.audioSource.onended = () => PlaybackControls.playNext();
-            PlayerState.audioSource.onerror = (error) => {
-                console.error('Audio source error:', error);
+            PlayerState.audio.onended = () => PlaybackControls.playNext();
+            PlayerState.audio.onerror = (error) => {
+                console.error('Audio playback error:', error);
                 this.handlePlaybackError();
+            };
+            PlayerState.audio.onloadedmetadata = () => {
+                // Update duration if not provided by server
+                if (!duration) duration = PlayerState.audio.duration;
             };
 
             // Start playback
-            PlayerState.audioSource.start(0);
+            await PlayerState.audio.play();
             PlayerState.isPlaying = true;
 
         } catch (error) {
@@ -219,9 +184,9 @@ const Player = {
 
     updateDisplay(title, artist, thumbnail) {
         ['mini', 'main'].forEach(type => {
-            Elements.display[type].thumbnail.src = thumbnail;
-            Elements.display[type].title.textContent = title;
-            Elements.display[type].artist.textContent = artist;
+            Elements.display[type].thumbnail.src = thumbnail || 'default_thumbnail.jpg';
+            Elements.display[type].title.textContent = title || 'Unknown Title';
+            Elements.display[type].artist.textContent = artist || 'Unknown Artist';
         });
     },
 
@@ -232,18 +197,7 @@ const Player = {
     },
 
     updateUIState(url) {
-        // Update library items
-        document.querySelectorAll('.library-item').forEach(item => {
-            const isPlaying = item.dataset.url === url && PlayerState.isPlaying;
-            item.classList.toggle('playing', isPlaying);
-            const playBtn = item.querySelector('.play-btn i');
-            if (playBtn) {
-                playBtn.className = `fas fa-${isPlaying ? 'pause' : 'play'}`;
-            }
-        });
-
-        // Update song items
-        document.querySelectorAll('.song-item').forEach(item => {
+        document.querySelectorAll('.library-item, .song-item').forEach(item => {
             const isPlaying = item.dataset.url === url && PlayerState.isPlaying;
             item.classList.toggle('playing', isPlaying);
             const playBtn = item.querySelector('.play-btn i');
@@ -260,7 +214,7 @@ const Player = {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: title || 'Unknown Title',
                     artist: artist || 'Unknown Artist',
-                    artwork: thumbnail ? [{ src: thumbnail }] : []
+                    artwork: thumbnail ? [{ src: thumbnail, sizes: '512x512', type: 'image/jpeg' }] : []
                 });
 
                 navigator.mediaSession.setActionHandler('play', () => PlaybackControls.togglePlayPause());
@@ -274,36 +228,27 @@ const Player = {
     },
 
     async handlePlaybackError() {
-        if (!PlayerState.isPlaying) {
+        if (!PlayerState.isPlaying && PlayerState.retryCount < PlayerState.maxRetries) {
             PlayerState.retryCount++;
+            console.log(`Retrying playback (attempt ${PlayerState.retryCount}/${PlayerState.maxRetries})...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
             
-            if (PlayerState.retryCount < PlayerState.maxRetries) {
-                console.log(`Retrying playback (attempt ${PlayerState.retryCount}/${PlayerState.maxRetries})...`);
-                // Wait a bit before retrying
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
-                if (PlayerState.currentSong) {
-                    try {
-                        await this.play(
-                            PlayerState.currentSong.url,
-                            PlayerState.currentSong.title,
-                            PlayerState.currentSong.thumbnail,
-                            PlayerState.currentSong.artist
-                        );
-                        return; // If successful, return early
-                    } catch (retryError) {
-                        console.error('Retry failed:', retryError);
-                    }
-                }
+            if (PlayerState.currentSong) {
+                await this.play(
+                    PlayerState.currentSong.url,
+                    PlayerState.currentSong.title,
+                    PlayerState.currentSong.thumbnail,
+                    PlayerState.currentSong.artist
+                );
+                return;
             }
-
-            // If we've exhausted retries or retry failed
-            alert('Failed to play the song. Please try another one.');
-            this.showControls(false);
-            PlayerState.isPlaying = false;
-            this.updateAllPlayButtons(PlayerState.currentSong?.url);
-            PlayerState.currentSong = null;
         }
+
+        alert('Failed to play the song after retries. Please try another one.');
+        this.showControls(false);
+        PlayerState.isPlaying = false;
+        this.updateAllPlayButtons(PlayerState.currentSong?.url);
+        PlayerState.currentSong = null;
     },
 
     updateAllPlayButtons(url) {
@@ -316,16 +261,16 @@ const Player = {
 // Playback Controls
 const PlaybackControls = {
     togglePlayPause() {
-        if (!PlayerState.audioSource) return;
+        if (!PlayerState.currentSong) return;
 
         if (PlayerState.isPlaying) {
-            PlayerState.audioSource.stop();
+            PlayerState.audio.pause();
             PlayerState.isPlaying = false;
         } else {
-            PlayerState.audioSource.start(0);
+            PlayerState.audio.play();
             PlayerState.isPlaying = true;
         }
-        Player.updateAllPlayButtons(PlayerState.currentSong?.url);
+        Player.updateAllPlayButtons(PlayerState.currentSong.url);
     },
 
     playNext() {
@@ -340,6 +285,7 @@ const PlaybackControls = {
             }
         }
 
+        PlayerState.currentIndex = nextIndex;
         const nextSong = PlayerState.queue[nextIndex];
         Player.play(nextSong.url, nextSong.title, nextSong.thumbnail, nextSong.artist);
     },
@@ -356,12 +302,13 @@ const PlaybackControls = {
             }
         }
 
+        PlayerState.currentIndex = prevIndex;
         const prevSong = PlayerState.queue[prevIndex];
         Player.play(prevSong.url, prevSong.title, prevSong.thumbnail, prevSong.artist);
     }
 };
 
-// Library Management
+// Library Management (unchanged except for play button handling)
 const Library = {
     async load() {
         try {
@@ -455,7 +402,7 @@ const Library = {
     }
 };
 
-// Search Functionality
+// Search Functionality (unchanged)
 const Search = {
     init() {
         Elements.search.input.addEventListener('input', debounce(this.handleSearch.bind(this), 500));
@@ -544,16 +491,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleVolumeChange = (e) => {
         const newVolume = parseFloat(e.target.value);
         PlayerState.volume = newVolume;
-        if (PlayerState.audioSource) {
-            PlayerState.audioSource.volume = newVolume;
-        }
+        PlayerState.audio.volume = newVolume;
     };
     
     Elements.controls.volume.mini.addEventListener('input', handleVolumeChange);
     Elements.controls.volume.main.addEventListener('input', handleVolumeChange);
 
     // Player view transitions
-    Elements.miniPlayerContent.addEventListener('click', () => {
+    Elements.miniPlayer.addEventListener('click', () => {
         Elements.expandedPlayer.classList.add('show');
         document.body.style.overflow = 'hidden';
     });
