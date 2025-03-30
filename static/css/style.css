@@ -1014,21 +1014,17 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 32px;
+    padding: 16px;
+    position: relative;
 }
 
-.minimize-btn, .more-btn {
-    background: none;
-    border: none;
-    color: #fff;
-    cursor: pointer;
-    padding: 8px;
+.minimize-btn {
+    width: 40px;
 }
 
 .now-playing-text {
-    color: #fff;
-    font-size: 14px;
-    font-weight: 500;
+    text-align: center;
+    flex-grow: 1;
 }
 
 .expanded-content {
@@ -1382,6 +1378,11 @@ body {
 }
 
 .control-btn.lyrics.active, .mini-control-btn.lyrics.active {
+    color: #1DB954;
+}
+
+.mini-control-btn.shuffle.active,
+.control-btn.shuffle.active {
     color: #1DB954;
 }
 

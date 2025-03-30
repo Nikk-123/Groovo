@@ -13,7 +13,8 @@ const PlayerState = {
     playCooldown: 1000,
     isProcessingPlay: false,
     retryCount: 0,
-    maxRetries: 3
+    maxRetries: 3,
+    shuffledQueue: []
 };
 
 // DOM Elements (unchanged)
@@ -134,6 +135,17 @@ const Player = {
         }
     },
 
+    async togglePlayPause(url, title, thumbnail, artist) {
+        // If this is the currently playing song, just toggle play/pause
+        if (PlayerState.currentSong && PlayerState.currentSong.url === url) {
+            PlaybackControls.togglePlayPause();
+            return;
+        }
+        
+        // If it's a different song, start playing it
+        await this.play(url, title, thumbnail, artist);
+    },
+
     cleanYouTubeUrl(url) {
         try {
             const urlObj = new URL(url);
@@ -188,6 +200,9 @@ const Player = {
             Elements.display[type].title.textContent = title || 'Unknown Title';
             Elements.display[type].artist.textContent = artist || 'Unknown Artist';
         });
+        if (PlayerState.currentSong) {
+            Library.updateLikeButton(PlayerState.currentSong.url);
+        }
     },
 
     showControls(show) {
@@ -198,8 +213,10 @@ const Player = {
 
     updateUIState(url) {
         document.querySelectorAll('.library-item, .song-item').forEach(item => {
-            const isPlaying = item.dataset.url === url && PlayerState.isPlaying;
+            const isCurrentSong = item.dataset.url === url;
+            const isPlaying = isCurrentSong && PlayerState.isPlaying;
             item.classList.toggle('playing', isPlaying);
+            
             const playBtn = item.querySelector('.play-btn i');
             if (playBtn) {
                 playBtn.className = `fas fa-${isPlaying ? 'pause' : 'play'}`;
@@ -273,11 +290,41 @@ const PlaybackControls = {
         Player.updateAllPlayButtons(PlayerState.currentSong.url);
     },
 
+    toggleShuffle() {
+        PlayerState.isShuffleOn = !PlayerState.isShuffleOn;
+        
+        // Update button states
+        const shuffleButtons = [
+            document.getElementById('miniShuffleBtn'),
+            document.getElementById('shuffleBtn')
+        ];
+        
+        shuffleButtons.forEach(btn => {
+            if (btn) {
+                btn.classList.toggle('active', PlayerState.isShuffleOn);
+            }
+        });
+
+        if (PlayerState.isShuffleOn) {
+            // Create shuffled queue
+            PlayerState.shuffledQueue = [...PlayerState.queue];
+            for (let i = PlayerState.shuffledQueue.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [PlayerState.shuffledQueue[i], PlayerState.shuffledQueue[j]] = 
+                [PlayerState.shuffledQueue[j], PlayerState.shuffledQueue[i]];
+            }
+        } else {
+            // Clear shuffled queue
+            PlayerState.shuffledQueue = [];
+        }
+    },
+
     playNext() {
-        if (PlayerState.queue.length === 0) return;
+        const queue = PlayerState.isShuffleOn ? PlayerState.shuffledQueue : PlayerState.queue;
+        if (queue.length === 0) return;
 
         let nextIndex = PlayerState.currentIndex + 1;
-        if (nextIndex >= PlayerState.queue.length) {
+        if (nextIndex >= queue.length) {
             if (PlayerState.repeatMode === 'all') {
                 nextIndex = 0;
             } else {
@@ -286,24 +333,25 @@ const PlaybackControls = {
         }
 
         PlayerState.currentIndex = nextIndex;
-        const nextSong = PlayerState.queue[nextIndex];
+        const nextSong = queue[nextIndex];
         Player.play(nextSong.url, nextSong.title, nextSong.thumbnail, nextSong.artist);
     },
 
     playPrevious() {
-        if (PlayerState.queue.length === 0) return;
+        const queue = PlayerState.isShuffleOn ? PlayerState.shuffledQueue : PlayerState.queue;
+        if (queue.length === 0) return;
 
         let prevIndex = PlayerState.currentIndex - 1;
         if (prevIndex < 0) {
             if (PlayerState.repeatMode === 'all') {
-                prevIndex = PlayerState.queue.length - 1;
+                prevIndex = queue.length - 1;
             } else {
                 return;
             }
         }
 
         PlayerState.currentIndex = prevIndex;
-        const prevSong = PlayerState.queue[prevIndex];
+        const prevSong = queue[prevIndex];
         Player.play(prevSong.url, prevSong.title, prevSong.thumbnail, prevSong.artist);
     }
 };
@@ -334,7 +382,7 @@ const Library = {
             if (data.success) {
                 PlayerState.library.push(songData);
                 this.updateDisplay();
-                alert('Song added to library!');
+                this.updateLikeButton(songData.url);
             }
         } catch (error) {
             console.error('Error adding to library:', error);
@@ -353,7 +401,7 @@ const Library = {
             if (data.success) {
                 PlayerState.library = PlayerState.library.filter(song => song.url !== songData.url);
                 this.updateDisplay();
-                alert('Song removed from library!');
+                this.updateLikeButton(songData.url);
             }
         } catch (error) {
             console.error('Error removing from library:', error);
@@ -389,7 +437,7 @@ const Library = {
                     <p>${song.artist}</p>
                 </div>
                 <div class="library-item-controls">
-                    <button onclick="Player.play('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')" class="play-btn">
+                    <button onclick="Player.togglePlayPause('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')" class="play-btn">
                         <i class="fas ${song.url === PlayerState.currentSong?.url && PlayerState.isPlaying ? 'fa-pause' : 'fa-play'}"></i>
                     </button>
                     <button class="remove-from-library" 
@@ -399,6 +447,26 @@ const Library = {
                 </div>
             </li>
         `;
+    },
+
+    async toggleLike(song) {
+        if (!song) return;
+
+        const isInLibrary = PlayerState.library.some(s => s.url === song.url);
+        if (isInLibrary) {
+            await this.remove(song);
+        } else {
+            await this.add(song);
+        }
+        this.updateLikeButton(song.url);
+    },
+
+    updateLikeButton(songUrl) {
+        const likeButton = document.getElementById('likeButtonIcon');
+        if (!likeButton) return;
+
+        const isInLibrary = PlayerState.library.some(song => song.url === songUrl);
+        likeButton.className = `fa-heart ${isInLibrary ? 'fas' : 'far'}`;
     }
 };
 
@@ -453,7 +521,7 @@ const Search = {
                     <h3>${song.title}</h3>
                     <p>${song.artist}</p>
                     <div class="song-buttons">
-                        <button onclick="Player.play('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')" class="play-btn">
+                        <button onclick="Player.togglePlayPause('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')" class="play-btn">
                             <i class="fas fa-play"></i> Play
                         </button>
                         <button onclick="Library.add(${JSON.stringify(song)})" class="add-to-library">
@@ -512,4 +580,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('Notification' in window) {
         Notification.requestPermission();
     }
+
+    // Add shuffle button listeners
+    ['mini', 'main'].forEach(type => {
+        const shuffleBtn = type === 'mini' ? 
+            document.getElementById('miniShuffleBtn') : 
+            document.getElementById('shuffleBtn');
+        
+        if (shuffleBtn) {
+            shuffleBtn.addEventListener('click', PlaybackControls.toggleShuffle);
+            // Set initial state
+            shuffleBtn.classList.toggle('active', PlayerState.isShuffleOn);
+        }
+    });
 });
