@@ -14,7 +14,8 @@ const PlayerState = {
     isProcessingPlay: false,
     retryCount: 0,
     maxRetries: 3,
-    shuffledQueue: []
+    shuffledQueue: [],
+    libraryQueue: []
 };
 
 // DOM Elements (unchanged)
@@ -272,6 +273,29 @@ const Player = {
         const icon = PlayerState.isPlaying ? 'fa-pause' : 'fa-play';
         Elements.controls.play.mini.innerHTML = `<i class="fas ${icon}"></i>`;
         Elements.controls.play.main.innerHTML = `<i class="fas ${icon}"></i>`;
+    },
+
+    playFromLibrary(url, title, thumbnail, artist) {
+        // Create library queue if not already playing from library
+        if (!PlayerState.libraryQueue.length) {
+            const libraryItems = document.querySelectorAll('.library-item');
+            PlayerState.libraryQueue = Array.from(libraryItems).map(item => ({
+                url: item.dataset.url,
+                title: item.dataset.title,
+                thumbnail: item.dataset.thumbnail,
+                artist: item.dataset.artist
+            }));
+        }
+
+        // Find the index of the clicked song in the library queue
+        const songIndex = PlayerState.libraryQueue.findIndex(song => song.url === url);
+        if (songIndex !== -1) {
+            PlayerState.currentIndex = songIndex;
+            PlayerState.queue = PlayerState.libraryQueue; // Use library as the current queue
+        }
+
+        // Play the selected song
+        this.play(url, title, thumbnail, artist);
     }
 };
 
@@ -377,6 +401,9 @@ const PlaybackControls = {
             if (PlayerState.repeatMode === 'all') {
                 nextIndex = 0;
             } else {
+                // If no repeat, stop at the end of the queue
+                PlayerState.isPlaying = false;
+                Player.updateAllPlayButtons();
                 return;
             }
         }
@@ -486,7 +513,7 @@ const Library = {
                     <p>${song.artist}</p>
                 </div>
                 <div class="library-item-controls">
-                    <button onclick="Player.togglePlayPause('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')" class="play-btn">
+                    <button onclick="Player.playFromLibrary('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')" class="play-btn">
                         <i class="fas ${song.url === PlayerState.currentSong?.url && PlayerState.isPlaying ? 'fa-pause' : 'fa-play'}"></i>
                     </button>
                     <button class="remove-from-library" 
