@@ -417,7 +417,7 @@ def dashboard():
 @app.route('/play', methods=['POST', 'OPTIONS'])
 def play():
     if request.method == 'OPTIONS':
-        # For CORS preflight
+        # Handle CORS preflight
         response = jsonify({'status': 'ok'})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
@@ -430,43 +430,75 @@ def play():
     if not video_url:
         return jsonify({"success": False, "error": "No URL provided"}), 400
 
-    # Simplified yt-dlp options
+    # Updated yt-dlp options for 2025 compatibility
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': 'bestaudio/best',  # Prioritize best audio quality
         'quiet': True,
-        'extract_flat': False,
-        'noplaylist': True,
-        'no_warnings': True
+        'noplaylist': True,          # Ensure single video processing
+        'no_warnings': True,
+        'extractaudio': True,
+        'geturl': True,              # Explicitly get the direct URL
+        'simulate': True,            # Don't download, just extract info
+        'force_generic_extractor': False,
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+            'Accept': '*/*',
+            'Referer': 'https://www.youtube.com/'
+        },
+        'socket_timeout': 20,
+        'source_address': '0.0.0.0',
     }
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
+            # Extract info with updated error handling
             info = ydl.extract_info(video_url, download=False)
             
-            # Get direct audio URL
-            audio_url = info['url']
+            if not info:
+                return jsonify({
+                    "success": False,
+                    "error": "Unable to extract video information"
+                }), 500
 
-            # Get thumbnail
+            # Handle cases where direct URL might be in different fields
+            audio_url = info.get('url') or info.get('direct_url')
+            if not audio_url:
+                # Fallback to formats if direct URL isn't available
+                formats = info.get('formats', [])
+                audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
+                if audio_formats:
+                    audio_url = audio_formats[-1].get('url')  # Get highest quality audio
+                else:
+                    return jsonify({
+                        "success": False,
+                        "error": "No audio formats available"
+                    }), 500
+
+            # Extract thumbnail with fallback
             thumbnails = info.get('thumbnails', [])
             thumbnail_url = ''
-            for thumb in thumbnails:
-                if thumb.get('height', 0) >= 180:
-                    thumbnail_url = thumb['url']
-                    break
-            if not thumbnail_url and thumbnails:
-                thumbnail_url = thumbnails[0]['url']
+            if thumbnails:
+                # Sort by resolution and get highest available
+                sorted_thumbs = sorted(thumbnails, key=lambda x: x.get('height', 0), reverse=True)
+                thumbnail_url = sorted_thumbs[0].get('url', '')
 
-            # Artist info
-            artist = info.get('artist') or info.get('channel') or info.get('uploader', 'Unknown Artist')
+            # Get artist information with multiple fallbacks
+            artist = (info.get('artist') or 
+                     info.get('uploader') or 
+                     info.get('channel') or 
+                     'Unknown Artist')
 
-            # Return simplified response
+            # Extract title and duration
+            title = info.get('title', 'Unknown Title')
+            duration = info.get('duration', 0)
+
             response = jsonify({
                 'success': True,
                 'audio_url': audio_url,
-                'title': info.get('title', 'Unknown Title'),
+                'title': title,
                 'thumbnail': thumbnail_url,
                 'artist': artist,
-                'duration': info.get('duration', 0)
+                'duration': duration
             })
             response.headers.add('Access-Control-Allow-Origin', '*')
             return response
