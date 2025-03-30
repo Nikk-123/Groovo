@@ -430,45 +430,21 @@ def play():
     if not video_url:
         return jsonify({"success": False, "error": "No URL provided"}), 400
 
-    # yt-dlp options
+    # Simplified yt-dlp options
     ydl_opts = {
         'format': 'bestaudio/best',
         'quiet': True,
-        'no_warnings': True,
-        'extract_audio': True,
-        'audio_format': 'mp3',
-        'audio_quality': 0,
-        'geo_bypass': True,
-        'nocheckcertificate': True,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '0',
-        }],
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
+        'extract_flat': False,
+        'noplaylist': True,
+        'no_warnings': True
     }
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
-
-            # Try to get direct audio stream URL
-            audio_url = None
-            if 'url' in info:
-                audio_url = info['url']
-            else:
-                for f in info.get('formats', []):
-                    if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
-                        audio_url = f['url']
-                        break
-
-            if not audio_url:
-                return jsonify({
-                    "success": False,
-                    "error": "No suitable audio stream found."
-                }), 400
+            
+            # Get direct audio URL
+            audio_url = info['url']
 
             # Get thumbnail
             thumbnails = info.get('thumbnails', [])
@@ -480,10 +456,10 @@ def play():
             if not thumbnail_url and thumbnails:
                 thumbnail_url = thumbnails[0]['url']
 
-            # Artist
+            # Artist info
             artist = info.get('artist') or info.get('channel') or info.get('uploader', 'Unknown Artist')
 
-            # Response
+            # Return simplified response
             response = jsonify({
                 'success': True,
                 'audio_url': audio_url,
