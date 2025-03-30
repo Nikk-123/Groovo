@@ -417,110 +417,91 @@ def dashboard():
 @app.route('/play', methods=['POST', 'OPTIONS'])
 def play():
     if request.method == 'OPTIONS':
+        # For CORS preflight
         response = jsonify({'status': 'ok'})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
         response.headers.add('Access-Control-Allow-Methods', 'POST')
         return response
 
-    try:
-        data = request.get_json()
-        video_url = data.get('url')
-        
-        if not video_url:
-            return jsonify({"success": False, "error": "No URL provided"}), 400
+    data = request.get_json()
+    video_url = data.get('url')
 
-        # Configure yt-dlp options for better audio extraction
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'quiet': True,
-            'no_warnings': True,
-            'extract_audio': True,
-            'audio_format': 'mp3',
-            'audio_quality': 0,  # Best quality
-            'prefer_insecure': True,
-            'geo_bypass': True,
-            'nocheckcertificate': True,
-            'extract_flat': False,
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '0',
-            }],
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
+    if not video_url:
+        return jsonify({"success": False, "error": "No URL provided"}), 400
+
+    # yt-dlp options
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'quiet': True,
+        'no_warnings': True,
+        'extract_audio': True,
+        'audio_format': 'mp3',
+        'audio_quality': 0,
+        'geo_bypass': True,
+        'nocheckcertificate': True,
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '0',
+        }],
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
+    }
 
-        try:
-            with YoutubeDL(ydl_opts) as ydl:
-                # Extract video info
-                info = ydl.extract_info(video_url, download=False)
-                
-                # Get the best audio URL
-                if 'url' in info:
-                    audio_url = info['url']
-                else:
-                    formats = info.get('formats', [])
-                    audio_format = None
-                    
-                    # Try to find the best audio format
-                    for f in formats:
-                        if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
-                            audio_format = f
-                            break
-                    
-                    if not audio_format:
-                        for f in formats:
-                            if f.get('acodec') != 'none':
-                                audio_format = f
-                                break
-                    
-                    if not audio_format:
-                        raise Exception("No suitable audio format found")
-                    
-                    audio_url = audio_format['url']
+    try:
+        with YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(video_url, download=False)
 
-                # Get thumbnail URL
-                thumbnails = info.get('thumbnails', [])
-                thumbnail_url = ''
-                if thumbnails:
-                    for thumb in thumbnails:
-                        if thumb.get('height', 0) >= 180:
-                            thumbnail_url = thumb['url']
-                            break
-                    if not thumbnail_url and thumbnails:
-                        thumbnail_url = thumbnails[0]['url']
+            # Try to get direct audio stream URL
+            audio_url = None
+            if 'url' in info:
+                audio_url = info['url']
+            else:
+                for f in info.get('formats', []):
+                    if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
+                        audio_url = f['url']
+                        break
 
-                # Get artist name
-                artist = info.get('artist', info.get('channel', info.get('uploader', 'Unknown Artist')))
+            if not audio_url:
+                return jsonify({
+                    "success": False,
+                    "error": "No suitable audio stream found."
+                }), 400
 
-                # Return the response
-                response = jsonify({
-                    'success': True,
-                    'audio_url': audio_url,
-                    'title': info.get('title', 'Unknown Title'),
-                    'thumbnail': thumbnail_url,
-                    'artist': artist,
-                    'duration': info.get('duration', 0)
-                })
-                
-                response.headers.add('Access-Control-Allow-Origin', '*')
-                return response
+            # Get thumbnail
+            thumbnails = info.get('thumbnails', [])
+            thumbnail_url = ''
+            for thumb in thumbnails:
+                if thumb.get('height', 0) >= 180:
+                    thumbnail_url = thumb['url']
+                    break
+            if not thumbnail_url and thumbnails:
+                thumbnail_url = thumbnails[0]['url']
 
-        except Exception as e:
-            print(f"YoutubeDL error: {str(e)}")
-            return jsonify({
-                "success": False,
-                "error": f"Could not fetch audio stream: {str(e)}"
-            }), 400
+            # Artist
+            artist = info.get('artist') or info.get('channel') or info.get('uploader', 'Unknown Artist')
+
+            # Response
+            response = jsonify({
+                'success': True,
+                'audio_url': audio_url,
+                'title': info.get('title', 'Unknown Title'),
+                'thumbnail': thumbnail_url,
+                'artist': artist,
+                'duration': info.get('duration', 0)
+            })
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response
 
     except Exception as e:
-        print(f"Error in play route: {str(e)}")
+        print(f"[ERROR] /play: {str(e)}")
         return jsonify({
             "success": False,
-            "error": f"Internal server error: {str(e)}"
+            "error": f"Error fetching audio: {str(e)}"
         }), 500
+
 
 @app.route('/search', methods=['GET'])
 def search_song():
