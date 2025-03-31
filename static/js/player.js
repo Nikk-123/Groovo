@@ -600,8 +600,12 @@ const Search = {
                         <button onclick="Player.togglePlayPause('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')" class="play-btn">
                             <i class="fas fa-play"></i> Play
                         </button>
-                        <button onclick="Library.add(${JSON.stringify(song)})" class="add-to-library">
-                            <i class="fas fa-plus"></i> Add
+                        <button 
+                            class="add-to-library"
+                            onclick="Library.toggleLike({url: '${song.url}', title: '${song.title}', thumbnail: '${song.thumbnail}', artist: '${song.artist}'})"
+                            title="Save to Library"
+                        >
+                            <i class="fa-heart ${PlayerState.library.some(s => s.url === song.url) ? 'fas' : 'far'}"></i>
                         </button>
                     </div>
                 </div>
@@ -617,6 +621,25 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), wait);
     };
+}
+
+// Add this function to handle volume icon updates
+function updateVolumeIcons(volume) {
+    const volumeIcons = {
+        mute: 'fa-volume-mute',
+        low: 'fa-volume-down',
+        high: 'fa-volume-up'
+    };
+
+    const getVolumeIcon = (vol) => {
+        if (vol === 0) return volumeIcons.mute;
+        if (vol < 0.5) return volumeIcons.low;
+        return volumeIcons.high;
+    };
+
+    const icon = getVolumeIcon(volume);
+    document.getElementById('miniVolumeBtn').innerHTML = `<i class="fas ${icon}"></i>`;
+    document.getElementById('volumeBtn').innerHTML = `<i class="fas ${icon}"></i>`;
 }
 
 // Initialize
@@ -636,10 +659,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const newVolume = parseFloat(e.target.value);
         PlayerState.volume = newVolume;
         PlayerState.audio.volume = newVolume;
+        updateVolumeIcons(newVolume);
+        
+        // Sync both volume controls
+        Elements.controls.volume.mini.value = newVolume;
+        Elements.controls.volume.main.value = newVolume;
     };
     
     Elements.controls.volume.mini.addEventListener('input', handleVolumeChange);
     Elements.controls.volume.main.addEventListener('input', handleVolumeChange);
+
+    // Add click handlers for volume buttons
+    document.getElementById('miniVolumeBtn').addEventListener('click', () => {
+        const newVolume = PlayerState.volume === 0 ? 1 : 0;
+        PlayerState.volume = newVolume;
+        PlayerState.audio.volume = newVolume;
+        updateVolumeIcons(newVolume);
+        Elements.controls.volume.mini.value = newVolume;
+        Elements.controls.volume.main.value = newVolume;
+    });
+
+    document.getElementById('volumeBtn').addEventListener('click', () => {
+        const newVolume = PlayerState.volume === 0 ? 1 : 0;
+        PlayerState.volume = newVolume;
+        PlayerState.audio.volume = newVolume;
+        updateVolumeIcons(newVolume);
+        Elements.controls.volume.mini.value = newVolume;
+        Elements.controls.volume.main.value = newVolume;
+    });
 
     // Player view transitions
     Elements.miniPlayer.addEventListener('click', () => {
