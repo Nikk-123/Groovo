@@ -640,7 +640,7 @@ const Search = {
                     <p>${song.artist}</p>
                     <div class="song-buttons">
                         <button onclick="Player.togglePlayPause('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')" class="play-btn">
-                            <i class="fas fa-play"></i> Play
+                            <i class="fas fa-play"></i>
                         </button>
                         <button 
                             class="add-to-library"
@@ -667,10 +667,13 @@ function debounce(func, wait) {
 
 // Update the volume control handling
 function updateVolumeControls(volume) {
+    // Clamp volume between 0 and 1 for HTML5 Audio
+    const clampedVolume = Math.min(Math.max(volume, 0), 1);
+    
     // Update audio volume
-    PlayerState.volume = volume;
-    PlayerState.audio.volume = volume;
-
+    PlayerState.volume = volume; // Keep original volume value for display
+    PlayerState.audio.volume = clampedVolume; // Use clamped volume for audio
+    
     // Update volume sliders - sync both controls
     const volumeControls = document.querySelectorAll('#miniVolumeControl, #volumeControl');
     volumeControls.forEach(control => {
@@ -737,6 +740,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Setup volume controls with single handler
     document.querySelectorAll('#miniVolumeControl, #volumeControl').forEach(control => {
         if (control) {
+            control.min = "0";
+            control.max = "1"; // Change max to 1 instead of 2
+            control.step = "0.01";
             control.value = PlayerState.volume;
             control.addEventListener('input', handleVolumeChange);
         }
@@ -787,3 +793,12 @@ document.addEventListener('DOMContentLoaded', () => {
         Notification.requestPermission();
     }
 });
+
+// Add this function at the end of the file, just before the DOMContentLoaded event listener
+function toggleLibrary() {
+    const librarySection = document.getElementById('librarySection');
+    if (librarySection) {
+        librarySection.classList.toggle('show');
+        document.body.classList.toggle('library-open');
+    }
+}
