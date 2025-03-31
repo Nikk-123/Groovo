@@ -180,9 +180,36 @@ const Player = {
                 console.error('Audio playback error:', error);
                 this.handlePlaybackError();
             };
-            PlayerState.audio.onloadedmetadata = () => {
-                // Update duration if not provided by server
-                if (!duration) duration = PlayerState.audio.duration;
+
+            // Add timeupdate event listener
+            PlayerState.audio.ontimeupdate = () => {
+                const audio = PlayerState.audio;
+                if (!audio || !audio.duration) return;
+
+                const currentTime = audio.currentTime;
+                const duration = audio.duration;
+                const progressPercentage = (currentTime / duration) * 100;
+
+                // Update progress bars
+                const miniProgress = document.querySelector('.mini-player .progress');
+                const mainProgress = document.querySelector('.expanded-player .progress');
+                
+                if (miniProgress) miniProgress.style.width = `${progressPercentage}%`;
+                if (mainProgress) mainProgress.style.width = `${progressPercentage}%`;
+
+                // Update time displays
+                const formatTime = (seconds) => {
+                    const mins = Math.floor(seconds / 60);
+                    const secs = Math.floor(seconds % 60);
+                    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                };
+
+                document.querySelectorAll('.current-time').forEach(el => {
+                    el.textContent = formatTime(currentTime);
+                });
+                document.querySelectorAll('.total-time').forEach(el => {
+                    el.textContent = formatTime(duration);
+                });
             };
 
             // Start playback
@@ -623,7 +650,23 @@ function debounce(func, wait) {
     };
 }
 
-// Add this function to handle volume icon updates
+// Update the volume control handling
+function updateVolumeControls(volume) {
+    // Update audio volume
+    PlayerState.volume = volume;
+    PlayerState.audio.volume = volume;
+
+    // Update volume sliders
+    const miniVolumeControl = document.getElementById('miniVolumeControl');
+    const volumeControl = document.getElementById('volumeControl');
+    
+    if (miniVolumeControl) miniVolumeControl.value = volume;
+    if (volumeControl) volumeControl.value = volume;
+
+    // Update volume icons
+    updateVolumeIcons(volume);
+}
+
 function updateVolumeIcons(volume) {
     const volumeIcons = {
         mute: 'fa-volume-mute',
@@ -638,8 +681,11 @@ function updateVolumeIcons(volume) {
     };
 
     const icon = getVolumeIcon(volume);
-    document.getElementById('miniVolumeBtn').innerHTML = `<i class="fas ${icon}"></i>`;
-    document.getElementById('volumeBtn').innerHTML = `<i class="fas ${icon}"></i>`;
+    const miniVolumeBtn = document.getElementById('miniVolumeBtn');
+    const volumeBtn = document.getElementById('volumeBtn');
+    
+    if (miniVolumeBtn) miniVolumeBtn.innerHTML = `<i class="fas ${icon}"></i>`;
+    if (volumeBtn) volumeBtn.innerHTML = `<i class="fas ${icon}"></i>`;
 }
 
 // Initialize
@@ -657,36 +703,42 @@ document.addEventListener('DOMContentLoaded', () => {
     // Volume control
     const handleVolumeChange = (e) => {
         const newVolume = parseFloat(e.target.value);
-        PlayerState.volume = newVolume;
-        PlayerState.audio.volume = newVolume;
-        updateVolumeIcons(newVolume);
-        
-        // Sync both volume controls
-        Elements.controls.volume.mini.value = newVolume;
-        Elements.controls.volume.main.value = newVolume;
+        updateVolumeControls(newVolume);
     };
     
-    Elements.controls.volume.mini.addEventListener('input', handleVolumeChange);
-    Elements.controls.volume.main.addEventListener('input', handleVolumeChange);
+    // Setup volume control listeners
+    const miniVolumeControl = document.getElementById('miniVolumeControl');
+    const volumeControl = document.getElementById('volumeControl');
+    
+    if (miniVolumeControl) {
+        miniVolumeControl.value = PlayerState.volume;
+        miniVolumeControl.addEventListener('input', handleVolumeChange);
+    }
+    
+    if (volumeControl) {
+        volumeControl.value = PlayerState.volume;
+        volumeControl.addEventListener('input', handleVolumeChange);
+    }
 
-    // Add click handlers for volume buttons
-    document.getElementById('miniVolumeBtn').addEventListener('click', () => {
+    // Volume button click handlers
+    const handleVolumeButtonClick = () => {
         const newVolume = PlayerState.volume === 0 ? 1 : 0;
-        PlayerState.volume = newVolume;
-        PlayerState.audio.volume = newVolume;
-        updateVolumeIcons(newVolume);
-        Elements.controls.volume.mini.value = newVolume;
-        Elements.controls.volume.main.value = newVolume;
-    });
+        updateVolumeControls(newVolume);
+    };
 
-    document.getElementById('volumeBtn').addEventListener('click', () => {
-        const newVolume = PlayerState.volume === 0 ? 1 : 0;
-        PlayerState.volume = newVolume;
-        PlayerState.audio.volume = newVolume;
-        updateVolumeIcons(newVolume);
-        Elements.controls.volume.mini.value = newVolume;
-        Elements.controls.volume.main.value = newVolume;
-    });
+    const miniVolumeBtn = document.getElementById('miniVolumeBtn');
+    const volumeBtn = document.getElementById('volumeBtn');
+    
+    if (miniVolumeBtn) {
+        miniVolumeBtn.addEventListener('click', handleVolumeButtonClick);
+    }
+    
+    if (volumeBtn) {
+        volumeBtn.addEventListener('click', handleVolumeButtonClick);
+    }
+
+    // Initialize volume controls with current state
+    updateVolumeControls(PlayerState.volume);
 
     // Player view transitions
     Elements.miniPlayer.addEventListener('click', () => {
@@ -728,6 +780,28 @@ document.addEventListener('DOMContentLoaded', () => {
             // Set initial state
             repeatBtn.classList.toggle('active', PlayerState.repeatMode !== 'off');
             repeatBtn.classList.toggle('once', PlayerState.repeatMode === 'once');
+        }
+    });
+
+    // Setup progress bar click handlers
+    const progressBars = [
+        document.querySelector('.mini-player .progress-bar'),
+        document.querySelector('.expanded-player .progress-bar')
+    ];
+
+    progressBars.forEach(bar => {
+        if (bar) {
+            bar.addEventListener('click', (e) => {
+                const rect = bar.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const width = rect.width;
+                const percentage = clickX / width;
+                
+                if (PlayerState.audio && PlayerState.audio.duration) {
+                    const newTime = percentage * PlayerState.audio.duration;
+                    PlayerState.audio.currentTime = newTime;
+                }
+            });
         }
     });
 });
