@@ -407,11 +407,11 @@ def dashboard():
     trending_songs = fetch_trending()
     mood_playlists = fetch_mood_playlists()
     latest_version = get_latest_version()
-    user_library_urls = [song['url'] for song in user_library]
+    user_library_urls = [song['url'] for song in user_data.get('library', [])]
     
     return render_template('dashboard.html', 
                          user_email=user_email,
-                         user_library=user_library,
+                         user_library=user_data.get('library', []),
                          user_library_urls=user_library_urls,
                          trending=trending_songs,
                          mood_playlists=mood_playlists,
