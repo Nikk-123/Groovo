@@ -104,9 +104,10 @@
                 </button>
                 <button
                   class="add-to-library"
-                  onclick="Library.add({url: '{{ song.url }}', title: '{{ song.title }}', thumbnail: '{{ song.thumbnail }}', artist: '{{ song.artist }}'})"
+                  onclick="Library.toggleLike({url: '{{ song.url }}', title: '{{ song.title }}', thumbnail: '{{ song.thumbnail }}', artist: '{{ song.artist }}'})"
+                  title="Save to Library"
                 >
-                  <i class="fas fa-plus"></i> Add
+                  <i class="fa-heart {% if song.url in user_library_urls %}fas{% else %}far{% endif %}"></i>
                 </button>
               </div>
             </div>
@@ -137,12 +138,21 @@
                 <div class="song-info">
                   <h3>{{ song.title }}</h3>
                   <p>{{ song.channel }}</p>
-                  <button
-                    onclick="Player.play('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.channel }}')"
-                    class="play-btn"
-                  >
-                    <i class="fas fa-play"></i> Play
-                  </button>
+                  <div class="song-buttons">
+                    <button
+                      onclick="Player.play('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.channel }}')"
+                      class="play-btn"
+                    >
+                      <i class="fas fa-play"></i> Play
+                    </button>
+                    <button
+                      class="add-to-library"
+                      onclick="Library.toggleLike({url: '{{ song.url }}', title: '{{ song.title }}', thumbnail: '{{ song.thumbnail }}', artist: '{{ song.channel }}'})"
+                      title="Save to Library"
+                    >
+                      <i class="fa-heart {% if song.url in user_library_urls %}fas{% else %}far{% endif %}"></i>
+                    </button>
+                  </div>
                 </div>
               </li>
               {% endfor %}
@@ -530,6 +540,40 @@
           document.getElementById('audioControlContainer').style.display = 'none';
         }
       });
+
+      // Update the displayResults function in the Search object
+      displayResults(results) {
+        if (!Array.isArray(results) || results.length === 0) {
+          Elements.search.list.innerHTML = '<li class="error-message">No results found</li>';
+          return;
+        }
+
+        Elements.search.list.innerHTML = results.map(song => `
+          <li class="song-item" 
+            data-url="${song.url}"
+            data-title="${song.title}"
+            data-thumbnail="${song.thumbnail}"
+            data-artist="${song.artist}">
+            <img class="song-thumbnail" src="${song.thumbnail}" alt="${song.title}">
+            <div class="song-info">
+              <h3>${song.title}</h3>
+              <p>${song.artist}</p>
+              <div class="song-buttons">
+                <button onclick="Player.togglePlayPause('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')" class="play-btn">
+                  <i class="fas fa-play"></i> Play
+                </button>
+                <button 
+                  class="add-to-library"
+                  onclick="Library.toggleLike({url: '${song.url}', title: '${song.title}', thumbnail: '${song.thumbnail}', artist: '${song.artist}'})"
+                  title="Save to Library"
+                >
+                  <i class="fa-heart ${PlayerState.library.some(s => s.url === song.url) ? 'fas' : 'far'}"></i>
+                </button>
+              </div>
+            </div>
+          </li>
+        `).join('');
+      }
     </script>
   </body>
 </html>
