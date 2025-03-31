@@ -473,61 +473,13 @@
         const librarySection = document.getElementById("librarySection");
         if (!librarySection) return;
         
-        // Toggle the active class
         librarySection.classList.toggle("active");
         
-        // Update the button icons
         const libraryButtons = document.querySelectorAll('.library-toggle');
         const isActive = librarySection.classList.contains('active');
         
         libraryButtons.forEach(button => {
             button.innerHTML = `<i class="fas fa-${isActive ? 'times' : 'list'}"></i>`;
-        });
-      }
-
-      // Progress bar update function
-      function updateProgress() {
-        const audio = PlayerState.audio;
-        if (!audio || !audio.duration) return;
-
-        const currentTime = audio.currentTime;
-        const duration = audio.duration;
-        const progressPercentage = (currentTime / duration) * 100;
-
-        // Update both progress bars
-        const miniProgress = document.getElementById('miniProgress');
-        const mainProgress = document.getElementById('mainProgress');
-        miniProgress.style.width = `${progressPercentage}%`;
-        mainProgress.style.width = `${progressPercentage}%`;
-
-        // Update time displays
-        const formatTime = (seconds) => {
-          const mins = Math.floor(seconds / 60);
-          const secs = Math.floor(seconds % 60);
-          return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-        };
-
-        document.querySelectorAll('.current-time').forEach(el => {
-          el.textContent = formatTime(currentTime);
-        });
-        document.querySelectorAll('.total-time').forEach(el => {
-          el.textContent = formatTime(duration);
-        });
-      }
-
-      // Add progress bar interaction
-      function setupProgressBars() {
-        const progressBars = [document.getElementById('miniProgressBar'), document.getElementById('mainProgressBar')];
-        progressBars.forEach(bar => {
-          bar.addEventListener('click', (e) => {
-            const rect = bar.getBoundingClientRect();
-            const clickX = e.clientX - rect.left;
-            const width = rect.width;
-            const percentage = clickX / width;
-            const newTime = percentage * PlayerState.audio.duration;
-            PlayerState.audio.currentTime = newTime;
-            updateProgress();
-          });
         });
       }
 
@@ -537,53 +489,6 @@
         document.getElementById('trendingContainer').style.display = 'block';
         document.getElementById('moodPlaylistsContainer').style.display = 'block';
         document.getElementById('searchInput').value = '';
-      }
-
-      document.addEventListener('DOMContentLoaded', () => {
-        setupProgressBars();
-        
-        // Update progress bar
-        PlayerState.audio.addEventListener('timeupdate', updateProgress);
-        PlayerState.audio.addEventListener('loadedmetadata', updateProgress);
-
-        // Ensure controls are hidden initially
-        if (!PlayerState.currentSong) {
-          document.getElementById('audioControlContainer').style.display = 'none';
-        }
-      });
-
-      // Update the displayResults function in the Search object
-      displayResults(results) {
-        if (!Array.isArray(results) || results.length === 0) {
-          Elements.search.list.innerHTML = '<li class="error-message">No results found</li>';
-          return;
-        }
-
-        Elements.search.list.innerHTML = results.map(song => `
-          <li class="song-item" 
-            data-url="${song.url}"
-            data-title="${song.title}"
-            data-thumbnail="${song.thumbnail}"
-            data-artist="${song.artist}">
-            <img class="song-thumbnail" src="${song.thumbnail}" alt="${song.title}">
-            <div class="song-info">
-              <h3>${song.title}</h3>
-              <p>${song.artist}</p>
-              <div class="song-buttons">
-                <button onclick="Player.togglePlayPause('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')" class="play-btn">
-                  <i class="fas fa-play"></i> Play
-                </button>
-                <button 
-                  class="add-to-library"
-                  onclick="Library.toggleLike({url: '${song.url}', title: '${song.title}', thumbnail: '${song.thumbnail}', artist: '${song.artist}'})"
-                  title="Save to Library"
-                >
-                  <i class="fa-heart ${PlayerState.library.some(s => s.url === song.url) ? 'fas' : 'far'}"></i>
-                </button>
-              </div>
-            </div>
-          </li>
-        `).join('');
       }
     </script>
   </body>
