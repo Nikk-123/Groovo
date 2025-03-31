@@ -410,7 +410,7 @@
             <div class="library-item-controls">
               <button
                 class="play-btn"
-                onclick="Player.togglePlayPause('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.artist }}')"
+                onclick="Player.playFromLibrary('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.artist }}')"
                 title="Play/Pause"
               >
                 <i class="fas {% if song.url == current_song_url and is_playing %}fa-pause{% else %}fa-play{% endif %}"></i>
