@@ -471,7 +471,18 @@
       // Library toggle
       function toggleLibrary() {
         const librarySection = document.getElementById("librarySection");
+        if (!librarySection) return;
+        
+        // Toggle the active class
         librarySection.classList.toggle("active");
+        
+        // Update the button icons
+        const libraryButtons = document.querySelectorAll('.library-toggle');
+        const isActive = librarySection.classList.contains('active');
+        
+        libraryButtons.forEach(button => {
+            button.innerHTML = `<i class="fas fa-${isActive ? 'times' : 'list'}"></i>`;
+        });
       }
 
       // Progress bar update function
