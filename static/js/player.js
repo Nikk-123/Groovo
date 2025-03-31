@@ -323,6 +323,17 @@ const Player = {
 
         // Play the selected song
         this.play(url, title, thumbnail, artist);
+    },
+
+    // Add new method for toggling play/pause from library
+    togglePlayFromLibrary(url, title, thumbnail, artist) {
+        if (PlayerState.currentSong && PlayerState.currentSong.url === url) {
+            // If this is the current song, just toggle play/pause
+            PlaybackControls.togglePlayPause();
+        } else {
+            // If it's a different song, start playing it
+            this.playFromLibrary(url, title, thumbnail, artist);
+        }
     }
 };
 
@@ -540,8 +551,12 @@ const Library = {
                     <p>${song.artist}</p>
                 </div>
                 <div class="library-item-controls">
-                    <button onclick="Player.playFromLibrary('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')" class="play-btn">
-                        <i class="fas ${song.url === PlayerState.currentSong?.url && PlayerState.isPlaying ? 'fa-pause' : 'fa-play'}"></i>
+                    <button
+                        class="play-btn"
+                        onclick="Player.togglePlayFromLibrary('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')"
+                        title="Play/Pause"
+                    >
+                        <i class="fas {% if song.url == current_song_url and is_playing %}fa-pause{% else %}fa-play{% endif %}"></i>
                     </button>
                     <button class="remove-from-library" 
                         onclick="Library.remove(${JSON.stringify(song)})">
@@ -656,12 +671,11 @@ function updateVolumeControls(volume) {
     PlayerState.volume = volume;
     PlayerState.audio.volume = volume;
 
-    // Update volume sliders
-    const miniVolumeControl = document.getElementById('miniVolumeControl');
-    const volumeControl = document.getElementById('volumeControl');
-    
-    if (miniVolumeControl) miniVolumeControl.value = volume;
-    if (volumeControl) volumeControl.value = volume;
+    // Update volume sliders - sync both controls
+    const volumeControls = document.querySelectorAll('#miniVolumeControl, #volumeControl');
+    volumeControls.forEach(control => {
+        if (control) control.value = volume;
+    });
 
     // Update volume icons
     updateVolumeIcons(volume);
@@ -693,51 +707,54 @@ document.addEventListener('DOMContentLoaded', () => {
     Library.load();
     Search.init();
 
-    // Setup event listeners
+    // Setup event listeners for play controls
     ['mini', 'main'].forEach(type => {
         Elements.controls.play[type].addEventListener('click', PlaybackControls.togglePlayPause);
         Elements.controls.prev[type].addEventListener('click', PlaybackControls.playPrevious);
         Elements.controls.next[type].addEventListener('click', PlaybackControls.playNext);
+        
+        // Add shuffle and repeat handlers
+        const shuffleBtn = Elements.controls.shuffle[type];
+        if (shuffleBtn) {
+            shuffleBtn.addEventListener('click', PlaybackControls.toggleShuffle);
+            shuffleBtn.classList.toggle('active', PlayerState.isShuffleOn);
+        }
+
+        const repeatBtn = Elements.controls.repeat[type];
+        if (repeatBtn) {
+            repeatBtn.addEventListener('click', PlaybackControls.toggleRepeat);
+            repeatBtn.classList.toggle('active', PlayerState.repeatMode !== 'off');
+            repeatBtn.classList.toggle('once', PlayerState.repeatMode === 'once');
+        }
     });
 
-    // Volume control
+    // Unified volume control handler
     const handleVolumeChange = (e) => {
         const newVolume = parseFloat(e.target.value);
         updateVolumeControls(newVolume);
     };
-    
-    // Setup volume control listeners
-    const miniVolumeControl = document.getElementById('miniVolumeControl');
-    const volumeControl = document.getElementById('volumeControl');
-    
-    if (miniVolumeControl) {
-        miniVolumeControl.value = PlayerState.volume;
-        miniVolumeControl.addEventListener('input', handleVolumeChange);
-    }
-    
-    if (volumeControl) {
-        volumeControl.value = PlayerState.volume;
-        volumeControl.addEventListener('input', handleVolumeChange);
-    }
 
-    // Volume button click handlers
+    // Setup volume controls with single handler
+    document.querySelectorAll('#miniVolumeControl, #volumeControl').forEach(control => {
+        if (control) {
+            control.value = PlayerState.volume;
+            control.addEventListener('input', handleVolumeChange);
+        }
+    });
+
+    // Unified volume button handler
     const handleVolumeButtonClick = () => {
         const newVolume = PlayerState.volume === 0 ? 1 : 0;
         updateVolumeControls(newVolume);
     };
 
-    const miniVolumeBtn = document.getElementById('miniVolumeBtn');
-    const volumeBtn = document.getElementById('volumeBtn');
-    
-    if (miniVolumeBtn) {
-        miniVolumeBtn.addEventListener('click', handleVolumeButtonClick);
-    }
-    
-    if (volumeBtn) {
-        volumeBtn.addEventListener('click', handleVolumeButtonClick);
-    }
+    document.querySelectorAll('#miniVolumeBtn, #volumeBtn').forEach(button => {
+        if (button) {
+            button.addEventListener('click', handleVolumeButtonClick);
+        }
+    });
 
-    // Initialize volume controls with current state
+    // Initialize volume
     updateVolumeControls(PlayerState.volume);
 
     // Player view transitions
@@ -751,57 +768,22 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = '';
     });
 
-    // Request notification permission
+    // Unified progress bar handler
+    document.querySelectorAll('.mini-player .progress-bar, .expanded-player .progress-bar')
+        .forEach(bar => {
+            if (bar) {
+                bar.addEventListener('click', (e) => {
+                    const rect = bar.getBoundingClientRect();
+                    const percentage = (e.clientX - rect.left) / rect.width;
+                    if (PlayerState.audio?.duration) {
+                        PlayerState.audio.currentTime = percentage * PlayerState.audio.duration;
+                    }
+                });
+            }
+        });
+
+    // Notification permission
     if ('Notification' in window) {
         Notification.requestPermission();
     }
-
-    // Add shuffle button listeners
-    ['mini', 'main'].forEach(type => {
-        const shuffleBtn = type === 'mini' ? 
-            document.getElementById('miniShuffleBtn') : 
-            document.getElementById('shuffleBtn');
-        
-        if (shuffleBtn) {
-            shuffleBtn.addEventListener('click', PlaybackControls.toggleShuffle);
-            // Set initial state
-            shuffleBtn.classList.toggle('active', PlayerState.isShuffleOn);
-        }
-    });
-
-    // Add repeat button listeners
-    ['mini', 'main'].forEach(type => {
-        const repeatBtn = type === 'mini' ? 
-            document.getElementById('miniRepeatBtn') : 
-            document.getElementById('repeatBtn');
-        
-        if (repeatBtn) {
-            repeatBtn.addEventListener('click', PlaybackControls.toggleRepeat);
-            // Set initial state
-            repeatBtn.classList.toggle('active', PlayerState.repeatMode !== 'off');
-            repeatBtn.classList.toggle('once', PlayerState.repeatMode === 'once');
-        }
-    });
-
-    // Setup progress bar click handlers
-    const progressBars = [
-        document.querySelector('.mini-player .progress-bar'),
-        document.querySelector('.expanded-player .progress-bar')
-    ];
-
-    progressBars.forEach(bar => {
-        if (bar) {
-            bar.addEventListener('click', (e) => {
-                const rect = bar.getBoundingClientRect();
-                const clickX = e.clientX - rect.left;
-                const width = rect.width;
-                const percentage = clickX / width;
-                
-                if (PlayerState.audio && PlayerState.audio.duration) {
-                    const newTime = percentage * PlayerState.audio.duration;
-                    PlayerState.audio.currentTime = newTime;
-                }
-            });
-        }
-    });
 });
