@@ -49,8 +49,16 @@ jobs:
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
         shell: bash
 
+      - name: Ensure .env is included
+        run: |
+          if [ ! -f ".env" ]; then
+            echo "WARNING: .env file not found! Creating a dummy .env file."
+            echo "URI=your_mongodb_connection_string" > .env
+          fi
+        shell: bash
+
       - name: Build EXE with PyInstaller
-        run: cmd /C "pyinstaller --onefile --noconsole --clean --add-data templates;templates --add-data static;static --name app-${{ env.NEW_TAG }} app.py"
+        run: cmd /C "pyinstaller --onefile --noconsole --clean --add-data templates;templates --add-data static;static --add-data .env;. --name app-${{ env.NEW_TAG }} app.py"
 
       - name: Verify EXE Creation
         run: dir dist
@@ -60,6 +68,12 @@ jobs:
         with:
           name: app-exe-${{ env.NEW_TAG }}
           path: dist/app-${{ env.NEW_TAG }}.exe
+
+      - name: Upload .env to Artifacts (for debugging)
+        uses: actions/upload-artifact@v4
+        with:
+          name: env-file
+          path: .env
 
       - name: Push New Tag
         run: |
