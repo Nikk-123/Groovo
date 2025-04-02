@@ -147,7 +147,7 @@ app.secret_key = 'Chayan@12'  # Use secure key from .env
 
 
 # MongoDB Atlas setup
-MONGO_URI = os.getenv("URI")
+MONGO_URI = os.getenv("URI") or 'mongodb+srv://CHAYAN:CHAYAN%4012@musicapp.ql3my.mongodb.net/?retryWrites=true&w=majority&tlsAllowInvalidCertificates=true'
 client = MongoClient(
     MONGO_URI,
     serverSelectionTimeoutMS=5000,
