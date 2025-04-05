@@ -144,10 +144,8 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.secret_key = 'REMOVED_SECRET_KEY'  # Use secure key from .env
 
-
-
 # MongoDB Atlas setup
-MONGO_URI = 'REMOVED_MONGO_URI'
+MONGO_URI = os.getenv('MONGO_URI')  # Get URI from environment variables
 client = MongoClient(
     MONGO_URI,
     serverSelectionTimeoutMS=5000,
