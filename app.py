@@ -13,7 +13,13 @@ from flask_cors import CORS
 from yt_dlp import YoutubeDL
 
 # Load environment variables
-load_dotenv()
+if getattr(sys, 'frozen', False):
+    # If the application is run as a bundle (exe)
+    bundle_dir = sys._MEIPASS
+    load_dotenv(os.path.join(bundle_dir, '.env'))
+else:
+    # If the application is run from a Python interpreter
+    load_dotenv()
 
 # GitHub Credentials (For Private Repo)
 GITHUB_PAT = os.getenv("GITHUB_TOKEN")
@@ -145,7 +151,10 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 app.secret_key = 'REMOVED_SECRET_KEY'  # Use secure key from .env
 
 # MongoDB Atlas setup
-MONGO_URI = os.getenv('MONGO_URI')  # Get URI from environment variables
+MONGO_URI = os.getenv('MONGO_URI')
+if not MONGO_URI:
+    print("Error: MONGO_URI not found in environment variables")
+    sys.exit(1)
 client = MongoClient(
     MONGO_URI,
     serverSelectionTimeoutMS=5000,
