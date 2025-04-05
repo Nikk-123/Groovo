@@ -58,7 +58,13 @@ jobs:
         shell: bash
 
       - name: Build EXE with PyInstaller
-        run: cmd /C "pyinstaller --onefile --noconsole --clean --add-data templates;templates --add-data static;static --add-data .env;. --name app-${{ env.NEW_TAG }} app.py"
+        run: |
+          pyinstaller --onefile --noconsole --clean ^
+          --add-data "templates;templates" ^
+          --add-data "static;static" ^
+          --add-data ".env;." ^
+          --name "app-${{ env.NEW_TAG }}" ^
+          app.py
 
       - name: Verify EXE Creation
         run: dir dist
