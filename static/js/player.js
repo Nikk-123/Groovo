@@ -73,7 +73,11 @@ const Elements = {
         main: document.querySelector('.expanded-player .progress-bar')
     },
     minimizeBtn: document.querySelector('.minimize-btn'),
-    homeBtn: document.querySelector('.home-btn')
+    homeBtn: document.querySelector('.home-btn'),
+    profile: {
+        btn: document.getElementById('profileBtn'),
+        dropdown: document.getElementById('profileDropdown')
+    }
 };
 
 // Core Player Functions
@@ -792,6 +796,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('Notification' in window) {
         Notification.requestPermission();
     }
+
+    // Profile dropdown functionality
+    if (Elements.profile.btn && Elements.profile.dropdown) {
+        Elements.profile.btn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent click from bubbling to document
+            Elements.profile.dropdown.classList.toggle('show');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!Elements.profile.btn.contains(e.target) && !Elements.profile.dropdown.contains(e.target)) {
+                Elements.profile.dropdown.classList.remove('show');
+            }
+        });
+    }
 });
 
 // Add this function at the end of the file, just before the DOMContentLoaded event listener
@@ -800,5 +819,38 @@ function toggleLibrary() {
     if (librarySection) {
         librarySection.classList.toggle('show');
         document.body.classList.toggle('library-open');
+    }
+}
+
+// Add the showHome function
+function showHome() {
+    // Hide search results
+    const searchResults = document.getElementById('searchResultsContainer');
+    if (searchResults) {
+        searchResults.style.display = 'none';
+    }
+    
+    // Show trending and mood playlists
+    const trendingContainer = document.getElementById('trendingContainer');
+    const moodPlaylistsContainer = document.getElementById('moodPlaylistsContainer');
+    
+    if (trendingContainer) {
+        trendingContainer.style.display = 'block';
+    }
+    
+    if (moodPlaylistsContainer) {
+        moodPlaylistsContainer.style.display = 'block';
+    }
+    
+    // Clear search input
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    
+    // Add active class to home button
+    const homeBtn = document.querySelector('.home-btn');
+    if (homeBtn) {
+        homeBtn.classList.add('active');
     }
 }
