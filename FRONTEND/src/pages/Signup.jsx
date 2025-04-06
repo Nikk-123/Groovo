@@ -12,21 +12,36 @@ const Signup = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setFlashMessages([]);
 
     try {
+      console.log('Sending signup request to backend...');
       const response = await fetch('/signup', {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: new FormData(e.target),
+        body: JSON.stringify({ email, password }),
+        credentials: 'include',
       });
 
+      console.log('Response status:', response.status);
+      
+      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        throw new Error('Signup failed');
+        throw new Error(`HTTP error! Status: ${response.status}`);
       }
-
-      const data = await response.json();
+      
+      // Try to parse the response as JSON
+      let data;
+      try {
+        data = await response.json();
+        console.log('Response data:', data);
+      } catch (jsonError) {
+        console.error('Error parsing JSON:', jsonError);
+        throw new Error('Invalid JSON response from server');
+      }
 
       if (data.success) {
         navigate(data.redirect || '/login');

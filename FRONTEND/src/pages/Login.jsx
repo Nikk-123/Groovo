@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Login.css';
 
-const Login = () => {
+const Login = ({ setIsAuthenticated }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [flashMessages, setFlashMessages] = useState([]);
@@ -12,27 +12,50 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setFlashMessages([]);
 
     try {
+      console.log('Sending login request to backend...');
       const response = await fetch('/login', {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: new FormData(e.target),
+        body: JSON.stringify({ email, password }),
+        credentials: 'include', // Important for cookies/session
       });
 
+      console.log('Response status:', response.status);
+      
+      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        throw new Error('Login failed');
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      // Try to parse the response as JSON
+      let data;
+      try {
+        data = await response.json();
+        console.log('Response data:', data);
+      } catch (jsonError) {
+        console.error('Error parsing JSON:', jsonError);
+        throw new Error('Invalid JSON response from server');
       }
 
-      const data = await response.json();
-
       if (data.success) {
+        // Store user library in localStorage if available
         if (data.library) {
           localStorage.setItem('userLibrary', JSON.stringify(data.library));
         }
-        navigate(data.redirect);
+        
+        // Update authentication state
+        if (setIsAuthenticated) {
+          setIsAuthenticated(true);
+        }
+        
+        // Navigate to dashboard on success
+        navigate(data.redirect || '/dashboard');
       } else {
         setFlashMessages([{ category: 'danger', message: data.message || 'Login failed. Please check your credentials.' }]);
         setIsSubmitting(false);
