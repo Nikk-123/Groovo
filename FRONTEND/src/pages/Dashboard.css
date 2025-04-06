@@ -62,6 +62,53 @@ body {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+/* Left navigation */
+.left-nav {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex: 0 0 auto;
+}
+
+.top-nav h1 {
+    color: #1db954;
+    font-size: 24px;
+    margin: 0;
+    font-weight: 700;
+}
+
+/* Search section */
+.search-section {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    margin: 0 2rem;
+    max-width: 600px;
+}
+
+#searchInput {
+    width: 100%;
+    padding: 10px 15px;
+    border-radius: 20px;
+    border: none;
+    background-color: #282828;
+    color: white;
+    font-size: 14px;
+}
+
+#searchInput:focus {
+    outline: none;
+    background-color: #333;
+}
+
+/* Right navigation */
+.right-nav {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex: 0 0 auto;
+}
+
 /* Shared button styles */
 .control-btn, .mini-control-btn {
     background: none;
@@ -107,18 +154,6 @@ body {
     color: #fff;
 }
 
-.left-nav {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.top-nav h1 {
-    color: #1db954;
-    font-size: 24px;
-    margin: 0;
-}
-
 .home-btn {
     background: none;
     border: none;
@@ -135,153 +170,6 @@ body {
 
 .home-btn.active {
     color: #1DB954; /* Spotify green color */
-}
-
-/* Search section */
-.search-section {
-    flex: 0 1 40%;
-    display: flex;
-    justify-content: center;
-    margin: 0 auto;
-}
-
-#searchInput {
-    width: 100%;
-    padding: 10px 15px;
-    border-radius: 20px;
-    border: none;
-    background-color: #282828;
-    color: white;
-    font-size: 14px;
-}
-
-#searchInput:focus {
-    outline: none;
-    background-color: #333;
-}
-
-/* Main content area */
-.main {
-    width: 100%;
-    padding: 90px 32px 100px;
-    min-height: 100vh;
-}
-
-/* Song list styles */
-.song-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 24px;
-    list-style: none;
-    padding: 20px 0;
-}
-
-.song-item {
-    background: #181818;
-    border-radius: 8px;
-    padding: 16px;
-    transition: all 0.3s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    cursor: pointer;
-    position: relative;
-}
-
-.song-item:hover {
-    background: #282828;
-    transform: translateY(-4px);
-}
-
-.song-item:hover .play-btn {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-.song-thumbnail {
-    width: 100%;
-    aspect-ratio: 1;
-    object-fit: cover;
-    border-radius: 4px;
-    margin-bottom: 16px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.song-info {
-    width: 100%;
-    text-align: left;
-}
-
-.song-info h3 {
-    color: #ffffff;
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.song-info p {
-    color: #b3b3b3;
-    font-size: 12px;
-    margin-bottom: 12px;
-}
-
-.song-buttons {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-}
-
-.play-btn, .add-to-library {
-    background: #1db954;
-    border: none;
-    color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.play-btn:hover, .add-to-library:hover {
-    background: #1ed760;
-    transform: scale(1.05);
-}
-
-.add-to-library {
-    background: transparent;
-    border: 1px solid #b3b3b3;
-}
-
-.add-to-library:hover {
-    border-color: white;
-    background: transparent;
-}
-
-.reload-btn {
-    background: #1db954;
-    border: none;
-    color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.reload-btn:hover {
-    background: #1ed760;
-    transform: scale(1.05);
 }
 
 /* Library styles */
@@ -502,7 +390,6 @@ body.library-open {
 /* Profile menu styles */
 .profile-menu {
     position: relative;
-    margin-left: 20px;
 }
 
 .profile-btn {
@@ -1402,6 +1289,130 @@ body.library-open {
     bottom: 2px;
     right: 2px;
     color: #1DB954;
+}
+
+/* Main content area */
+.main {
+    width: 100%;
+    padding: 90px 32px 100px;
+    min-height: 100vh;
+}
+
+/* Song list styles */
+.song-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 24px;
+    list-style: none;
+    padding: 20px 0;
+}
+
+.song-item {
+    background: #181818;
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+}
+
+.song-item:hover {
+    background: #282828;
+    transform: translateY(-4px);
+}
+
+.song-item:hover .play-btn {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.song-thumbnail {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.song-info {
+    width: 100%;
+    text-align: left;
+}
+
+.song-info h3 {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.song-info p {
+    color: #b3b3b3;
+    font-size: 12px;
+    margin-bottom: 12px;
+}
+
+.song-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.play-btn, .add-to-library {
+    background: #1db954;
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.play-btn:hover, .add-to-library:hover {
+    background: #1ed760;
+    transform: scale(1.05);
+}
+
+.add-to-library {
+    background: transparent;
+    border: 1px solid #b3b3b3;
+}
+
+.add-to-library:hover {
+    border-color: white;
+    background: transparent;
+}
+
+.reload-btn {
+    background: #1db954;
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.reload-btn:hover {
+    background: #1ed760;
+    transform: scale(1.05);
 }
 
 

@@ -1,26 +1,79 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import usePlayer from './usePlayer';
 import './Dashboard.css'; // Your existing CSS file
 
-const Dashboard = ({ userEmail, trendingSongs, moodPlaylists, userLibrary, currentSongUrl, isPlaying }) => {
+const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [libraryVisible, setLibraryVisible] = useState(false);
   const [dropdownVisible, setDropdownVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [dashboardData, setDashboardData] = useState({
+    userEmail: '',
+    trending: [],
+    moodPlaylists: {}
+  });
   const navigate = useNavigate();
 
-  // Simulated player state (you might want to move this to a separate context/provider)
-  const [playerState, setPlayerState] = useState({
-    currentSong: null,
-    isPlaying: false,
-    showExpanded: false,
-  });
+  // Use the player hook instead of local state
+  const {
+    playerState,
+    player,
+    playbackControls,
+    library,
+    audioRef,
+    updateVolume
+  } = usePlayer();
+
+  // Handle image loading errors
+  const handleImageError = (e) => {
+    // Set a fallback image when the YouTube thumbnail fails to load
+    e.target.src = '/placeholder-music.svg';
+    e.target.onerror = null; // Prevent infinite loop if fallback also fails
+  };
 
   useEffect(() => {
-    // Initialize with your existing player.js if needed
-    // You might want to move player logic to a separate hook/context
+    // Fetch dashboard data when component mounts
+    fetchDashboardData();
   }, []);
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/dashboard', {
+        credentials: 'include', // Important for cookies/session
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setDashboardData({
+          userEmail: data.user_email,
+          trending: data.trending || [],
+          moodPlaylists: data.mood_playlists || {}
+        });
+        
+        // Note: We don't need to call library.load() here as it's already called in usePlayer's useEffect
+      } else {
+        // If not authenticated, redirect to login
+        if (data.redirect) {
+          navigate(data.redirect);
+        } else {
+          setError(data.message || 'Failed to load dashboard data');
+        }
+      }
+    } catch (error) {
+      console.error('Dashboard fetch error:', error);
+      setError('Failed to connect to the server');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const toggleLibrary = () => {
     setLibraryVisible(!libraryVisible);
@@ -32,9 +85,11 @@ const Dashboard = ({ userEmail, trendingSongs, moodPlaylists, userLibrary, curre
     
     if (query.length > 2) {
       try {
-        const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+        const response = await fetch(`/search?query=${encodeURIComponent(query)}`, {
+          credentials: 'include'
+        });
         const data = await response.json();
-        setSearchResults(data.results || []);
+        setSearchResults(data || []);
         setShowSearchResults(true);
       } catch (error) {
         console.error('Search error:', error);
@@ -44,42 +99,52 @@ const Dashboard = ({ userEmail, trendingSongs, moodPlaylists, userLibrary, curre
     }
   };
 
-  const playSong = (url, title, thumbnail, artist) => {
-    setPlayerState({
-      currentSong: { url, title, thumbnail, artist },
-      isPlaying: true,
-      showExpanded: false,
-    });
-    // Add your audio player logic here
-  };
-
-  const toggleLike = async (song) => {
+  const handleLogout = async () => {
     try {
-      const response = await fetch('/library/toggle', {
+      const response = await fetch('/logout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(song),
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
-      const data = await response.json();
-      // Update library state based on response
+
+      if (response.ok) {
+        // Clear any local state
+        setDashboardData({
+          userEmail: '',
+          trending: [],
+          moodPlaylists: {}
+        });
+        setSearchQuery('');
+        setSearchResults([]);
+        setShowSearchResults(false);
+        setLibraryVisible(false);
+        setDropdownVisible(false);
+        
+        // Stop any playing audio
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }
+        
+        // Navigate to login page
+        navigate('/login', { replace: true });
+      } else {
+        console.error('Logout failed:', await response.text());
+      }
     } catch (error) {
-      console.error('Toggle like error:', error);
+      console.error('Logout error:', error);
     }
   };
 
-  const removeFromLibrary = async (song) => {
-    try {
-      const response = await fetch('/library/remove', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(song),
-      });
-      const data = await response.json();
-      // Update library state based on response
-    } catch (error) {
-      console.error('Remove from library error:', error);
-    }
-  };
+  if (isLoading) {
+    return <div className="loading">Loading dashboard...</div>;
+  }
+
+  if (error) {
+    return <div className="error">{error}</div>;
+  }
 
   return (
     <div>
@@ -99,6 +164,7 @@ const Dashboard = ({ userEmail, trendingSongs, moodPlaylists, userLibrary, curre
             onChange={handleSearch}
           />
         </div>
+        <div className="right-nav">
         <button
           type="button"
           className="library-toggle"
@@ -122,15 +188,20 @@ const Dashboard = ({ userEmail, trendingSongs, moodPlaylists, userLibrary, curre
             <div className="dropdown-menu" id="profileDropdown">
               <div className="dropdown-header">
                 <i className="fas fa-user-circle"></i>
-                <span>{userEmail}</span>
+                <span>{dashboardData.userEmail}</span>
               </div>
               <div className="dropdown-divider"></div>
-              <a href="/logout" className="dropdown-item">
+                <button
+                  type="button"
+                  className="dropdown-item"
+                  onClick={handleLogout}
+                >
                 <i className="fas fa-sign-out-alt"></i>
                 Log out
-              </a>
+                </button>
             </div>
           )}
+          </div>
         </div>
       </div>
 
@@ -142,29 +213,29 @@ const Dashboard = ({ userEmail, trendingSongs, moodPlaylists, userLibrary, curre
               {searchResults.map((song, index) => (
                 <li
                   key={index}
-                  className="song-item"
+                  className={`song-item ${playerState.currentSong?.url === song.url && playerState.isPlaying ? 'playing' : ''}`}
                   data-url={song.url}
                   data-title={song.title}
                   data-thumbnail={song.thumbnail}
                   data-artist={song.artist}
                 >
-                  <img className="song-thumbnail" src={song.thumbnail} alt={song.title} />
+                  <img className="song-thumbnail" src={song.thumbnail} alt={song.title} onError={handleImageError} />
                   <div className="song-info">
                     <h3>{song.title}</h3>
                     <p>{song.artist}</p>
                     <div className="song-buttons">
                       <button
-                        onClick={() => playSong(song.url, song.title, song.thumbnail, song.artist)}
+                        onClick={() => player.togglePlayPause(song.url, song.title, song.thumbnail, song.artist)}
                         className="play-btn"
                       >
-                        <i className="fas fa-play"></i>
+                        <i className={`fas ${playerState.currentSong?.url === song.url && playerState.isPlaying ? 'fa-pause' : 'fa-play'}`}></i>
                       </button>
                       <button
                         className="add-to-library"
-                        onClick={() => toggleLike(song)}
+                        onClick={() => library.toggleLike(song)}
                         title="Save to Library"
                       >
-                        <i className={`fa-heart ${userLibrary.some(s => s.url === song.url) ? 'fas' : 'far'}`}></i>
+                        <i className={`fa-heart ${playerState.library.some(s => s.url === song.url) ? 'fas' : 'far'}`}></i>
                       </button>
                     </div>
                   </div>
@@ -174,35 +245,35 @@ const Dashboard = ({ userEmail, trendingSongs, moodPlaylists, userLibrary, curre
           </div>
         )}
 
-        <div id="trendingContainer">
+        <div id="trendingContainer" style={{ display: showSearchResults ? 'none' : 'block' }}>
           <h1>Trending Songs</h1>
           <ul className="song-list">
-            {trendingSongs.map((song, index) => (
+            {dashboardData.trending.map((song, index) => (
               <li
                 key={index}
-                className="song-item"
+                className={`song-item ${playerState.currentSong?.url === song.url && playerState.isPlaying ? 'playing' : ''}`}
                 data-url={song.url}
                 data-title={song.title}
                 data-thumbnail={song.thumbnail}
                 data-artist={song.artist}
               >
-                <img className="song-thumbnail" src={song.thumbnail} alt={song.title} />
+                <img className="song-thumbnail" src={song.thumbnail} alt={song.title} onError={handleImageError} />
                 <div className="song-info">
                   <h3>{song.title}</h3>
                   <p>{song.artist}</p>
                   <div className="song-buttons">
                     <button
-                      onClick={() => playSong(song.url, song.title, song.thumbnail, song.artist)}
+                      onClick={() => player.togglePlayPause(song.url, song.title, song.thumbnail, song.artist)}
                       className="play-btn"
                     >
-                      <i className="fas fa-play"></i>
+                      <i className={`fas ${playerState.currentSong?.url === song.url && playerState.isPlaying ? 'fa-pause' : 'fa-play'}`}></i>
                     </button>
                     <button
                       className="add-to-library"
-                      onClick={() => toggleLike(song)}
+                      onClick={() => library.toggleLike(song)}
                       title="Save to Library"
                     >
-                      <i className={`fa-heart ${userLibrary.some(s => s.url === song.url) ? 'fas' : 'far'}`}></i>
+                      <i className={`fa-heart ${playerState.library.some(s => s.url === song.url) ? 'fas' : 'far'}`}></i>
                     </button>
                   </div>
                 </div>
@@ -211,8 +282,8 @@ const Dashboard = ({ userEmail, trendingSongs, moodPlaylists, userLibrary, curre
           </ul>
         </div>
 
-        <div id="moodPlaylistsContainer">
-          {Object.entries(moodPlaylists).map(([mood, songs]) => (
+        <div id="moodPlaylistsContainer" style={{ display: showSearchResults ? 'none' : 'block' }}>
+          {Object.entries(dashboardData.moodPlaylists).map(([mood, songs]) => (
             <div key={mood} className="mood-section">
               <h2>{mood} Mood</h2>
               <div className="mood-playlist">
@@ -220,29 +291,29 @@ const Dashboard = ({ userEmail, trendingSongs, moodPlaylists, userLibrary, curre
                   {songs.map((song, index) => (
                     <li
                       key={index}
-                      className="song-item"
+                      className={`song-item ${playerState.currentSong?.url === song.url && playerState.isPlaying ? 'playing' : ''}`}
                       data-url={song.url}
                       data-title={song.title}
                       data-thumbnail={song.thumbnail}
                       data-artist={song.channel}
                     >
-                      <img className="song-thumbnail" src={song.thumbnail} alt={song.title} />
+                      <img className="song-thumbnail" src={song.thumbnail} alt={song.title} onError={handleImageError} />
                       <div className="song-info">
                         <h3>{song.title}</h3>
                         <p>{song.channel}</p>
                         <div className="song-buttons">
                           <button
-                            onClick={() => playSong(song.url, song.title, song.thumbnail, song.channel)}
+                            onClick={() => player.togglePlayPause(song.url, song.title, song.thumbnail, song.channel)}
                             className="play-btn"
                           >
-                            <i className="fas fa-play"></i>
+                            <i className={`fas ${playerState.currentSong?.url === song.url && playerState.isPlaying ? 'fa-pause' : 'fa-play'}`}></i>
                           </button>
                           <button
                             className="add-to-library"
-                            onClick={() => toggleLike(song)}
+                            onClick={() => library.toggleLike(song)}
                             title="Save to Library"
                           >
-                            <i className={`fa-heart ${userLibrary.some(s => s.url === song.url) ? 'fas' : 'far'}`}></i>
+                            <i className={`fa-heart ${playerState.library.some(s => s.url === song.url) ? 'fas' : 'far'}`}></i>
                           </button>
                         </div>
                       </div>
@@ -265,6 +336,7 @@ const Dashboard = ({ userEmail, trendingSongs, moodPlaylists, userLibrary, curre
                     className="mini-thumbnail"
                     src={playerState.currentSong.thumbnail}
                     alt=""
+                    onError={handleImageError}
                   />
                   <div className="mini-text-info">
                     <span id="miniSongTitle" className="mini-title">
@@ -278,24 +350,100 @@ const Dashboard = ({ userEmail, trendingSongs, moodPlaylists, userLibrary, curre
                     type="button"
                     className="mini-like-btn"
                     title="Like"
-                    onClick={() => toggleLike(playerState.currentSong)}
+                    onClick={() => library.toggleLike(playerState.currentSong)}
                   >
-                    <i className={`fa-heart ${userLibrary.some(s => s.url === playerState.currentSong.url) ? 'fas' : 'far'}`} id="likeButtonIcon"></i>
+                    <i className={`fa-heart ${playerState.library.some(s => s.url === playerState.currentSong.url) ? 'fas' : 'far'}`} id="likeButtonIcon"></i>
                   </button>
                 </div>
-                {/* Add other mini-player controls as needed */}
+                <div className="mini-player-controls">
+                  <div className="mini-control-buttons">
+                    <button
+                      type="button"
+                      className={`mini-control-btn shuffle ${playerState.isShuffleOn ? 'active' : ''}`}
+                      id="miniShuffleBtn"
+                      title="Shuffle"
+                      onClick={playbackControls.toggleShuffle}
+                    >
+                      <i className="fas fa-random"></i>
+                    </button>
+                    <button
+                      type="button"
+                      id="miniPrevBtn"
+                      className="mini-control-btn"
+                      title="Previous"
+                      onClick={playbackControls.playPrevious}
+                    >
+                      <i className="fas fa-step-backward"></i>
+                    </button>
+                    <button
+                      id="miniPlayBtn"
+                      className="mini-control-btn play-pause"
+                      type="button"
+                      title="Play/Pause"
+                      onClick={playbackControls.togglePlayPause}
+                    >
+                      <i className={`fas ${playerState.isPlaying ? 'fa-pause' : 'fa-play'}`}></i>
+                    </button>
+                    <button
+                      id="miniNextBtn"
+                      className="mini-control-btn"
+                      type="button"
+                      title="Next"
+                      onClick={playbackControls.playNext}
+                    >
+                      <i className="fas fa-step-forward"></i>
+                    </button>
+                    <button
+                      type="button"
+                      className={`mini-control-btn repeat ${playerState.repeatMode !== 'off' ? 'active' : ''}`}
+                      id="miniRepeatBtn"
+                      title={`Repeat (${playerState.repeatMode})`}
+                      onClick={playbackControls.toggleRepeat}
+                    >
+                      <i className="fas fa-redo"></i>
+                    </button>
+                  </div>
+                  <div className="mini-progress-container">
+                    <span className="time current-time">0:00</span>
+                    <div className="mini-progress-bar" id="miniProgressBar">
+                      <div className="progress" id="miniProgress"></div>
+                    </div>
+                    <span className="time total-time">0:00</span>
+                  </div>
+                </div>
+                <div className="mini-volume-controls">
+                  <button
+                    type="button"
+                    className="mini-control-btn"
+                    id="miniVolumeBtn"
+                    title="Volume"
+                    onClick={() => updateVolume(playerState.volume === 0 ? 1 : 0)}
+                  >
+                    <i className={`fas ${playerState.volume === 0 ? 'fa-volume-mute' : playerState.volume < 0.5 ? 'fa-volume-down' : 'fa-volume-up'}`}></i>
+                  </button>
+                  <input
+                    type="range"
+                    id="miniVolumeControl"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={playerState.volume}
+                    title="Volume"
+                    onChange={(e) => updateVolume(parseFloat(e.target.value))}
+                  />
+                </div>
               </div>
             </div>
 
             {/* Expanded Player */}
-            <div className="expanded-player" id="expandedPlayer">
+            <div className={`expanded-player ${playerState.showExpanded ? 'show' : ''}`} id="expandedPlayer">
               {/* Add expanded player content */}
             </div>
-            <audio id="audioPlayer" preload="auto" style={{ display: 'none' }} />
+            <audio ref={audioRef} id="audioPlayer" preload="auto" style={{ display: 'none' }} />
           </div>
         )}
 
-        <div className={`library-section ${libraryVisible ? 'visible' : ''}`} id="librarySection">
+        <div className={`library-section ${libraryVisible ? 'show' : ''}`} id="librarySection">
           <div className="library-header">
             <h2>Liked Songs</h2>
             <button
@@ -308,22 +456,22 @@ const Dashboard = ({ userEmail, trendingSongs, moodPlaylists, userLibrary, curre
             </button>
           </div>
 
-          {userLibrary.length === 0 ? (
+          {playerState.library.length === 0 ? (
             <div id="emptyLibraryMessage">
               Your library is empty. Add songs to get started!
             </div>
           ) : (
             <ul className="library-list" id="libraryList">
-              {userLibrary.map((song, index) => (
+              {playerState.library.map((song, index) => (
                 <li
                   key={index}
-                  className="library-item"
+                  className={`library-item ${playerState.currentSong?.url === song.url && playerState.isPlaying ? 'playing' : ''}`}
                   data-url={song.url}
                   data-title={song.title}
                   data-thumbnail={song.thumbnail}
                   data-artist={song.artist}
                 >
-                  <img className="song-thumbnail" src={song.thumbnail} alt={song.title} />
+                  <img className="song-thumbnail" src={song.thumbnail} alt={song.title} onError={handleImageError} />
                   <div className="library-item-info">
                     <h3>{song.title}</h3>
                     <p>{song.artist}</p>
@@ -331,14 +479,14 @@ const Dashboard = ({ userEmail, trendingSongs, moodPlaylists, userLibrary, curre
                   <div className="library-item-controls">
                     <button
                       className="play-btn"
-                      onClick={() => playSong(song.url, song.title, song.thumbnail, song.artist)}
+                      onClick={() => player.togglePlayFromLibrary(song.url, song.title, song.thumbnail, song.artist)}
                       title="Play/Pause"
                     >
-                      <i className={`fas ${song.url === currentSongUrl && isPlaying ? 'fa-pause' : 'fa-play'}`}></i>
+                      <i className={`fas ${playerState.currentSong?.url === song.url && playerState.isPlaying ? 'fa-pause' : 'fa-play'}`}></i>
                     </button>
                     <button
                       className="remove-from-library"
-                      onClick={() => removeFromLibrary(song)}
+                      onClick={() => library.remove(song)}
                       title="Remove from Library"
                     >
                       <i className="fas fa-trash"></i>
