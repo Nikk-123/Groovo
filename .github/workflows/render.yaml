@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: flask-backend
+    env: python
+    plan: free
+    buildCommand: ""
+    startCommand: "python3 app.py"  # or whatever your main file is
+    envVars:
+      - key: FLASK_ENV
+        value: production
+    rootDir: BACKEND
