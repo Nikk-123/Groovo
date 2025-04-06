@@ -1,11 +1,6 @@
 import webview
 from flask import Flask, redirect, request, session, jsonify, render_template, url_for
 from pymongo import MongoClient
-import requests
-import subprocess
-import psutil
-import time
-import threading
 import os
 import sys
 from dotenv import load_dotenv
@@ -14,141 +9,15 @@ from yt_dlp import YoutubeDL
 
 # Load environment variables
 if getattr(sys, 'frozen', False):
-    # If the application is run as a bundle (exe)
     bundle_dir = sys._MEIPASS
     load_dotenv(os.path.join(bundle_dir, '.env'))
 else:
-    # If the application is run from a Python interpreter
     load_dotenv()
-
-# GitHub Credentials (For Private Repo)
-GITHUB_PAT = os.getenv("GITHUB_TOKEN")
-GITHUB_REPO = "Nikk-123/Spotify-3.0"
-GITHUB_API_RELEASES = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-
-# Executable File Names
-EXE_FILE = "app.exe"
-NEW_EXE_FILE = "app_new.exe"
-BACKUP_EXE_FILE = "app_backup.exe"
-
-# Headers for authentication (PAT Token)
-HEADERS = {"Authorization": f"token {GITHUB_PAT}"}
-
-# Fetch latest release asset URL (For Private Repo)
-def get_latest_exe_url():
-    if not GITHUB_PAT:
-        print("GitHub PAT is not set. Please set the GITHUB_TOKEN environment variable.")
-        return None
-
-    try:
-        response = requests.get(GITHUB_API_RELEASES, headers=HEADERS)
-        if response.status_code == 200:
-            data = response.json()
-            assets = data.get("assets", [])
-            for asset in assets:
-                if asset["name"] == "app.exe":  # Ensure correct file
-                    return asset["url"]  # Use API URL, not browser URL
-        else:
-            print("GitHub API Error:", response.json())
-    except Exception as e:
-        print("Error fetching latest EXE URL:", e)
-    return None
-
-# Download latest executable (For Private Repo)
-def download_latest_exe():
-    latest_exe_url = get_latest_exe_url()
-    if not latest_exe_url:
-        print("No valid update URL found.")
-        return False
-
-    try:
-        # GitHub requires custom headers to download assets
-        asset_headers = {
-            "Authorization": f"token {GITHUB_PAT}",
-            "Accept": "application/octet-stream"
-        }
-        response = requests.get(latest_exe_url, headers=asset_headers, stream=True)
-        if response.status_code == 200:
-            with open(NEW_EXE_FILE, "wb") as file:
-                for chunk in response.iter_content(1024):
-                    file.write(chunk)
-            print("Update downloaded successfully.")
-            return True
-        else:
-            print("Error downloading file:", response.json())
-    except Exception as e:
-        print(f"Error downloading update: {e}")
-    return False
-
-# Check if EXE is running
-def is_exe_running():
-    for proc in psutil.process_iter(attrs=['pid', 'name']):
-        if proc.info['name'].lower() == EXE_FILE.lower():
-            return True
-    return False
-
-# Apply the update by replacing the EXE file
-def apply_update():
-    try:
-        if os.path.exists(NEW_EXE_FILE):
-            if os.path.exists(EXE_FILE):
-                os.rename(EXE_FILE, BACKUP_EXE_FILE)
-            os.rename(NEW_EXE_FILE, EXE_FILE)
-
-            # Start the new application
-            process = subprocess.Popen([EXE_FILE], close_fds=True)
-            time.sleep(2)  # Give time for the new process to start
-
-            # Terminate old instances
-            current_pid = os.getpid()
-            for proc in psutil.process_iter(attrs=['pid', 'name']):
-                if proc.info['name'].lower() == EXE_FILE.lower() and proc.info['pid'] != process.pid:
-                    try:
-                        psutil.Process(proc.info['pid']).terminate()
-                    except psutil.NoSuchProcess:
-                        pass  # Process already closed
-
-            sys.exit(0)  # Exit current process
-
-    except Exception as e:
-        print(f"Error while applying update: {e}")
-
-# Webview API for Update Prompt
-class UpdateAPI:
-    def apply_update(self):
-        apply_update()
-
-# Show update alert using Webview
-def show_update_alert():
-    html_content = """
-    <html>
-    <body>
-        <h2>New Update Available</h2>
-        <p>The application needs to update.</p>
-        <button onclick="window.pywebview.api.apply_update()">Update Now</button>
-    </body>
-    </html>
-    """
-    webview.create_window("Update Available", html=html_content, js_api=UpdateAPI())
-    webview.start()
-
-# Check for updates periodically (every 10 minutes)
-def check_for_updates_periodically():
-    while True:
-        print("Checking for updates...")
-        if download_latest_exe():
-            show_update_alert()
-        time.sleep(600)  # Wait for 10 minutes before checking again
-
-# Start update checker in a separate thread
-def start_update_thread():
-    update_thread = threading.Thread(target=check_for_updates_periodically, daemon=True)
-    update_thread.start()
 
 # Flask app setup
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
-app.secret_key = 'REMOVED_SECRET_KEY'  # Use secure key from .env
+app.secret_key = 'REMOVED_SECRET_KEY'
 
 # MongoDB Atlas setup
 MONGO_URI = os.getenv('MONGO_URI')
@@ -163,9 +32,6 @@ client = MongoClient(
 )
 db = client.get_database('music_app')
 users_collection = db.users
-
-# Start update thread
-start_update_thread()
 
 # User class
 class User:
@@ -306,18 +172,13 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
         
-        print(f"Login attempt for email: {email}")  
-
         user_data = get_user_by_email(email)
         
         if user_data:
-            print("User found in database")  
             try:
                 user = User(user_data['_id'], user_data['email'], user_data['password'], user_data['library'])
                 if user.check_password(password):
-                    print("Password verified successfully")  
                     session['user_id'] = email
-                    
                     if request.headers.get('Accept') == 'application/json':
                         return jsonify({
                             'success': True,
@@ -326,7 +187,6 @@ def login():
                         })
                     return redirect(url_for('dashboard'))
                 else:
-                    print("Password verification failed")  
                     if request.headers.get('Accept') == 'application/json':
                         return jsonify({
                             'success': False,
@@ -334,7 +194,7 @@ def login():
                         })
                     return render_template('login.html', error="Invalid email or password")
             except Exception as e:
-                print(f"Error during login: {str(e)}")  
+                print(f"Error during login: {str(e)}")
                 if request.headers.get('Accept') == 'application/json':
                     return jsonify({
                         'success': False,
@@ -342,7 +202,6 @@ def login():
                     })
                 return render_template('login.html', error="An error occurred during login")
         else:
-            print("User not found in database")  
             if request.headers.get('Accept') == 'application/json':
                 return jsonify({
                     'success': False,
@@ -365,39 +224,26 @@ def signup():
         try:
             new_user = {
                 'email': email,
-                'password': password,  
+                'password': password,
                 'library': []
             }
             
             users_collection.insert_one(new_user)
             return redirect(url_for('login'))
         except Exception as e:
-            print(f"Error during signup: {str(e)}")  
+            print(f"Error during signup: {str(e)}")
             return 'An error occurred during signup'
             
     return render_template('signup.html')
 
 @app.route('/logout')
 def logout():
-    session.pop('user_id', None)  
+    session.pop('user_id', None)
     return redirect(url_for('login'))
 
 @app.route('/')
 def index():
     return redirect(url_for('login'))
-
-def get_latest_version():
-    try:
-        response = requests.get(GITHUB_API_RELEASES, headers=HEADERS)
-        if response.status_code == 200:
-            data = response.json()
-            return data.get("tag_name", "Unknown Version")
-        else:
-            print("GitHub API Error:", response.json())
-    except Exception as e:
-        print("Error fetching latest version:", e)
-    return "Unknown Version"
-
 
 @app.route('/dashboard')
 def dashboard():
@@ -413,21 +259,18 @@ def dashboard():
     
     trending_songs = fetch_trending()
     mood_playlists = fetch_mood_playlists()
-    latest_version = get_latest_version()
     user_library_urls = [song['url'] for song in user_data.get('library', [])]
     
-    return render_template('dashboard.html', 
+    return render_template('dashboard.html',
                          user_email=user_email,
                          user_library=user_data.get('library', []),
                          user_library_urls=user_library_urls,
                          trending=trending_songs,
-                         mood_playlists=mood_playlists,
-                         latest_version=latest_version)
+                         mood_playlists=mood_playlists)
 
 @app.route('/play', methods=['POST', 'OPTIONS'])
 def play():
     if request.method == 'OPTIONS':
-        # Handle CORS preflight
         response = jsonify({'status': 'ok'})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
@@ -440,15 +283,14 @@ def play():
     if not video_url:
         return jsonify({"success": False, "error": "No URL provided"}), 400
 
-    # Updated yt-dlp options for 2025 compatibility
     ydl_opts = {
-        'format': 'bestaudio/best',  # Prioritize best audio quality
+        'format': 'bestaudio/best',
         'quiet': True,
-        'noplaylist': True,          # Ensure single video processing
+        'noplaylist': True,
         'no_warnings': True,
         'extractaudio': True,
-        'geturl': True,              # Explicitly get the direct URL
-        'simulate': True,            # Don't download, just extract info
+        'geturl': True,
+        'simulate': True,
         'force_generic_extractor': False,
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
@@ -461,7 +303,6 @@ def play():
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
-            # Extract info with updated error handling
             info = ydl.extract_info(video_url, download=False)
             
             if not info:
@@ -470,35 +311,29 @@ def play():
                     "error": "Unable to extract video information"
                 }), 500
 
-            # Handle cases where direct URL might be in different fields
             audio_url = info.get('url') or info.get('direct_url')
             if not audio_url:
-                # Fallback to formats if direct URL isn't available
                 formats = info.get('formats', [])
                 audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
                 if audio_formats:
-                    audio_url = audio_formats[-1].get('url')  # Get highest quality audio
+                    audio_url = audio_formats[-1].get('url')
                 else:
                     return jsonify({
                         "success": False,
                         "error": "No audio formats available"
                     }), 500
 
-            # Extract thumbnail with fallback
             thumbnails = info.get('thumbnails', [])
             thumbnail_url = ''
             if thumbnails:
-                # Sort by resolution and get highest available
                 sorted_thumbs = sorted(thumbnails, key=lambda x: x.get('height', 0), reverse=True)
                 thumbnail_url = sorted_thumbs[0].get('url', '')
 
-            # Get artist information with multiple fallbacks
             artist = (info.get('artist') or 
                      info.get('uploader') or 
                      info.get('channel') or 
                      'Unknown Artist')
 
-            # Extract title and duration
             title = info.get('title', 'Unknown Title')
             duration = info.get('duration', 0)
 
@@ -520,7 +355,6 @@ def play():
             "error": f"Error fetching audio: {str(e)}"
         }), 500
 
-
 @app.route('/search', methods=['GET'])
 def search_song():
     query = request.args.get('query')
@@ -533,7 +367,7 @@ def search_song():
             'quiet': True,
             'extract_flat': True,
             'no_warnings': True,
-            'default_search': 'ytsearch10',  
+            'default_search': 'ytsearch10',
         }
 
         with YoutubeDL(ydl_opts) as ydl:
@@ -609,7 +443,7 @@ def add_to_library():
 
         result = users_collection.update_one(
             {'email': user_email},
-            {'$addToSet': {'library': song_data}}  
+            {'$addToSet': {'library': song_data}}
         )
         
         if result.modified_count > 0:
@@ -706,21 +540,6 @@ def manifest():
         ]
     })
 
-@app.route('/api/version', methods=['GET'])
-def get_version():
-    if not GITHUB_PAT:
-        return jsonify({'version': "Unknown Version", 'error': "GitHub PAT is not set"}), 401
-
-    try:
-        response = requests.get(GITHUB_API_RELEASES, headers=HEADERS)
-        if response.status_code == 200:
-            data = response.json()
-            return jsonify({'version': data.get("tag_name", "Unknown Version")})
-        else:
-            return jsonify({'version': "Unknown Version"}), response.status_code
-    except Exception as e:
-        return jsonify({'version': "Unknown Version", 'error': str(e)}), 500
-
 def test_db_connection():
     try:
         print("Testing MongoDB connection...")
@@ -729,27 +548,14 @@ def test_db_connection():
         return True
     except Exception as e:
         print(f"Failed to connect to MongoDB: {str(e)}")
-        print("Please check your connection string and make sure MongoDB Atlas is accessible.")
         return False
 
 if __name__ == "__main__":
-    start_update_thread()  # Start update check in the background
-    
-    # Function to start Flask in a separate thread
-    def start_flask():
-        try:
-            app.run(debug=True, use_reloader=False)  # Ensure reloader is off for threading
-        except Exception as e:
-            print(f"Error starting Flask: {e}")
-
-    # Run Flask in a separate thread
-    flask_thread = threading.Thread(target=start_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
-    
-    # Start the GUI with Flask's local server
-    try:
+    if test_db_connection():
+        # Run Flask and webview sequentially
+        app.run(debug=True, use_reloader=False, port=5000)
         webview.create_window("Spotify-3.0", "http://127.0.0.1:5000/")
         webview.start()
-    except Exception as e:
-        print(f"Error starting webview: {e}")
+    else:
+        print("Application cannot start due to database connection failure")
+        sys.exit(1)
