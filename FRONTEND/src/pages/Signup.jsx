@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './Login.css';
+import './Signup.css';
 
-const Login = () => {
+const Signup = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [flashMessages, setFlashMessages] = useState([]);
@@ -14,7 +14,7 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/login', {
+      const response = await fetch('/signup', {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
@@ -23,23 +23,20 @@ const Login = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Login failed');
+        throw new Error('Signup failed');
       }
 
       const data = await response.json();
 
       if (data.success) {
-        if (data.library) {
-          localStorage.setItem('userLibrary', JSON.stringify(data.library));
-        }
-        navigate(data.redirect);
+        navigate(data.redirect || '/login');
       } else {
-        setFlashMessages([{ category: 'danger', message: data.message || 'Login failed. Please check your credentials.' }]);
+        setFlashMessages([{ category: 'warning', message: data.message || 'Signup failed. Please try again.' }]);
         setIsSubmitting(false);
       }
     } catch (error) {
       console.error('Error:', error);
-      setFlashMessages([{ category: 'danger', message: 'Login failed. Please try again.' }]);
+      setFlashMessages([{ category: 'warning', message: 'Signup failed. Please try again.' }]);
       setIsSubmitting(false);
     }
   };
@@ -63,11 +60,11 @@ const Login = () => {
         </div>
       )}
 
-      <div className="login-container">
-        <h1>Log in to continue</h1>
+      <div className="signup-container">
+        <h1>Sign up for free</h1>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="email">Email address</label>
+            <label htmlFor="email">What's your email?</label>
             <input
               type="email"
               id="email"
@@ -79,7 +76,7 @@ const Login = () => {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">Create a password</label>
             <input
               type="password"
               id="password"
@@ -87,21 +84,24 @@ const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder="Password"
+              placeholder="Create a password"
             />
           </div>
           <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Logging in...' : 'LOG IN'}
+            {isSubmitting ? 'Signing up...' : 'SIGN UP'}
           </button>
+          <div className="terms">
+            By clicking on sign-up, you agree to Gareeb ka Spotify's Terms and Conditions of Use.
+          </div>
         </form>
         <div className="divider">or</div>
-        <div className="signup-link">
-          <p>Don't have an account?</p>
-          <a href="/signup">SIGN UP FOR GAREEB KA SPOTIFY</a>
+        <div className="login-link">
+          <p>Already have an account?</p>
+          <a href="/login">LOG IN TO GAREEB KA SPOTIFY</a>
         </div>
       </div>
     </div>
   );
 };
 
-export default Login;
+export default Signup;
