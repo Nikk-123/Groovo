@@ -1,6 +1,7 @@
 Flask
+Flask-Cors
+Flask-Session
 pymongo
 python-dotenv
-flask-cors
 yt-dlp
-flask-session
+gunicorn
