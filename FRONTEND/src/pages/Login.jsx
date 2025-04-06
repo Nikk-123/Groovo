@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import './Login.css';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import "./Login.css";
 
 const Login = ({ setIsAuthenticated }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [flashMessages, setFlashMessages] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -15,54 +15,62 @@ const Login = ({ setIsAuthenticated }) => {
     setFlashMessages([]);
 
     try {
-      console.log('Sending login request to backend...');
-      const response = await fetch('/login', {
-        method: 'POST',
+      console.log("Sending login request to backend...");
+      const response = await fetch("/login", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          "Content-Type": "application/json",
+          "Accept": "application/json",
         },
         body: JSON.stringify({ email, password }),
-        credentials: 'include', // Important for cookies/session
+        credentials: "include", // For cookies/session
       });
 
-      console.log('Response status:', response.status);
-      
-      // Check if response is ok before trying to parse JSON
+      console.log("Response status:", response.status);
+
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
-      
-      // Try to parse the response as JSON
+
       let data;
       try {
         data = await response.json();
-        console.log('Response data:', data);
+        console.log("Response data:", data);
       } catch (jsonError) {
-        console.error('Error parsing JSON:', jsonError);
-        throw new Error('Invalid JSON response from server');
+        console.error("Error parsing JSON:", jsonError);
+        throw new Error("Invalid JSON response from server");
       }
 
       if (data.success) {
         // Store user library in localStorage if available
         if (data.library) {
-          localStorage.setItem('userLibrary', JSON.stringify(data.library));
+          localStorage.setItem("userLibrary", JSON.stringify(data.library));
         }
-        
-        // Update authentication state
+
+        // Persist authentication state in localStorage
+        localStorage.setItem("isAuthenticated", "true");
+
+        // Update parent state via callback
         if (setIsAuthenticated) {
-          setIsAuthenticated(true);
+          setIsAuthenticated(); // This matches the handleLoginSuccess in App.jsx
         }
-        
-        // Navigate to dashboard on success
-        navigate(data.redirect || '/dashboard');
+
+        // Navigate to dashboard or redirect URL from backend
+        navigate(data.redirect || "/dashboard", { replace: true });
       } else {
-        setFlashMessages([{ category: 'danger', message: data.message || 'Login failed. Please check your credentials.' }]);
-        setIsSubmitting(false);
+        setFlashMessages([
+          {
+            category: "danger",
+            message: data.message || "Login failed. Please check your credentials.",
+          },
+        ]);
       }
     } catch (error) {
-      console.error('Error:', error);
-      setFlashMessages([{ category: 'danger', message: 'Login failed. Please try again.' }]);
+      console.error("Error:", error);
+      setFlashMessages([
+        { category: "danger", message: "Login failed. Please try again." },
+      ]);
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -99,6 +107,7 @@ const Login = ({ setIsAuthenticated }) => {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="Enter your email"
+              disabled={isSubmitting}
             />
           </div>
           <div className="form-group">
@@ -111,10 +120,11 @@ const Login = ({ setIsAuthenticated }) => {
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="Password"
+              disabled={isSubmitting}
             />
           </div>
           <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Logging in...' : 'LOG IN'}
+            {isSubmitting ? "Logging in..." : "LOG IN"}
           </button>
         </form>
         <div className="divider">or</div>

@@ -1,71 +1,69 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: '0.0.0.0',
+    host: "0.0.0.0", // Allows access from network (e.g., 192.168.x.x)
     port: 5173,
     proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:5000',
+      // Proxy all API-related endpoints to Flask backend
+      "/api": {
+        target: "http://127.0.0.1:5000",
         changeOrigin: true,
         secure: false,
-        ws: true,
         configure: (proxy, _options) => {
-          proxy.on('error', (err, _req, _res) => {
-            console.log('proxy error', err);
+          proxy.on("error", (err, _req, _res) => {
+            console.log("Proxy error:", err);
           });
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending Request to the Target:', req.method, req.url);
+          proxy.on("proxyReq", (proxyReq, req, _res) => {
+            console.log("Sending Request:", req.method, req.url);
           });
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+          proxy.on("proxyRes", (proxyRes, req, _res) => {
+            console.log("Received Response:", proxyRes.statusCode, req.url);
           });
-        }
+        },
       },
-      '/login': {
-        target: 'http://127.0.0.1:5000',
+      "/login": {
+        target: "http://127.0.0.1:5000",
         changeOrigin: true,
-        secure: false
+        secure: false,
       },
-      '/signup': {
-        target: 'http://127.0.0.1:5000',
+      "/signup": {
+        target: "http://127.0.0.1:5000",
         changeOrigin: true,
-        secure: false
+        secure: false,
       },
-      '/dashboard': {
-        target: 'http://127.0.0.1:5000',
+      "/logout": {
+        target: "http://127.0.0.1:5000",
         changeOrigin: true,
-        secure: false
+        secure: false,
       },
-      '/logout': {
-        target: 'http://127.0.0.1:5000',
+      "/search": {
+        target: "http://127.0.0.1:5000",
         changeOrigin: true,
-        secure: false
+        secure: false,
       },
-      '/search': {
-        target: 'http://127.0.0.1:5000',
+      "/play": {
+        target: "http://127.0.0.1:5000",
         changeOrigin: true,
-        secure: false
+        secure: false,
       },
-      '/play': {
-        target: 'http://127.0.0.1:5000',
+      "/library": {
+        target: "http://127.0.0.1:5000",
         changeOrigin: true,
-        secure: false
+        secure: false,
       },
-      '/library': {
-        target: 'http://127.0.0.1:5000',
+      "/static": {
+        target: "http://127.0.0.1:5000",
         changeOrigin: true,
-        secure: false
+        secure: false,
       },
-      '/static': {
-        target: 'http://127.0.0.1:5000',
-        changeOrigin: true,
-        secure: false
-      }
     },
-    historyApiFallback: true
-  }
-})
+    // Ensure SPA routing works with React Router
+    historyApiFallback: {
+      index: "/index.html", // Serve index.html for all non-API routes
+    },
+  },
+});
