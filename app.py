@@ -552,8 +552,13 @@ def test_db_connection():
 
 if __name__ == "__main__":
     if test_db_connection():
-        # Run Flask and webview sequentially
-        app.run(debug=True, use_reloader=False, port=5000)
+        # Start Flask in a separate thread
+        from threading import Thread
+        flask_thread = Thread(target=lambda: app.run(debug=False, use_reloader=False, port=5000))
+        flask_thread.daemon = True
+        flask_thread.start()
+        
+        # Create and start webview window
         webview.create_window("Spotify-3.0", "http://127.0.0.1:5000/")
         webview.start()
     else:
