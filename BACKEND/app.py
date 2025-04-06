@@ -18,10 +18,11 @@ app.secret_key = 'Chayan@12'
 
 # Session configuration
 app.config['SESSION_TYPE'] = 'filesystem'
-app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours in seconds
-app.config['SESSION_COOKIE_SECURE'] = True  # Only send cookies over HTTPS
-app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access to cookies
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Protect against CSRF
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400
+app.config['SESSION_COOKIE_SECURE'] = False  # False for dev, True in production with HTTPS
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+Session(app)
 
 # MongoDB Atlas setup
 MONGO_URI = os.getenv('MONGO_URI')
@@ -170,47 +171,24 @@ def fetch_trending():
         print(f"Error fetching trending: {e}")
         return []
 
+# Login route (unchanged)
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
-    
     if not email or not password:
-        return jsonify({
-            'success': False,
-            'message': 'Email and password are required'
-        }), 400
-        
+        return jsonify({'success': False, 'message': 'Email and password are required'}), 400
     user_data = get_user_by_email(email)
-    
-    if user_data:
-        try:
-            user = User(user_data['_id'], user_data['email'], user_data['password'], user_data['library'])
-            if user.check_password(password):
-                session['user_id'] = email
-                session.permanent = True  # Make session permanent
-                return jsonify({
-                    'success': True,
-                    'redirect': '/dashboard',
-                    'library': user_data.get('library', [])
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'message': 'Invalid email or password'
-                }), 401
-        except Exception as e:
-            print(f"Error during login: {str(e)}")
-            return jsonify({
-                'success': False,
-                'message': 'An error occurred during login'
-            }), 500
-    else:
+    if user_data and User(user_data['_id'], user_data['email'], user_data['password'], user_data['library']).check_password(password):
+        session['user_id'] = email
+        session.permanent = True
         return jsonify({
-            'success': False,
-            'message': 'Invalid email or password'
-        }), 401
+            'success': True,
+            'redirect': '/dashboard',
+            'library': user_data.get('library', [])
+        })
+    return jsonify({'success': False, 'message': 'Invalid email or password'}), 401
 
 @app.route('/signup', methods=['POST'])
 def signup():
@@ -259,13 +237,15 @@ def signup():
             'message': 'Invalid request data'
         }), 400
 
+# Logout route
 @app.route('/logout')
 def logout():
     session.pop('user_id', None)
     return jsonify({
         'success': True,
         'message': 'Logged out successfully',
-        'redirect': '/login'
+        'redirect': '/login',
+        'clearAuth': True
     })
 
 @app.route('/')
@@ -297,23 +277,14 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# Dashboard API route with login_required
 @app.route('/api/dashboard')
+@login_required
 def api_dashboard():
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'redirect': '/login'})
-    
     user_id = session['user_id']
     user = get_user_by_email(user_id)
-    
-    if not user:
-        return jsonify({'success': False, 'redirect': '/login'})
-    
-    # Get trending songs
     trending = fetch_trending()
-    
-    # Get mood playlists
     mood_playlists = fetch_mood_playlists()
-    
     return jsonify({
         'success': True,
         'user_email': user['email'],
@@ -327,7 +298,7 @@ def dashboard():
         return redirect('/login')
     
     # Serve the React app directly
-    return send_from_directory('../FRONTEND/dist', 'index.html')
+    return send_from_directory('../FRONTEND/src/pages', 'Dashboard.jsx')
 
 @app.route('/play', methods=['POST', 'OPTIONS'])
 def play():
