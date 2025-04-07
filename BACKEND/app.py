@@ -18,8 +18,6 @@ app = Flask(__name__)
 CORS(app, 
      resources={r"/*": {
          "origins": [
-             "http://localhost:5173", 
-             "http://127.0.0.1:5173", 
              "https://spotify-3-0-es19.onrender.com",
              "https://spotify30.netlify.app"
          ],
@@ -33,9 +31,7 @@ CORS(app,
 @app.after_request
 def after_request(response):
     origin = request.headers.get('Origin')
-    allowed_origins = [
-        "http://localhost:5173", 
-        "http://127.0.0.1:5173", 
+    allowed_origins = [ 
         "https://spotify-3-0-es19.onrender.com",
         "https://spotify30.netlify.app"
     ]
