@@ -1,4 +1,4 @@
-from flask import Flask, redirect, request, session, jsonify, send_from_directory
+from flask import Flask, request, session, jsonify
 from pymongo import MongoClient
 import os
 import sys
@@ -129,7 +129,7 @@ def fetch_trending():
         
         with YoutubeDL(options) as ydl:
             trending_data = ydl.extract_info(
-                'https://www.youtube.com/feed/trending?bp=4gINGgt5dG1hX2NoYXJ0cw%3D%3D',
+                'https://www.youtube.com/feed/trending?bp=4gINGgt5dG1hX2NoYXJ0cw%3D%3D MILLIND GABA',
                 download=False
             )
             
@@ -171,9 +171,9 @@ def fetch_trending():
         print(f"Error fetching trending: {e}")
         return []
 
-# Login route (unchanged)
-@app.route('/login', methods=['POST'])
-def login():
+# Login API
+@app.route('/api/login', methods=['POST'])
+def api_login():
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
@@ -185,100 +185,63 @@ def login():
         session.permanent = True
         return jsonify({
             'success': True,
-            'redirect': '/dashboard',
-            'library': user_data.get('library', [])
+            'message': 'Login successful',
+            'user': {'email': email, 'library': user_data.get('library', [])}
         })
     return jsonify({'success': False, 'message': 'Invalid email or password'}), 401
 
-@app.route('/signup', methods=['POST'])
-def signup():
+# Signup API
+@app.route('/api/signup', methods=['POST'])
+def api_signup():
     try:
         data = request.get_json()
         email = data.get('email')
         password = data.get('password')
 
         if not email or not password:
-            return jsonify({
-                'success': False,
-                'message': 'Email and password are required'
-            }), 400
+            return jsonify({'success': False, 'message': 'Email and password are required'}), 400
 
         existing_user = get_user_by_email(email)
         if existing_user:
-            return jsonify({
-                'success': False,
-                'message': 'User already exists'
-            }), 409
+            return jsonify({'success': False, 'message': 'User already exists'}), 409
         
-        try:
-            new_user = {
-                'email': email,
-                'password': password,
-                'library': []
-            }
-            
-            users_collection.insert_one(new_user)
-            return jsonify({
-                'success': True,
-                'message': 'User created successfully',
-                'redirect': '/login'
-            })
-        except Exception as e:
-            print(f"Error during signup: {str(e)}")
-            return jsonify({
-                'success': False,
-                'message': 'An error occurred during signup'
-            }), 500
-            
+        new_user = {'email': email, 'password': password, 'library': []}
+        users_collection.insert_one(new_user)
+        return jsonify({'success': True, 'message': 'User created successfully'})
     except Exception as e:
-        print(f"Error parsing signup data: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': 'Invalid request data'
-        }), 400
+        print(f"Error during signup: {str(e)}")
+        return jsonify({'success': False, 'message': 'An error occurred during signup'}), 500
 
-# Logout route
-@app.route('/logout')
-def logout():
+# Logout API
+@app.route('/api/logout', methods=['POST'])
+def api_logout():
     session.pop('user_id', None)
     return jsonify({
         'success': True,
-        'message': 'Logged out successfully',
-        'redirect': '/login',
-        'clearAuth': True
+        'message': 'Logged out successfully'
     })
 
-@app.route('/')
-def index():
-    return redirect('/login')
+# Root API (status check)
+@app.route('/api', methods=['GET'])
+def api_index():
+    return jsonify({'success': True, 'message': 'API is running'})
 
 # Login required decorator
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
-            return jsonify({
-                'success': False,
-                'message': 'Authentication required',
-                'redirect': '/login'
-            }), 401
-        
+            return jsonify({'success': False, 'message': 'Authentication required'}), 401
         user_email = session['user_id']
         user_data = get_user_by_email(user_email)
-        
         if not user_data:
             session.pop('user_id', None)
-            return jsonify({
-                'success': False,
-                'message': 'User not found',
-                'redirect': '/login'
-            }), 401
-            
+            return jsonify({'success': False, 'message': 'User not found'}), 401
         return f(*args, **kwargs)
     return decorated_function
 
-# Dashboard API route with login_required
-@app.route('/api/dashboard')
+# Dashboard API
+@app.route('/api/dashboard', methods=['GET'])
 @login_required
 def api_dashboard():
     user_id = session['user_id']
@@ -292,16 +255,9 @@ def api_dashboard():
         'mood_playlists': mood_playlists
     })
 
-@app.route('/dashboard')
-def dashboard():
-    if 'user_id' not in session:
-        return redirect('/login')
-    
-    # Serve the React app directly
-    return send_from_directory('../FRONTEND/src/pages', 'Dashboard.jsx')
-
-@app.route('/play', methods=['POST', 'OPTIONS'])
-def play():
+# Play API (unchanged, already JSON-based)
+@app.route('/api/play', methods=['POST', 'OPTIONS'])
+def api_play():
     if request.method == 'OPTIONS':
         response = jsonify({'status': 'ok'})
         response.headers.add('Access-Control-Allow-Origin', '*')
@@ -336,12 +292,8 @@ def play():
     try:
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
-            
             if not info:
-                return jsonify({
-                    "success": False,
-                    "error": "Unable to extract video information"
-                }), 500
+                return jsonify({"success": False, "error": "Unable to extract video information"}), 500
 
             audio_url = info.get('url') or info.get('direct_url')
             if not audio_url:
@@ -350,26 +302,16 @@ def play():
                 if audio_formats:
                     audio_url = audio_formats[-1].get('url')
                 else:
-                    return jsonify({
-                        "success": False,
-                        "error": "No audio formats available"
-                    }), 500
+                    return jsonify({"success": False, "error": "No audio formats available"}), 500
 
             thumbnails = info.get('thumbnails', [])
-            thumbnail_url = ''
-            if thumbnails:
-                sorted_thumbs = sorted(thumbnails, key=lambda x: x.get('height', 0), reverse=True)
-                thumbnail_url = sorted_thumbs[0].get('url', '')
+            thumbnail_url = thumbnails and sorted(thumbnails, key=lambda x: x.get('height', 0), reverse=True)[0].get('url', '') or ''
 
-            artist = (info.get('artist') or 
-                     info.get('uploader') or 
-                     info.get('channel') or 
-                     'Unknown Artist')
-
+            artist = info.get('artist') or info.get('uploader') or info.get('channel') or 'Unknown Artist'
             title = info.get('title', 'Unknown Title')
             duration = info.get('duration', 0)
 
-            response = jsonify({
+            return jsonify({
                 'success': True,
                 'audio_url': audio_url,
                 'title': title,
@@ -377,185 +319,114 @@ def play():
                 'artist': artist,
                 'duration': duration
             })
-            response.headers.add('Access-Control-Allow-Origin', '*')
-            return response
-
     except Exception as e:
-        print(f"[ERROR] /play: {str(e)}")
-        return jsonify({
-            "success": False,
-            "error": f"Error fetching audio: {str(e)}"
-        }), 500
+        print(f"[ERROR] /api/play: {str(e)}")
+        return jsonify({"success": False, "error": f"Error fetching audio: {str(e)}"}), 500
 
-@app.route('/search', methods=['GET'])
-def search_song():
+# Search API (unchanged, already JSON-based)
+@app.route('/api/search', methods=['GET'])
+def api_search():
     query = request.args.get('query')
     if not query:
         return jsonify([])
 
-    try:
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'quiet': True,
-            'extract_flat': True,
-            'no_warnings': True,
-            'default_search': 'ytsearch10',
-        }
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'quiet': True,
+        'extract_flat': True,
+        'no_warnings': True,
+        'default_search': 'ytsearch10',
+    }
 
+    try:
         with YoutubeDL(ydl_opts) as ydl:
             search_query = f"ytsearch10:{query} music"
             info = ydl.extract_info(search_query, download=False)
-            
             results = []
             for entry in info.get('entries', []):
                 if not entry:
                     continue
-                    
                 thumbnails = entry.get('thumbnails', [])
-                thumbnail_url = ''
-                if thumbnails:
-                    for thumb in thumbnails:
-                        if thumb.get('height', 0) >= 180:
-                            thumbnail_url = thumb['url']
-                            break
-                    if not thumbnail_url and thumbnails:
-                        thumbnail_url = thumbnails[0]['url']
+                thumbnail_url = thumbnails and [t['url'] for t in thumbnails if t.get('height', 0) >= 180][0] if any(t.get('height', 0) >= 180 for t in thumbnails) else thumbnails[0]['url'] if thumbnails else ''
 
                 full_title = entry.get('title', '')
                 artist = entry.get('channel', entry.get('uploader', ''))
-                
+                title = full_title.split(' - ', 1)[1].strip() if ' - ' in full_title and len(full_title.split(' - ', 1)) > 1 else full_title
                 if ' - ' in full_title:
-                    parts = full_title.split(' - ', 1)
-                    if len(parts) == 2:
-                        artist = parts[0].strip()
-                        title = parts[1].strip()
-                    else:
-                        title = full_title
-                else:
-                    title = full_title
+                    artist = full_title.split(' - ', 1)[0].strip()
 
                 duration = entry.get('duration')
-                if duration:
-                    minutes = int(duration) // 60
-                    seconds = int(duration) % 60
-                    duration_str = f"{minutes}:{seconds:02d}"
-                else:
-                    duration_str = "Unknown"
+                duration_str = f"{int(duration) // 60}:{int(duration) % 60:02d}" if duration else "Unknown"
 
-                result = {
+                results.append({
                     'title': title,
                     'url': f"https://www.youtube.com/watch?v={entry['id']}",
                     'thumbnail': thumbnail_url,
                     'duration': duration_str,
                     'artist': artist,
                     'views': entry.get('view_count', 'N/A'),
-                }
-                results.append(result)
-
+                })
             return jsonify(results)
-
     except Exception as e:
         print(f"Error searching for song: {e}")
-        return jsonify({"error": "Failed to search for song"}), 500
+        return jsonify({"success": False, "error": "Failed to search for song"}), 500
 
-@app.route('/library/add', methods=['POST'])
-def add_to_library():
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'Not logged in'}), 401
-    
-    try:
-        song_data = request.json
-        user_email = session['user_id']
-        
-        if not song_data or not isinstance(song_data, dict):
-            return jsonify({
-                'success': False,
-                'message': 'Invalid song data'
-            }), 400
+# Library Add API (unchanged, already JSON-based)
+@app.route('/api/library/add', methods=['POST'])
+@login_required
+def api_add_to_library():
+    song_data = request.get_json()
+    user_email = session['user_id']
+    if not song_data or not isinstance(song_data, dict):
+        return jsonify({'success': False, 'message': 'Invalid song data'}), 400
 
-        result = users_collection.update_one(
-            {'email': user_email},
-            {'$addToSet': {'library': song_data}}
-        )
-        
-        if result.modified_count > 0:
-            return jsonify({
-                'success': True,
-                'message': 'Song added to library'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'Song already in library or user not found'
-            })
-            
-    except Exception as e:
-        print(f"Error adding to library: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': 'An error occurred while adding to library'
-        }), 500
+    result = users_collection.update_one(
+        {'email': user_email},
+        {'$addToSet': {'library': song_data}}
+    )
+    return jsonify({
+        'success': result.modified_count > 0,
+        'message': 'Song added to library' if result.modified_count > 0 else 'Song already in library or user not found'
+    })
 
-@app.route('/library/remove', methods=['POST'])
-def remove_from_library():
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'Not logged in'}), 401
-    
-    try:
-        song_data = request.json
-        user_email = session['user_id']
-        
-        result = users_collection.update_one(
-            {'email': user_email},
-            {'$pull': {'library': {'url': song_data['url']}}}
-        )
-        
-        return jsonify({
-            'success': True,
-            'message': 'Song removed from library'
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+# Library Remove API (unchanged, already JSON-based)
+@app.route('/api/library/remove', methods=['POST'])
+@login_required
+def api_remove_from_library():
+    song_data = request.get_json()
+    user_email = session['user_id']
+    result = users_collection.update_one(
+        {'email': user_email},
+        {'$pull': {'library': {'url': song_data['url']}}}
+    )
+    return jsonify({
+        'success': True,
+        'message': 'Song removed from library'
+    })
 
-@app.route('/library/get', methods=['GET'])
-def get_library():
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'Not logged in'}), 401
-    
-    try:
-        user_email = session['user_id']
-        user_data = get_user_by_email(user_email)
-        
-        return jsonify({
-            'success': True,
-            'library': user_data.get('library', [])
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+# Library Get API (unchanged, already JSON-based)
+@app.route('/api/library', methods=['GET'])
+@login_required
+def api_get_library():
+    user_email = session['user_id']
+    user_data = get_user_by_email(user_email)
+    return jsonify({
+        'success': True,
+        'library': user_data.get('library', [])
+    })
 
+# Error handlers
 @app.errorhandler(500)
 def internal_error(error):
-    return jsonify({
-        'success': False,
-        'message': 'An internal server error occurred',
-        'error': str(error)
-    }), 500
+    return jsonify({'success': False, 'message': 'An internal server error occurred', 'error': str(error)}), 500
 
 @app.errorhandler(404)
 def not_found_error(error):
-    return jsonify({
-        'success': False,
-        'message': 'Resource not found'
-    }), 404
+    return jsonify({'success': False, 'message': 'Resource not found'}), 404
 
-@app.route('/static/manifest.json')
-def manifest():
+# Manifest API (unchanged, already JSON-based)
+@app.route('/api/manifest', methods=['GET'])
+def api_manifest():
     return jsonify({
         "name": "Spotify 2.0",
         "short_name": "Spotify",
@@ -563,13 +434,7 @@ def manifest():
         "display": "standalone",
         "background_color": "#ffffff",
         "theme_color": "#000000",
-        "icons": [
-            {
-                "src": "/static/favicon.png",
-                "sizes": "192x192",
-                "type": "image/png"
-            }
-        ]
+        "icons": [{"src": "/static/favicon.png", "sizes": "192x192", "type": "image/png"}]
     })
 
 def test_db_connection():
@@ -584,7 +449,7 @@ def test_db_connection():
 
 if __name__ == "__main__":
     if test_db_connection():
-        app.run(debug=False, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+        app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
     else:
         print("Application cannot start due to database connection failure")
         sys.exit(1)
