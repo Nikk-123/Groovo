@@ -7,6 +7,8 @@ from flask_cors import CORS
 from yt_dlp import YoutubeDL
 from functools import wraps
 from flask_session import Session
+from flask import Response
+import requests
 
 # Load environment variables
 load_dotenv()
@@ -301,127 +303,65 @@ def api_dashboard():
         print(f"Error in /api/dashboard: {e}")
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
-# Play API
+
 @app.route('/api/play', methods=['POST', 'OPTIONS'])
 def api_play():
     if request.method == 'OPTIONS':
-        response = jsonify({'status': 'ok'})
-        origin = request.headers.get('Origin')
-        if origin in [
-            "http://localhost:5173", 
-            "http://127.0.0.1:5173", 
-            "https://spotify-3-0-es19.onrender.com",
-            "https://spotify30.netlify.app"
-        ]:
-            response.headers['Access-Control-Allow-Origin'] = origin
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
-            response.headers['Access-Control-Allow-Methods'] = 'POST,OPTIONS'
-            response.headers['Access-Control-Allow-Credentials'] = 'true'
-        return response
+        # ... CORS handling ...
+        pass
 
     try:
         data = request.get_json()
-        if not data:
-            return jsonify({"success": False, "error": "No data provided"}), 400
-
         video_url = data.get('url')
         if not video_url:
             return jsonify({"success": False, "error": "No URL provided"}), 400
 
+        logger.debug(f"Processing URL: {video_url}")
         ydl_opts = {
             'format': 'bestaudio/best',
-            'quiet': True,
+            'quiet': False,
             'noplaylist': True,
-            'no_warnings': True,
-            'extractaudio': True,
-            'audioformat': 'mp3',
-            'outtmpl': '%(id)s.%(ext)s',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
+            'no_warnings': False,
+            'geturl': True,
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
                 'Accept': '*/*',
                 'Referer': 'https://www.youtube.com/'
             },
             'socket_timeout': 30,
-            'source_address': '0.0.0.0',
             'nocheckcertificate': True,
-            'ignoreerrors': True,
-            'logtostderr': False,
-            'no_warnings': True,
-            'default_search': 'auto',
-            'extract_flat': False,
+            'ignoreerrors': False,
+            'geo_bypass': True,
+            'logger': logger,
         }
 
         with YoutubeDL(ydl_opts) as ydl:
-            try:
-                info = ydl.extract_info(video_url, download=False)
-                if not info:
-                    return jsonify({"success": False, "error": "Unable to extract video information"}), 500
+            info = ydl.extract_info(video_url, download=False)
+            if not info:
+                logger.error("yt_dlp returned no info")
+                return jsonify({"success": False, "error": "Unable to extract video information"}), 500
 
-                # Get the best audio format
-                formats = info.get('formats', [])
-                audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
-                
-                if not audio_formats:
-                    # If no audio-only format, try to get any format with audio
-                    audio_formats = [f for f in formats if f.get('acodec') != 'none']
-                
-                if not audio_formats:
-                    return jsonify({"success": False, "error": "No audio formats available"}), 500
+            audio_url = info.get('url')
+            if not audio_url:
+                logger.error("No audio URL found in info")
+                return jsonify({"success": False, "error": "No audio URL found"}), 500
 
-                # Get the best quality audio format
-                best_format = max(audio_formats, key=lambda x: x.get('abr', 0))
-                audio_url = best_format.get('url')
-                
-                if not audio_url:
-                    return jsonify({"success": False, "error": "Could not get audio URL"}), 500
+            # Proxy the audio stream
+            def stream_audio():
+                with requests.get(audio_url, stream=True, headers=ydl_opts['http_headers']) as r:
+                    r.raise_for_status()
+                    for chunk in r.iter_content(chunk_size=8192):
+                        yield chunk
 
-                thumbnails = info.get('thumbnails', [])
-                thumbnail_url = thumbnails and sorted(thumbnails, key=lambda x: x.get('height', 0), reverse=True)[0].get('url', '') or ''
-
-                artist = info.get('artist') or info.get('uploader') or info.get('channel') or 'Unknown Artist'
-                title = info.get('title', 'Unknown Title')
-                duration = info.get('duration', 0)
-
-                response = jsonify({
-                    'success': True,
-                    'audio_url': audio_url,
-                    'title': title,
-                    'thumbnail': thumbnail_url,
-                    'artist': artist,
-                    'duration': duration
-                })
-                origin = request.headers.get('Origin')
-                if origin in [
-                    "http://localhost:5173", 
-                    "http://127.0.0.1:5173", 
-                    "https://spotify-3-0-es19.onrender.com",
-                    "https://spotify30.netlify.app"
-                ]:
-                    response.headers['Access-Control-Allow-Origin'] = origin
-                    response.headers['Access-Control-Allow-Credentials'] = 'true'
-                return response
-            except Exception as e:
-                print(f"[ERROR] yt-dlp error: {str(e)}")
-                return jsonify({"success": False, "error": f"Error processing video: {str(e)}"}), 500
+            response = Response(stream_audio(), mimetype='audio/mpeg')
+            response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Content-Disposition'] = 'inline'
+            return response
 
     except Exception as e:
-        print(f"[ERROR] /api/play: {str(e)}")
-        response = jsonify({"success": False, "error": f"Server error: {str(e)}"}), 500
-        origin = request.headers.get('Origin')
-        if origin in [
-            "http://localhost:5173", 
-            "http://127.0.0.1:5173", 
-            "https://spotify-3-0-es19.onrender.com",
-            "https://spotify30.netlify.app"
-        ]:
-            response[0].headers['Access-Control-Allow-Origin'] = origin
-            response[0].headers['Access-Control-Allow-Credentials'] = 'true'
-        return response
+        logger.error(f"Exception in /api/play: {str(e)}")
+        return jsonify({"success": False, "error": f"Server error: {str(e)}"}), 500
 
 # Search API (unchanged, already JSON-based)
 @app.route('/api/search', methods=['GET'])
