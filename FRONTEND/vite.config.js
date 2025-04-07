@@ -5,14 +5,13 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: "0.0.0.0", // Allows access from network (e.g., 192.168.x.x)
+    host: "0.0.0.0",
     port: 5173,
     proxy: {
-      // Proxy all API-related endpoints to Flask backend
       "/api": {
-        target: "http://127.0.0.1:5000",
+        target: "https://spotify-3-0-es19.onrender.com",
         changeOrigin: true,
-        secure: false,
+        secure: true,
         configure: (proxy, _options) => {
           proxy.on("error", (err, _req, _res) => {
             console.log("Proxy error:", err);
@@ -26,44 +25,43 @@ export default defineConfig({
         },
       },
       "/login": {
-        target: "http://127.0.0.1:5000",
+        target: "https://spotify-3-0-es19.onrender.com",
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
       "/signup": {
-        target: "http://127.0.0.1:5000",
+        target: "https://spotify-3-0-es19.onrender.com",
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
       "/logout": {
-        target: "http://127.0.0.1:5000",
+        target: "https://spotify-3-0-es19.onrender.com",
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
       "/search": {
-        target: "http://127.0.0.1:5000",
+        target: "https://spotify-3-0-es19.onrender.com",
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
       "/play": {
-        target: "http://127.0.0.1:5000",
+        target: "https://spotify-3-0-es19.onrender.com",
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
       "/library": {
-        target: "http://127.0.0.1:5000",
+        target: "https://spotify-3-0-es19.onrender.com",
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
       "/static": {
-        target: "http://127.0.0.1:5000",
+        target: "https://spotify-3-0-es19.onrender.com",
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
     },
-    // Ensure SPA routing works with React Router
     historyApiFallback: {
-      index: "/index.html", // Serve index.html for all non-API routes
+      index: "/index.html",
     },
   },
 });
