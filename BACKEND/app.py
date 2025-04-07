@@ -29,9 +29,9 @@ app.secret_key = 'Chayan@12'
 # Session configuration
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400
-app.config['SESSION_COOKIE_SECURE'] = False  # Set to False for development
+app.config['SESSION_COOKIE_SECURE'] = True  # Set to True for production
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Set to None for cross-site requests
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Set to Lax for better security
 app.config['SESSION_COOKIE_DOMAIN'] = None  # Allow cookies for all domains
 Session(app)
 
