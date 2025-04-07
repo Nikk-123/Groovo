@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import axios from "axios"; // Import Axios
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -11,23 +12,19 @@ function App() {
   );
   const [isLoading, setIsLoading] = useState(true);
 
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"; // Fallback for local dev
+
   useEffect(() => {
     checkAuthStatus();
   }, []);
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetch("/api/dashboard", {
-        credentials: "include",
+      const response = await axios.get(`${API_URL}/api/dashboard`, {
+        withCredentials: true, // Send cookies/session
       });
 
-      if (!response.ok) {
-        throw new Error(response.status === 401 ? "Not authenticated" : "Server error");
-      }
-
-      const data = await response.json();
-
-      if (data.success) {
+      if (response.data.success) {
         setIsAuthenticated(true);
         localStorage.setItem("isAuthenticated", "true");
       } else {
@@ -62,11 +59,15 @@ function App() {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch("/logout", {
-        credentials: "include",
-      });
-      const data = await response.json();
-      if (data.success) {
+      const response = await axios.post(
+        `${API_URL}/api/logout`,
+        {},
+        {
+          withCredentials: true, // Send cookies/session
+        }
+      );
+
+      if (response.data.success) {
         setIsAuthenticated(false);
         localStorage.removeItem("isAuthenticated");
         localStorage.removeItem("userLibrary");

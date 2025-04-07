@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 
 const usePlayer = () => {
-  // Player State
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const audioRef = useRef(new Audio());
+
   const [playerState, setPlayerState] = useState({
     queue: [],
     currentIndex: 0,
@@ -17,10 +20,9 @@ const usePlayer = () => {
     retryCount: 0,
     maxRetries: 3,
     shuffledQueue: [],
-    libraryQueue: []
+    libraryQueue: [],
+    showExpanded: false, // Added for potential expanded player toggle
   });
-
-  const audioRef = useRef(new Audio());
 
   // Core Player Functions
   const player = {
@@ -44,34 +46,28 @@ const usePlayer = () => {
           ...prev,
           isProcessingPlay: true,
           lastPlayRequest: now,
-          retryCount: 0
+          retryCount: 0,
         }));
 
         const newSong = { url: cleanUrl, title, thumbnail, artist };
         setPlayerState(prev => ({
           ...prev,
-          currentSong: newSong
+          currentSong: newSong,
         }));
 
-        const response = await fetch('/play', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ url }),
-          credentials: 'include'
-        });
+        const response = await axios.post(
+          `${API_URL}/api/play`,
+          { url: cleanUrl },
+          { withCredentials: true }
+        );
 
-        if (!response.ok) throw new Error(`Server error: ${response.status}`);
-        const data = await response.json();
-
-        if (!data.success || !data.audio_url) {
-          throw new Error(data.error || 'Failed to get audio URL');
+        if (!response.data.success || !response.data.audio_url) {
+          throw new Error(response.data.error || 'Failed to get audio URL');
         }
 
-        await this.setupAudioPlayback(data.audio_url, data.duration);
+        await this.setupAudioPlayback(response.data.audio_url, response.data.duration);
         setPlayerState(prev => ({ ...prev, isPlaying: true }));
-
+        this.updateMetadata(title, artist, thumbnail);
       } catch (error) {
         console.error('Error playing song:', error);
         await this.handlePlaybackError();
@@ -110,21 +106,38 @@ const usePlayer = () => {
 
     async setupAudioPlayback(audioUrl, duration) {
       try {
-        audioRef.current.pause();
-        audioRef.current.src = audioUrl;
-        audioRef.current.volume = playerState.volume;
+        const audio = audioRef.current;
+        audio.pause();
+        audio.src = audioUrl;
+        audio.volume = playerState.volume;
 
-        audioRef.current.onended = () => playbackControls.playNext();
-        audioRef.current.onerror = (error) => {
-          console.error('Audio playback error:', error);
-          this.handlePlaybackError();
+        audio.onended = () => playbackControls.playNext();
+        audio.onerror = () => this.handlePlaybackError();
+        audio.ontimeupdate = () => {
+          const currentTime = audio.currentTime;
+          const duration = audio.duration;
+          if (!duration) return;
+
+          const progressPercentage = (currentTime / duration) * 100;
+          document.querySelectorAll('.mini-player .progress').forEach(el => {
+            el.style.width = `${progressPercentage}%`;
+          });
+
+          const formatTime = (seconds) => {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+          };
+
+          document.querySelectorAll('.current-time').forEach(el => {
+            el.textContent = formatTime(currentTime);
+          });
+          document.querySelectorAll('.total-time').forEach(el => {
+            el.textContent = formatTime(duration);
+          });
         };
 
-        audioRef.current.ontimeupdate = () => {
-          // This will be handled in the component using the audio ref
-        };
-
-        await audioRef.current.play();
+        await audio.play();
       } catch (error) {
         console.error('Error setting up audio playback:', error);
         throw error;
@@ -135,11 +148,9 @@ const usePlayer = () => {
       if (!playerState.isPlaying && playerState.retryCount < playerState.maxRetries) {
         setPlayerState(prev => ({
           ...prev,
-          retryCount: prev.retryCount + 1
+          retryCount: prev.retryCount + 1,
         }));
-        
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
         if (playerState.currentSong) {
           await this.play(
             playerState.currentSong.url,
@@ -155,7 +166,7 @@ const usePlayer = () => {
       setPlayerState(prev => ({
         ...prev,
         isPlaying: false,
-        currentSong: null
+        currentSong: null,
       }));
     },
 
@@ -165,11 +176,11 @@ const usePlayer = () => {
           url: song.url,
           title: song.title,
           thumbnail: song.thumbnail,
-          artist: song.artist
+          artist: song.artist,
         }));
         setPlayerState(prev => ({
           ...prev,
-          libraryQueue: newQueue
+          libraryQueue: newQueue,
         }));
       }
 
@@ -178,7 +189,7 @@ const usePlayer = () => {
         setPlayerState(prev => ({
           ...prev,
           currentIndex: songIndex,
-          queue: prev.libraryQueue
+          queue: prev.libraryQueue,
         }));
       }
 
@@ -191,7 +202,27 @@ const usePlayer = () => {
       } else {
         this.playFromLibrary(url, title, thumbnail, artist);
       }
-    }
+    },
+
+    updateMetadata(title, artist, thumbnail) {
+      try {
+        document.title = `${title} - ${artist}`;
+        if ('mediaSession' in navigator && thumbnail) {
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: title || 'Unknown Title',
+            artist: artist || 'Unknown Artist',
+            artwork: thumbnail ? [{ src: thumbnail, sizes: '512x512', type: 'image/jpeg' }] : [],
+          });
+
+          navigator.mediaSession.setActionHandler('play', () => playbackControls.togglePlayPause());
+          navigator.mediaSession.setActionHandler('pause', () => playbackControls.togglePlayPause());
+          navigator.mediaSession.setActionHandler('previoustrack', () => playbackControls.playPrevious());
+          navigator.mediaSession.setActionHandler('nexttrack', () => playbackControls.playNext());
+        }
+      } catch (error) {
+        console.warn('MediaMetadata error:', error);
+      }
+    },
   };
 
   // Playback Controls
@@ -199,11 +230,12 @@ const usePlayer = () => {
     togglePlayPause() {
       if (!playerState.currentSong) return;
 
+      const audio = audioRef.current;
       if (playerState.isPlaying) {
-        audioRef.current.pause();
+        audio.pause();
         setPlayerState(prev => ({ ...prev, isPlaying: false }));
       } else {
-        audioRef.current.play();
+        audio.play();
         setPlayerState(prev => ({ ...prev, isPlaying: true }));
       }
     },
@@ -222,19 +254,14 @@ const usePlayer = () => {
         return {
           ...prev,
           isShuffleOn: newShuffleState,
-          shuffledQueue
+          shuffledQueue,
         };
       });
     },
 
     toggleRepeat() {
       setPlayerState(prev => {
-        let newMode = 'off';
-        switch (prev.repeatMode) {
-          case 'off': newMode = 'all'; break;
-          case 'all': newMode = 'once'; break;
-          case 'once': newMode = 'off'; break;
-        }
+        const newMode = prev.repeatMode === 'off' ? 'all' : prev.repeatMode === 'all' ? 'once' : 'off';
         return { ...prev, repeatMode: newMode };
       });
     },
@@ -284,19 +311,18 @@ const usePlayer = () => {
       setPlayerState(prev => ({ ...prev, currentIndex: prevIndex }));
       const prevSong = queue[prevIndex];
       player.play(prevSong.url, prevSong.title, prevSong.thumbnail, prevSong.artist);
-    }
+    },
   };
 
   // Library Management
   const library = {
     async load() {
       try {
-        const response = await fetch('/library/get', {
-          credentials: 'include'
+        const response = await axios.get(`${API_URL}/api/library`, {
+          withCredentials: true,
         });
-        const data = await response.json();
-        if (data.success) {
-          setPlayerState(prev => ({ ...prev, library: data.library }));
+        if (response.data.success) {
+          setPlayerState(prev => ({ ...prev, library: response.data.library || [] }));
         }
       } catch (error) {
         console.error('Error loading library:', error);
@@ -305,19 +331,13 @@ const usePlayer = () => {
 
     async add(songData) {
       try {
-        const response = await fetch('/library/add', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(songData),
-          credentials: 'include'
+        const response = await axios.post(`${API_URL}/api/library/add`, songData, {
+          withCredentials: true,
         });
-        const data = await response.json();
-        if (data.success) {
+        if (response.data.success) {
           setPlayerState(prev => ({
             ...prev,
-            library: [...prev.library, songData]
+            library: [...prev.library, songData],
           }));
         }
       } catch (error) {
@@ -328,19 +348,15 @@ const usePlayer = () => {
 
     async remove(songData) {
       try {
-        const response = await fetch('/library/remove', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(songData),
-          credentials: 'include'
-        });
-        const data = await response.json();
-        if (data.success) {
+        const response = await axios.post(
+          `${API_URL}/api/library/remove`,
+          { url: songData.url },
+          { withCredentials: true }
+        );
+        if (response.data.success) {
           setPlayerState(prev => ({
             ...prev,
-            library: prev.library.filter(song => song.url !== songData.url)
+            library: prev.library.filter(song => song.url !== songData.url),
           }));
         }
       } catch (error) {
@@ -357,22 +373,28 @@ const usePlayer = () => {
       } else {
         await this.add(song);
       }
-    }
+    },
   };
 
   // Volume Control
   const updateVolume = (volume) => {
     const clampedVolume = Math.min(Math.max(volume, 0), 1);
-    setPlayerState(prev => ({ ...prev, volume }));
     audioRef.current.volume = clampedVolume;
+    setPlayerState(prev => ({ ...prev, volume: clampedVolume }));
   };
 
   // Initial Setup
   useEffect(() => {
     library.load();
+
     if ('Notification' in window) {
       Notification.requestPermission();
     }
+
+    return () => {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+    };
   }, []);
 
   return {
@@ -381,7 +403,7 @@ const usePlayer = () => {
     playbackControls,
     library,
     audioRef,
-    updateVolume
+    updateVolume,
   };
 };
 

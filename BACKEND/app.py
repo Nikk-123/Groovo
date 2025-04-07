@@ -244,16 +244,20 @@ def login_required(f):
 @app.route('/api/dashboard', methods=['GET'])
 @login_required
 def api_dashboard():
-    user_id = session['user_id']
-    user = get_user_by_email(user_id)
-    trending = fetch_trending()
-    mood_playlists = fetch_mood_playlists()
-    return jsonify({
-        'success': True,
-        'user_email': user['email'],
-        'trending': trending,
-        'mood_playlists': mood_playlists
-    })
+    try:
+        user_id = session['user_id']
+        user = get_user_by_email(user_id)
+        trending = fetch_trending()
+        mood_playlists = fetch_mood_playlists()
+        return jsonify({
+            'success': True,
+            'user_email': user['email'],
+            'trending': trending,
+            'mood_playlists': mood_playlists
+        })
+    except Exception as e:
+        print(f"Error in /api/dashboard: {e}")
+        return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
 # Play API (unchanged, already JSON-based)
 @app.route('/api/play', methods=['POST', 'OPTIONS'])
@@ -453,3 +457,5 @@ if __name__ == "__main__":
     else:
         print("Application cannot start due to database connection failure")
         sys.exit(1)
+
+# The following lines were removed because they are JavaScript code and not valid in a Python file.
