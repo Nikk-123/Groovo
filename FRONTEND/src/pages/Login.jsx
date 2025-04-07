@@ -21,7 +21,11 @@ const Login = ({ setIsAuthenticated }) => {
         "https://spotify-3-0-es19.onrender.com/api/login",
         { email, password },
         {
-          withCredentials: true
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          }
         }
       );
 
@@ -41,6 +45,9 @@ const Login = ({ setIsAuthenticated }) => {
         if (setIsAuthenticated) {
           setIsAuthenticated(true);
         }
+
+        // Wait a moment to ensure cookies are set
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         // Navigate to dashboard
         navigate("/dashboard", { replace: true });
