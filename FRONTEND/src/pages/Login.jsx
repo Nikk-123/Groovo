@@ -38,6 +38,9 @@ const Login = ({ setIsAuthenticated }) => {
           localStorage.setItem("userLibrary", JSON.stringify(response.data.user.library));
         }
 
+        // Store authentication state
+        localStorage.setItem("isAuthenticated", "true");
+
         // Update parent state via callback
         if (setIsAuthenticated) {
           setIsAuthenticated(true);

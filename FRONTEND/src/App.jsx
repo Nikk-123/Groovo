@@ -8,7 +8,7 @@ import "./App.css";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(
-    () => localStorage.getItem("isAuthenticated") === "true" || false
+    localStorage.getItem("isAuthenticated") === "true"
   );
   const [isLoading, setIsLoading] = useState(true);
 
@@ -54,18 +54,6 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const ProtectedRoute = ({ children }) => {
-    if (isLoading) {
-      return <div>Loading...</div>;
-    }
-
-    if (!isAuthenticated) {
-      return <Navigate to="/login" replace />;
-    }
-
-    return children;
   };
 
   const handleLoginSuccess = async () => {
@@ -122,37 +110,54 @@ function App() {
     }
   };
 
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <Router>
-      <div className="app">
-        <Routes>
-          <Route
-            path="/login"
-            element={
-              isAuthenticated ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <Login setIsAuthenticated={handleLoginSuccess} />
-              )
-            }
-          />
-          <Route
-            path="/signup"
-            element={
-              isAuthenticated ? <Navigate to="/dashboard" replace /> : <Signup />
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard onLogout={handleLogout} />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </div>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <Login setIsAuthenticated={handleLoginSuccess} />
+            )
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <Signup />
+            )
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            isAuthenticated ? (
+              <Dashboard onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+      </Routes>
     </Router>
   );
 }

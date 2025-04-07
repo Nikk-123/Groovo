@@ -153,19 +153,17 @@ const Dashboard = ({ onLogout }) => {
             >
               <i className="fas fa-user-circle"></i>
             </button>
-            {dropdownVisible && (
-              <div className="dropdown-menu" id="profileDropdown">
-                <div className="dropdown-header">
-                  <i className="fas fa-user-circle"></i>
-                  <span>{dashboardData.userEmail}</span>
-                </div>
-                <div className="dropdown-divider"></div>
-                <button type="button" className="dropdown-item" onClick={handleLogoutClick}>
-                  <i className="fas fa-sign-out-alt"></i>
-                  Log out
-                </button>
+            <div className={`dropdown-menu ${dropdownVisible ? 'show' : ''}`} id="profileDropdown">
+              <div className="dropdown-header">
+                <i className="fas fa-user-circle"></i>
+                <span>{dashboardData.userEmail}</span>
               </div>
-            )}
+              <div className="dropdown-divider"></div>
+              <button type="button" className="dropdown-item" onClick={handleLogoutClick}>
+                <i className="fas fa-sign-out-alt"></i>
+                Log out
+              </button>
+            </div>
           </div>
         </div>
       </div>
