@@ -311,73 +311,80 @@ def api_play():
             response.headers['Access-Control-Allow-Credentials'] = 'true'
         return response
 
-    data = request.get_json()
-    video_url = data.get('url')
-
-    if not video_url:
-        return jsonify({"success": False, "error": "No URL provided"}), 400
-
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'quiet': True,
-        'noplaylist': True,
-        'no_warnings': True,
-        'extractaudio': True,
-        'geturl': True,
-        'simulate': True,
-        'force_generic_extractor': False,
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-            'Accept': '*/*',
-            'Referer': 'https://www.youtube.com/'
-        },
-        'socket_timeout': 20,
-        'source_address': '0.0.0.0',
-    }
-
     try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "No data provided"}), 400
+
+        video_url = data.get('url')
+        if not video_url:
+            return jsonify({"success": False, "error": "No URL provided"}), 400
+
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'quiet': True,
+            'noplaylist': True,
+            'no_warnings': True,
+            'extractaudio': True,
+            'geturl': True,
+            'simulate': True,
+            'force_generic_extractor': False,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+                'Accept': '*/*',
+                'Referer': 'https://www.youtube.com/'
+            },
+            'socket_timeout': 20,
+            'source_address': '0.0.0.0',
+        }
+
         with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(video_url, download=False)
-            if not info:
-                return jsonify({"success": False, "error": "Unable to extract video information"}), 500
+            try:
+                info = ydl.extract_info(video_url, download=False)
+                if not info:
+                    return jsonify({"success": False, "error": "Unable to extract video information"}), 500
 
-            audio_url = info.get('url') or info.get('direct_url')
-            if not audio_url:
-                formats = info.get('formats', [])
-                audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
-                if audio_formats:
-                    audio_url = audio_formats[-1].get('url')
-                else:
-                    return jsonify({"success": False, "error": "No audio formats available"}), 500
+                audio_url = info.get('url') or info.get('direct_url')
+                if not audio_url:
+                    formats = info.get('formats', [])
+                    audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
+                    if audio_formats:
+                        audio_url = audio_formats[-1].get('url')
+                    else:
+                        return jsonify({"success": False, "error": "No audio formats available"}), 500
 
-            thumbnails = info.get('thumbnails', [])
-            thumbnail_url = thumbnails and sorted(thumbnails, key=lambda x: x.get('height', 0), reverse=True)[0].get('url', '') or ''
+                thumbnails = info.get('thumbnails', [])
+                thumbnail_url = thumbnails and sorted(thumbnails, key=lambda x: x.get('height', 0), reverse=True)[0].get('url', '') or ''
 
-            artist = info.get('artist') or info.get('uploader') or info.get('channel') or 'Unknown Artist'
-            title = info.get('title', 'Unknown Title')
-            duration = info.get('duration', 0)
+                artist = info.get('artist') or info.get('uploader') or info.get('channel') or 'Unknown Artist'
+                title = info.get('title', 'Unknown Title')
+                duration = info.get('duration', 0)
 
-            response = jsonify({
-                'success': True,
-                'audio_url': audio_url,
-                'title': title,
-                'thumbnail': thumbnail_url,
-                'artist': artist,
-                'duration': duration
-            })
-            origin = request.headers.get('Origin')
-            if origin in [
-                "http://localhost:5173", 
-                "http://127.0.0.1:5173", 
-                "https://spotify-3-0-es19.onrender.com",
-                "https://spotify30.netlify.app"
-            ]:
-                response.headers['Access-Control-Allow-Origin'] = origin
-                response.headers['Access-Control-Allow-Credentials'] = 'true'
-            return response
+                response = jsonify({
+                    'success': True,
+                    'audio_url': audio_url,
+                    'title': title,
+                    'thumbnail': thumbnail_url,
+                    'artist': artist,
+                    'duration': duration
+                })
+                origin = request.headers.get('Origin')
+                if origin in [
+                    "http://localhost:5173", 
+                    "http://127.0.0.1:5173", 
+                    "https://spotify-3-0-es19.onrender.com",
+                    "https://spotify30.netlify.app"
+                ]:
+                    response.headers['Access-Control-Allow-Origin'] = origin
+                    response.headers['Access-Control-Allow-Credentials'] = 'true'
+                return response
+            except Exception as e:
+                print(f"[ERROR] yt-dlp error: {str(e)}")
+                return jsonify({"success": False, "error": f"Error processing video: {str(e)}"}), 500
+
     except Exception as e:
         print(f"[ERROR] /api/play: {str(e)}")
-        response = jsonify({"success": False, "error": f"Error fetching audio: {str(e)}"}), 500
+        response = jsonify({"success": False, "error": f"Server error: {str(e)}"}), 500
         origin = request.headers.get('Origin')
         if origin in [
             "http://localhost:5173", 

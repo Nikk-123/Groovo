@@ -66,8 +66,12 @@ const usePlayer = () => {
           }
         );
 
-        if (!response.data.success || !response.data.audio_url) {
+        if (!response.data.success) {
           throw new Error(response.data.error || 'Failed to get audio URL');
+        }
+
+        if (!response.data.audio_url) {
+          throw new Error('No audio URL received from server');
         }
 
         await this.setupAudioPlayback(response.data.audio_url, response.data.duration);
@@ -80,6 +84,11 @@ const usePlayer = () => {
           window.location.href = '/login';
           return;
         }
+        
+        // Handle specific error messages from the server
+        const errorMessage = error.response?.data?.error || error.message || 'Failed to play the song';
+        alert(`Error: ${errorMessage}`);
+        
         await this.handlePlaybackError();
       } finally {
         setPlayerState(prev => ({ ...prev, isProcessingPlay: false }));
