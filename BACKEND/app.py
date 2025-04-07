@@ -326,16 +326,26 @@ def api_play():
             'noplaylist': True,
             'no_warnings': True,
             'extractaudio': True,
-            'geturl': True,
-            'simulate': True,
-            'force_generic_extractor': False,
+            'audioformat': 'mp3',
+            'outtmpl': '%(id)s.%(ext)s',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
                 'Accept': '*/*',
                 'Referer': 'https://www.youtube.com/'
             },
-            'socket_timeout': 20,
+            'socket_timeout': 30,
             'source_address': '0.0.0.0',
+            'nocheckcertificate': True,
+            'ignoreerrors': True,
+            'logtostderr': False,
+            'no_warnings': True,
+            'default_search': 'auto',
+            'extract_flat': False,
         }
 
         with YoutubeDL(ydl_opts) as ydl:
@@ -344,14 +354,23 @@ def api_play():
                 if not info:
                     return jsonify({"success": False, "error": "Unable to extract video information"}), 500
 
-                audio_url = info.get('url') or info.get('direct_url')
+                # Get the best audio format
+                formats = info.get('formats', [])
+                audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
+                
+                if not audio_formats:
+                    # If no audio-only format, try to get any format with audio
+                    audio_formats = [f for f in formats if f.get('acodec') != 'none']
+                
+                if not audio_formats:
+                    return jsonify({"success": False, "error": "No audio formats available"}), 500
+
+                # Get the best quality audio format
+                best_format = max(audio_formats, key=lambda x: x.get('abr', 0))
+                audio_url = best_format.get('url')
+                
                 if not audio_url:
-                    formats = info.get('formats', [])
-                    audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
-                    if audio_formats:
-                        audio_url = audio_formats[-1].get('url')
-                    else:
-                        return jsonify({"success": False, "error": "No audio formats available"}), 500
+                    return jsonify({"success": False, "error": "Could not get audio URL"}), 500
 
                 thumbnails = info.get('thumbnails', [])
                 thumbnail_url = thumbnails and sorted(thumbnails, key=lambda x: x.get('height', 0), reverse=True)[0].get('url', '') or ''

@@ -62,7 +62,8 @@ const usePlayer = () => {
             withCredentials: true,
             headers: {
               'Content-Type': 'application/json'
-            }
+            },
+            timeout: 30000 // 30 second timeout
           }
         );
 
@@ -130,8 +131,13 @@ const usePlayer = () => {
         audio.src = audioUrl;
         audio.volume = playerState.volume;
 
+        // Add error handling for audio element
+        audio.onerror = (e) => {
+          console.error('Audio playback error:', e);
+          this.handlePlaybackError();
+        };
+
         audio.onended = () => playbackControls.playNext();
-        audio.onerror = () => this.handlePlaybackError();
         audio.ontimeupdate = () => {
           const currentTime = audio.currentTime;
           const duration = audio.duration;
@@ -156,10 +162,25 @@ const usePlayer = () => {
           });
         };
 
-        await audio.play();
+        // Add a timeout for audio loading
+        const loadTimeout = setTimeout(() => {
+          if (audio.readyState === 0) {
+            console.error('Audio loading timeout');
+            this.handlePlaybackError();
+          }
+        }, 10000);
+
+        try {
+          await audio.play();
+          clearTimeout(loadTimeout);
+        } catch (playError) {
+          console.error('Error playing audio:', playError);
+          clearTimeout(loadTimeout);
+          this.handlePlaybackError();
+        }
       } catch (error) {
         console.error('Error setting up audio playback:', error);
-        throw error;
+        this.handlePlaybackError();
       }
     },
 
@@ -169,15 +190,22 @@ const usePlayer = () => {
           ...prev,
           retryCount: prev.retryCount + 1,
         }));
+        
+        // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, 1000));
+        
         if (playerState.currentSong) {
-          await this.play(
-            playerState.currentSong.url,
-            playerState.currentSong.title,
-            playerState.currentSong.thumbnail,
-            playerState.currentSong.artist
-          );
-          return;
+          try {
+            await this.play(
+              playerState.currentSong.url,
+              playerState.currentSong.title,
+              playerState.currentSong.thumbnail,
+              playerState.currentSong.artist
+            );
+            return;
+          } catch (error) {
+            console.error('Retry failed:', error);
+          }
         }
       }
 
@@ -186,6 +214,7 @@ const usePlayer = () => {
         ...prev,
         isPlaying: false,
         currentSong: null,
+        retryCount: 0,
       }));
     },
 
