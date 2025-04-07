@@ -33,6 +33,7 @@ function App() {
         withCredentials: true,
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         }
       });
 
@@ -74,6 +75,7 @@ function App() {
         withCredentials: true,
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         }
       });
 
@@ -100,6 +102,7 @@ function App() {
           withCredentials: true,
           headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
           }
         }
       );
