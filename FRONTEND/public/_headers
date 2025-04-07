@@ -4,6 +4,19 @@
   X-XSS-Protection: 1; mode=block
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
+  Cache-Control: no-cache
+
+/assets/*
+  Content-Type: text/css
+  Cache-Control: public, max-age=31536000
+
+/*.js
+  Content-Type: application/javascript
+  Cache-Control: public, max-age=31536000
+
+/*.css
+  Content-Type: text/css
+  Cache-Control: public, max-age=31536000
 
 /sw.js
   Content-Type: application/javascript

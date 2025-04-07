@@ -16,7 +16,10 @@ export default defineConfig({
         main: './index.html',
         sw: './public/sw.js'
       }
-    }
+    },
+    assetsDir: 'assets',
+    manifest: true
   },
-  publicDir: 'public'
+  publicDir: 'public',
+  base: '/'
 });
