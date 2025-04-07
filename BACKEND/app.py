@@ -326,47 +326,96 @@ def play():
 
         url = data['url']
         logger.debug(f"Processing URL: {url}")
+        
         ydl_opts = {
             'format': 'bestaudio/best',
-            'quiet': False,
+            'quiet': True,
             'noplaylist': True,
-            'no_warnings': False,
+            'no_warnings': True,
             'geturl': True,
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
                 'Accept': '*/*',
-                'Referer': 'https://www.youtube.com/'
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': 'https://www.youtube.com/',
+                'Origin': 'https://www.youtube.com',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-origin',
+                'Pragma': 'no-cache',
+                'Cache-Control': 'no-cache'
             },
             'socket_timeout': 30,
             'nocheckcertificate': True,
-            'ignoreerrors': False,
+            'ignoreerrors': True,
             'geo_bypass': True,
             'logger': logger,
+            'extractor_retries': 3,
+            'retries': 3,
+            'fragment_retries': 3,
+            'skip_unavailable_fragments': True,
+            'extract_flat': True,
+            'no_color': True,
+            'no_check_certificate': True,
+            'no_warnings': True,
+            'quiet': True,
+            'ignoreerrors': True,
+            'geo_bypass': True,
+            'geo_bypass_country': 'US',
+            'geo_bypass_ip_block': None,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+                'Accept': '*/*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': 'https://www.youtube.com/',
+                'Origin': 'https://www.youtube.com',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-origin',
+                'Pragma': 'no-cache',
+                'Cache-Control': 'no-cache'
+            }
         }
 
         with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            if not info:
-                logger.error("yt_dlp returned no info")
-                return jsonify({"success": False, "error": "Unable to extract video information"}), 500
+            try:
+                info = ydl.extract_info(url, download=False)
+                if not info:
+                    logger.error("yt_dlp returned no info")
+                    return jsonify({"success": False, "error": "Unable to extract video information"}), 500
 
-            audio_url = info.get('url')
-            if not audio_url:
-                logger.error("No audio URL found in info")
-                return jsonify({"success": False, "error": "No audio URL found"}), 500
+                audio_url = info.get('url')
+                if not audio_url:
+                    logger.error("No audio URL found in info")
+                    return jsonify({"success": False, "error": "No audio URL found"}), 500
 
-            # Proxy the audio stream
-            def stream_audio():
-                with requests.get(audio_url, stream=True, headers=ydl_opts['http_headers']) as r:
-                    r.raise_for_status()
-                    for chunk in r.iter_content(chunk_size=8192):
-                        yield chunk
+                # Proxy the audio stream
+                def stream_audio():
+                    try:
+                        with requests.get(audio_url, stream=True, headers=ydl_opts['http_headers']) as r:
+                            r.raise_for_status()
+                            for chunk in r.iter_content(chunk_size=8192):
+                                if chunk:
+                                    yield chunk
+                    except Exception as e:
+                        logger.error(f"Error streaming audio: {str(e)}")
+                        yield b''
 
-            response = Response(stream_audio(), mimetype='audio/mpeg')
-            response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
-            response.headers['Access-Control-Allow-Credentials'] = 'true'
-            response.headers['Content-Disposition'] = 'inline'
-            return response
+                response = Response(stream_audio(), mimetype='audio/mpeg')
+                response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+                response.headers['Access-Control-Allow-Credentials'] = 'true'
+                response.headers['Content-Disposition'] = 'inline'
+                return response
+
+            except Exception as e:
+                logger.error(f"Error in yt_dlp: {str(e)}")
+                return jsonify({"success": False, "error": f"Error processing video: {str(e)}"}), 500
 
     except Exception as e:
         logger.error(f"Exception in /api/play: {str(e)}")
