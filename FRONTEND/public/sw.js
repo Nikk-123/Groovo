@@ -19,6 +19,11 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Skip caching for the play endpoint
+  if (event.request.url.includes('/api/play')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
