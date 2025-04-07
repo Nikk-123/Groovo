@@ -12,7 +12,7 @@ function App() {
   );
   const [isLoading, setIsLoading] = useState(true);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://spotify-3-0-es19.onrender.com';
+  const API_URL = 'https://spotify-3-0-es19.onrender.com';
 
   useEffect(() => {
     checkAuthStatus();

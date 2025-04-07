@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 const usePlayer = () => {
-  const API_URL = import.meta.env.VITE_API_URL || 'https://spotify-3-0-es19.onrender.com';
+  const API_URL = 'https://spotify-3-0-es19.onrender.com';
   const audioRef = useRef(new Audio());
 
   const [playerState, setPlayerState] = useState({
