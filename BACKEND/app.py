@@ -3,16 +3,26 @@ from pymongo import MongoClient
 import os
 import sys
 from dotenv import load_dotenv
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from yt_dlp import YoutubeDL
 from functools import wraps
 from flask_session import Session
 from flask import Response
 import requests
-from flask_cors import cross_origin
+import logging
 
 # Load environment variables
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+# Define allowed origins
+allowed_origins = [
+    "https://spotify-3-0-es19.onrender.com",
+    "https://spotify30.netlify.app"
+]
 
 # Flask app setup
 app = Flask(__name__)
@@ -20,10 +30,7 @@ app = Flask(__name__)
 # CORS configuration
 CORS(app, 
      resources={r"/*": {
-         "origins": [
-             "https://spotify-3-0-es19.onrender.com",
-             "https://spotify30.netlify.app"
-         ],
+         "origins": allowed_origins,
          "supports_credentials": True,
          "allow_headers": ["Content-Type", "Authorization"],
          "expose_headers": ["Content-Type", "Authorization"],
@@ -34,11 +41,6 @@ CORS(app,
 @app.after_request
 def after_request(response):
     origin = request.headers.get('Origin')
-    allowed_origins = [
-        "https://spotify-3-0-es19.onrender.com",
-        "https://spotify30.netlify.app"
-    ]
-    
     if origin in allowed_origins:
         response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
@@ -323,7 +325,48 @@ def play():
             return jsonify({'error': 'Missing URL parameter'}), 400
 
         url = data['url']
-        # Rest of your play endpoint logic...
+        logger.debug(f"Processing URL: {url}")
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'quiet': False,
+            'noplaylist': True,
+            'no_warnings': False,
+            'geturl': True,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+                'Accept': '*/*',
+                'Referer': 'https://www.youtube.com/'
+            },
+            'socket_timeout': 30,
+            'nocheckcertificate': True,
+            'ignoreerrors': False,
+            'geo_bypass': True,
+            'logger': logger,
+        }
+
+        with YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if not info:
+                logger.error("yt_dlp returned no info")
+                return jsonify({"success": False, "error": "Unable to extract video information"}), 500
+
+            audio_url = info.get('url')
+            if not audio_url:
+                logger.error("No audio URL found in info")
+                return jsonify({"success": False, "error": "No audio URL found"}), 500
+
+            # Proxy the audio stream
+            def stream_audio():
+                with requests.get(audio_url, stream=True, headers=ydl_opts['http_headers']) as r:
+                    r.raise_for_status()
+                    for chunk in r.iter_content(chunk_size=8192):
+                        yield chunk
+
+            response = Response(stream_audio(), mimetype='audio/mpeg')
+            response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Content-Disposition'] = 'inline'
+            return response
 
     except Exception as e:
         logger.error(f"Exception in /api/play: {str(e)}")
