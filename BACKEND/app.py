@@ -13,17 +13,28 @@ load_dotenv()
 
 # Flask app setup
 app = Flask(__name__)
-CORS(app, resources={r"/*": {
-    "origins": [
-        "http://localhost:5173", 
-        "http://127.0.0.1:5173",
-        "https://spotify-3-0-es19.onrender.com"
-    ],
-    "supports_credentials": True,
-    "allow_headers": ["Content-Type", "Authorization"],
-    "expose_headers": ["Content-Type", "Authorization"],
-    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-}})
+
+# CORS configuration
+CORS(app, 
+     resources={r"/*": {
+         "origins": ["http://localhost:5173", "http://127.0.0.1:5173", "https://spotify-3-0-es19.onrender.com"],
+         "supports_credentials": True,
+         "allow_headers": ["Content-Type", "Authorization"],
+         "expose_headers": ["Content-Type", "Authorization"],
+         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+     }})
+
+# Add CORS headers to all responses
+@app.after_request
+def after_request(response):
+    origin = request.headers.get('Origin')
+    if origin in ["http://localhost:5173", "http://127.0.0.1:5173", "https://spotify-3-0-es19.onrender.com"]:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
+
 app.secret_key = 'REMOVED_SECRET_KEY'
 
 # Session configuration
@@ -270,14 +281,15 @@ def api_dashboard():
         print(f"Error in /api/dashboard: {e}")
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
-# Play API (unchanged, already JSON-based)
+# Play API
 @app.route('/api/play', methods=['POST', 'OPTIONS'])
 def api_play():
     if request.method == 'OPTIONS':
         response = jsonify({'status': 'ok'})
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'POST')
+        response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', 'http://localhost:5173'))
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
         return response
 
     data = request.get_json()
@@ -326,7 +338,7 @@ def api_play():
             title = info.get('title', 'Unknown Title')
             duration = info.get('duration', 0)
 
-            return jsonify({
+            response = jsonify({
                 'success': True,
                 'audio_url': audio_url,
                 'title': title,
@@ -334,9 +346,15 @@ def api_play():
                 'artist': artist,
                 'duration': duration
             })
+            response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', 'http://localhost:5173'))
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            return response
     except Exception as e:
         print(f"[ERROR] /api/play: {str(e)}")
-        return jsonify({"success": False, "error": f"Error fetching audio: {str(e)}"}), 500
+        response = jsonify({"success": False, "error": f"Error fetching audio: {str(e)}"}), 500
+        response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', 'http://localhost:5173'))
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
 
 # Search API (unchanged, already JSON-based)
 @app.route('/api/search', methods=['GET'])
