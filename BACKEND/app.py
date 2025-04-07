@@ -19,7 +19,7 @@ app.secret_key = 'REMOVED_SECRET_KEY'
 # Session configuration
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400
-app.config['SESSION_COOKIE_SECURE'] = False  # False for dev, True in production with HTTPS
+app.config['SESSION_COOKIE_SECURE'] = True  # False for dev, True in production with HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 Session(app)
