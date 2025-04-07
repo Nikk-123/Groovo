@@ -18,13 +18,9 @@ const Login = ({ setIsAuthenticated }) => {
     try {
       console.log("Sending login request to backend...");
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/login`,
+        "https://spotify-3-0-es19.onrender.com/api/login",
         { email, password },
         {
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-          },
           withCredentials: true
         }
       );

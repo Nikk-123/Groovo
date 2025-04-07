@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import './Signup.css';
 
 const Signup = () => {
@@ -16,42 +17,26 @@ const Signup = () => {
 
     try {
       console.log('Sending signup request to backend...');
-      const response = await fetch('/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include',
-      });
+      const response = await axios.post(
+        'https://spotify-3-0-es19.onrender.com/api/signup',
+        { email, password },
+        {
+          withCredentials: true
+        }
+      );
 
       console.log('Response status:', response.status);
-      
-      // Check if response is ok before trying to parse JSON
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      
-      // Try to parse the response as JSON
-      let data;
-      try {
-        data = await response.json();
-        console.log('Response data:', data);
-      } catch (jsonError) {
-        console.error('Error parsing JSON:', jsonError);
-        throw new Error('Invalid JSON response from server');
-      }
+      console.log('Response data:', response.data);
 
-      if (data.success) {
-        navigate(data.redirect || '/login');
+      if (response.data.success) {
+        navigate('/login', { replace: true });
       } else {
-        setFlashMessages([{ category: 'warning', message: data.message || 'Signup failed. Please try again.' }]);
-        setIsSubmitting(false);
+        setFlashMessages([{ category: 'warning', message: response.data.message || 'Signup failed. Please try again.' }]);
       }
     } catch (error) {
       console.error('Error:', error);
-      setFlashMessages([{ category: 'warning', message: 'Signup failed. Please try again.' }]);
+      setFlashMessages([{ category: 'warning', message: error.response?.data?.message || 'Signup failed. Please try again.' }]);
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -88,6 +73,7 @@ const Signup = () => {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="Enter your email"
+              disabled={isSubmitting}
             />
           </div>
           <div className="form-group">
@@ -100,6 +86,7 @@ const Signup = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="Create a password"
+              disabled={isSubmitting}
             />
           </div>
           <button type="submit" disabled={isSubmitting}>
