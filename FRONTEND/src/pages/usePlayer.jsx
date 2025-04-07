@@ -56,13 +56,15 @@ const usePlayer = () => {
         }));
 
         const response = await axios.post(
-          `https://spotify-3-0-es19.onrender.com/api/play`,
+          'https://spotify-3-0-es19.onrender.com/api/play',
           { url: cleanUrl },
           {
             withCredentials: true,
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 30000,
-            responseType: 'blob', // Expect a stream
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            responseType: 'blob'
           }
         );
 

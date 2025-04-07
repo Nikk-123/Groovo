@@ -18,13 +18,20 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
   // Skip chrome-extension URLs
-  if (event.request.url.startsWith('chrome-extension://')) {
+  if (url.protocol === 'chrome-extension:') {
     return;
   }
 
-  // Skip API requests
-  if (event.request.url.includes('/api/')) {
+  // Skip all API requests
+  if (url.pathname.startsWith('/api/')) {
+    return;
+  }
+
+  // Skip play endpoint specifically
+  if (url.pathname === '/api/play') {
     return;
   }
 
