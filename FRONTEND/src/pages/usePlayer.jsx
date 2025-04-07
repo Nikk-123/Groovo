@@ -64,41 +64,60 @@ const usePlayer = () => {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
             },
-            responseType: 'blob'
+            responseType: 'blob',
+            timeout: 30000
           }
         );
+
+        if (!response.data || response.data.size === 0) {
+          throw new Error('No audio data received from server');
+        }
 
         const audioBlob = response.data;
         const audioUrl = URL.createObjectURL(audioBlob);
         console.log('Generated blob URL:', audioUrl);
-        await this.setupAudioPlayback(audioUrl, 0); // Duration not available in stream
-        setPlayerState(prev => ({ ...prev, isPlaying: true }));
-        this.updateMetadata(title, artist, thumbnail);
-
-        if (!response.data.success) {
-          throw new Error(response.data.error || 'Failed to get audio URL');
+        
+        try {
+          await this.setupAudioPlayback(audioUrl, 0);
+          setPlayerState(prev => ({ ...prev, isPlaying: true }));
+          this.updateMetadata(title, artist, thumbnail);
+        } catch (playError) {
+          console.error('Error setting up audio playback:', playError);
+          URL.revokeObjectURL(audioUrl);
+          throw playError;
         }
 
-        if (!response.data.audio_url) {
-          throw new Error('No audio URL received from server');
-        }
-
-        await this.setupAudioPlayback(response.data.audio_url, response.data.duration);
-        setPlayerState(prev => ({ ...prev, isPlaying: true }));
-        this.updateMetadata(title, artist, thumbnail);
       } catch (error) {
         console.error('Error playing song:', error);
         if (error.response?.status === 401) {
-          // Handle unauthorized error
           window.location.href = '/login';
           return;
         }
 
-        // Handle specific error messages from the server
-        const errorMessage = error.response?.data?.error || error.message || 'Failed to play the song';
+        let errorMessage = error.response?.data?.error || error.message || 'Failed to play the song';
+        
+        // Handle YouTube bot detection
+        if (errorMessage.includes('bot') || errorMessage.includes('Sign in to confirm')) {
+          errorMessage = 'YouTube is temporarily blocking requests. Please try again in a few minutes.';
+        }
+
         alert(`Error: ${errorMessage}`);
 
-        await this.handlePlaybackError();
+        if (playerState.retryCount < playerState.maxRetries) {
+          setPlayerState(prev => ({
+            ...prev,
+            retryCount: prev.retryCount + 1,
+          }));
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Increased delay for retries
+          return this.play(url, title, thumbnail, artist);
+        }
+
+        setPlayerState(prev => ({
+          ...prev,
+          isPlaying: false,
+          currentSong: null,
+          retryCount: 0,
+        }));
       } finally {
         setPlayerState(prev => ({ ...prev, isProcessingPlay: false }));
       }
