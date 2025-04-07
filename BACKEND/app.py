@@ -45,17 +45,28 @@ def after_request(response):
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
         response.headers['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,OPTIONS'
         response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Expose-Headers'] = 'Set-Cookie'
     return response
 
 app.secret_key = 'REMOVED_SECRET_KEY'
 
 # Session configuration
 app.config['SESSION_TYPE'] = 'filesystem'
-app.config['PERMANENT_SESSION_LIFETIME'] = 86400
-app.config['SESSION_COOKIE_SECURE'] = True  # Set to True for production
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
+app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Set to None for cross-site requests
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Allow cross-site cookies
 app.config['SESSION_COOKIE_DOMAIN'] = None  # Allow cookies for all domains
+app.config['SESSION_COOKIE_PATH'] = '/'
+app.config['SESSION_COOKIE_NAME'] = 'spotify_session'
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True
+app.config['SESSION_USE_SIGNER'] = True
+app.config['SESSION_KEY_PREFIX'] = 'spotify:'
+app.config['SESSION_FILE_DIR'] = './flask_session'
+app.config['SESSION_FILE_THRESHOLD'] = 100
+app.config['SESSION_FILE_MODE'] = 384  # 0600 in octal
+
+# Initialize session
 Session(app)
 
 # MongoDB Atlas setup
@@ -217,11 +228,12 @@ def api_login():
     if user_data and User(user_data['_id'], user_data['email'], user_data['password'], user_data['library']).check_password(password):
         session['user_id'] = email
         session.permanent = True
-        return jsonify({
+        response = jsonify({
             'success': True,
             'message': 'Login successful',
             'user': {'email': email, 'library': user_data.get('library', [])}
         })
+        return response
     return jsonify({'success': False, 'message': 'Invalid email or password'}), 401
 
 # Signup API
