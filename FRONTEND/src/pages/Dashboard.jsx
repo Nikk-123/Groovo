@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import usePlayer from './usePlayer';
-import './Dashboard.css'; // Your existing CSS file
+import './Dashboard.css';
 
-const Dashboard = () => {
+const Dashboard = ({ onLogout }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -14,62 +15,57 @@ const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState({
     userEmail: '',
     trending: [],
-    moodPlaylists: {}
+    moodPlaylists: {},
   });
   const navigate = useNavigate();
 
-  // Use the player hook instead of local state
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
   const {
     playerState,
     player,
     playbackControls,
     library,
     audioRef,
-    updateVolume
+    updateVolume,
   } = usePlayer();
 
-  // Handle image loading errors
   const handleImageError = (e) => {
-    // Set a fallback image when the YouTube thumbnail fails to load
     e.target.src = '/placeholder-music.svg';
-    e.target.onerror = null; // Prevent infinite loop if fallback also fails
+    e.target.onerror = null;
   };
 
   useEffect(() => {
-    // Fetch dashboard data when component mounts
     fetchDashboardData();
   }, []);
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const response = await fetch('/api/dashboard', {
-        credentials: 'include', // Important for cookies/session
+      const response = await axios.get(`${API_URL}/api/dashboard`, {
+        withCredentials: true,
       });
-      
-      const data = await response.json();
-      
-      if (data.success) {
+
+      if (response.data.success) {
         setDashboardData({
-          userEmail: data.user_email,
-          trending: data.trending || [],
-          moodPlaylists: data.mood_playlists || {}
+          userEmail: response.data.user_email,
+          trending: response.data.trending || [],
+          moodPlaylists: response.data.mood_playlists || {},
         });
-        
-        // Note: We don't need to call library.load() here as it's already called in usePlayer's useEffect
       } else {
-        // If not authenticated, redirect to login
-        if (data.redirect) {
-          navigate(data.redirect);
-        } else {
-          setError(data.message || 'Failed to load dashboard data');
+        setError(response.data.message || 'Failed to load dashboard data');
+        if (response.data.message === 'Authentication required') {
+          navigate('/login');
         }
       }
     } catch (error) {
       console.error('Dashboard fetch error:', error);
-      setError('Failed to connect to the server');
+      setError(error.response?.data?.message || 'Failed to connect to the server');
+      if (error.response?.status === 401) {
+        navigate('/login');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -82,60 +78,33 @@ const Dashboard = () => {
   const handleSearch = async (e) => {
     const query = e.target.value;
     setSearchQuery(query);
-    
+
     if (query.length > 2) {
       try {
-        const response = await fetch(`/search?query=${encodeURIComponent(query)}`, {
-          credentials: 'include'
+        const response = await axios.get(`${API_URL}/api/search`, {
+          params: { query },
+          withCredentials: true,
         });
-        const data = await response.json();
-        setSearchResults(data || []);
+        setSearchResults(response.data || []);
         setShowSearchResults(true);
       } catch (error) {
         console.error('Search error:', error);
+        setSearchResults([]);
       }
     } else {
       setShowSearchResults(false);
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      const response = await fetch('/logout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        // Clear any local state
-        setDashboardData({
-          userEmail: '',
-          trending: [],
-          moodPlaylists: {}
-        });
-        setSearchQuery('');
-        setSearchResults([]);
-        setShowSearchResults(false);
-        setLibraryVisible(false);
-        setDropdownVisible(false);
-        
-        // Stop any playing audio
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-        }
-        
-        // Navigate to login page
-        navigate('/login', { replace: true });
-      } else {
-        console.error('Logout failed:', await response.text());
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
+  const handleLogoutClick = async () => {
+    if (onLogout) {
+      await onLogout();
     }
+  };
+
+  const showHome = () => {
+    setShowSearchResults(false);
+    setSearchQuery('');
   };
 
   if (isLoading) {
@@ -151,7 +120,7 @@ const Dashboard = () => {
       <div className="top-nav">
         <div className="left-nav">
           <h1>Gareeb ka Spotify!</h1>
-          <button type="button" className="home-btn" title="Home" onClick={() => navigate('/')}>
+          <button type="button" className="home-btn" title="Home" onClick={showHome}>
             <i className="fas fa-home"></i>
           </button>
         </div>
@@ -165,42 +134,38 @@ const Dashboard = () => {
           />
         </div>
         <div className="right-nav">
-        <button
-          type="button"
-          className="library-toggle"
-          id="libraryToggleMain"
-          title="Toggle Library"
-          onClick={toggleLibrary}
-        >
-          <i className="fas fa-list"></i>
-        </button>
-        <div className="profile-menu">
           <button
             type="button"
-            className="profile-btn"
-            id="profileBtn"
-            title="Profile"
-            onClick={() => setDropdownVisible(!dropdownVisible)}
+            className="library-toggle"
+            id="libraryToggleMain"
+            title="Toggle Library"
+            onClick={toggleLibrary}
           >
-            <i className="fas fa-user-circle"></i>
+            <i className="fas fa-list"></i>
           </button>
-          {dropdownVisible && (
-            <div className="dropdown-menu" id="profileDropdown">
-              <div className="dropdown-header">
-                <i className="fas fa-user-circle"></i>
-                <span>{dashboardData.userEmail}</span>
-              </div>
-              <div className="dropdown-divider"></div>
-                <button
-                  type="button"
-                  className="dropdown-item"
-                  onClick={handleLogout}
-                >
-                <i className="fas fa-sign-out-alt"></i>
-                Log out
+          <div className="profile-menu">
+            <button
+              type="button"
+              className="profile-btn"
+              id="profileBtn"
+              title="Profile"
+              onClick={() => setDropdownVisible(!dropdownVisible)}
+            >
+              <i className="fas fa-user-circle"></i>
+            </button>
+            {dropdownVisible && (
+              <div className="dropdown-menu" id="profileDropdown">
+                <div className="dropdown-header">
+                  <i className="fas fa-user-circle"></i>
+                  <span>{dashboardData.userEmail}</span>
+                </div>
+                <div className="dropdown-divider"></div>
+                <button type="button" className="dropdown-item" onClick={handleLogoutClick}>
+                  <i className="fas fa-sign-out-alt"></i>
+                  Log out
                 </button>
-            </div>
-          )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -327,7 +292,6 @@ const Dashboard = () => {
 
         {playerState.currentSong && (
           <div className="audio-control-container" id="audioControlContainer">
-            {/* Mini Player */}
             <div className="mini-player">
               <div className="mini-player-content">
                 <div className="mini-song-info">
@@ -434,10 +398,8 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
-
-            {/* Expanded Player */}
             <div className={`expanded-player ${playerState.showExpanded ? 'show' : ''}`} id="expandedPlayer">
-              {/* Add expanded player content */}
+              {/* Add expanded player content if needed */}
             </div>
             <audio ref={audioRef} id="audioPlayer" preload="auto" style={{ display: 'none' }} />
           </div>
@@ -455,7 +417,6 @@ const Dashboard = () => {
               <i className="fas fa-times"></i>
             </button>
           </div>
-
           {playerState.library.length === 0 ? (
             <div id="emptyLibraryMessage">
               Your library is empty. Add songs to get started!

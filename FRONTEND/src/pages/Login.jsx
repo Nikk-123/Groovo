@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios"; // Import Axios
 import "./Login.css";
 
 const Login = ({ setIsAuthenticated }) => {
@@ -16,35 +17,25 @@ const Login = ({ setIsAuthenticated }) => {
 
     try {
       console.log("Sending login request to backend...");
-      const response = await fetch("/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-        credentials: "include", // For cookies/session
-      });
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/login`,
+        { email, password },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+          withCredentials: true, // Equivalent to credentials: 'include' for cookies/session
+        }
+      );
 
       console.log("Response status:", response.status);
+      console.log("Response data:", response.data);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-
-      let data;
-      try {
-        data = await response.json();
-        console.log("Response data:", data);
-      } catch (jsonError) {
-        console.error("Error parsing JSON:", jsonError);
-        throw new Error("Invalid JSON response from server");
-      }
-
-      if (data.success) {
+      if (response.data.success) {
         // Store user library in localStorage if available
-        if (data.library) {
-          localStorage.setItem("userLibrary", JSON.stringify(data.library));
+        if (response.data.user && response.data.user.library) {
+          localStorage.setItem("userLibrary", JSON.stringify(response.data.user.library));
         }
 
         // Persist authentication state in localStorage
@@ -52,24 +43,23 @@ const Login = ({ setIsAuthenticated }) => {
 
         // Update parent state via callback
         if (setIsAuthenticated) {
-          setIsAuthenticated(); // This matches the handleLoginSuccess in App.jsx
+          setIsAuthenticated();
         }
 
-        // Navigate to dashboard or redirect URL from backend
-        navigate(data.redirect || "/dashboard", { replace: true });
+        // Navigate to dashboard
+        navigate("/dashboard", { replace: true });
       } else {
         setFlashMessages([
           {
             category: "danger",
-            message: data.message || "Login failed. Please check your credentials.",
+            message: response.data.message || "Login failed. Please check your credentials.",
           },
         ]);
       }
     } catch (error) {
       console.error("Error:", error);
-      setFlashMessages([
-        { category: "danger", message: "Login failed. Please try again." },
-      ]);
+      const errorMessage = error.response?.data?.message || "Login failed. Please try again.";
+      setFlashMessages([{ category: "danger", message: errorMessage }]);
     } finally {
       setIsSubmitting(false);
     }
