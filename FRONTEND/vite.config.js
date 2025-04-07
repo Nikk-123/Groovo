@@ -7,8 +7,17 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5173,
-    historyApiFallback: {
-      index: "/index.html", // Still needed for SPA dev
-    },
+    proxy: {
+      '/api': {
+        target: 'https://spotify-3-0-es19.onrender.com',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      }
+    }
   },
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+  }
 });

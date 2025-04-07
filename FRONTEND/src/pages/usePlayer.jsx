@@ -319,7 +319,7 @@ const usePlayer = () => {
     async load() {
       try {
         const response = await axios.get(`${API_URL}/api/library`, {
-          withCredentials: true,
+          withCredentials: true
         });
         if (response.data.success) {
           setPlayerState(prev => ({ ...prev, library: response.data.library || [] }));
@@ -332,7 +332,7 @@ const usePlayer = () => {
     async add(songData) {
       try {
         const response = await axios.post(`${API_URL}/api/library/add`, songData, {
-          withCredentials: true,
+          withCredentials: true
         });
         if (response.data.success) {
           setPlayerState(prev => ({

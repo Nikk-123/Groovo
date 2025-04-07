@@ -25,7 +25,7 @@ const Login = ({ setIsAuthenticated }) => {
             "Content-Type": "application/json",
             "Accept": "application/json",
           },
-          withCredentials: true, // Equivalent to credentials: 'include' for cookies/session
+          withCredentials: true
         }
       );
 
@@ -38,12 +38,9 @@ const Login = ({ setIsAuthenticated }) => {
           localStorage.setItem("userLibrary", JSON.stringify(response.data.user.library));
         }
 
-        // Persist authentication state in localStorage
-        localStorage.setItem("isAuthenticated", "true");
-
         // Update parent state via callback
         if (setIsAuthenticated) {
-          setIsAuthenticated();
+          setIsAuthenticated(true);
         }
 
         // Navigate to dashboard

@@ -13,15 +13,26 @@ load_dotenv()
 
 # Flask app setup
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": ["http://localhost:5173", "http://127.0.0.1:5173"], "supports_credentials": True}})
+CORS(app, resources={r"/*": {
+    "origins": [
+        "http://localhost:5173", 
+        "http://127.0.0.1:5173",
+        "https://spotify-3-0-es19.onrender.com"
+    ],
+    "supports_credentials": True,
+    "allow_headers": ["Content-Type", "Authorization"],
+    "expose_headers": ["Content-Type", "Authorization"],
+    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+}})
 app.secret_key = 'Chayan@12'
 
 # Session configuration
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400
-app.config['SESSION_COOKIE_SECURE'] = True  # False for dev, True in production with HTTPS
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to False for development
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Set to None for cross-site requests
+app.config['SESSION_COOKIE_DOMAIN'] = None  # Allow cookies for all domains
 Session(app)
 
 # MongoDB Atlas setup

@@ -45,7 +45,7 @@ const Dashboard = ({ onLogout }) => {
 
     try {
       const response = await axios.get(`${API_URL}/api/dashboard`, {
-        withCredentials: true,
+        withCredentials: true
       });
 
       if (response.data.success) {
