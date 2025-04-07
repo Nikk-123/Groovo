@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 const usePlayer = () => {
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const API_URL = import.meta.env.VITE_API_URL || 'https://spotify-3-0-es19.onrender.com';
   const audioRef = useRef(new Audio());
 
   const [playerState, setPlayerState] = useState({
@@ -58,7 +58,9 @@ const usePlayer = () => {
         const response = await axios.post(
           `${API_URL}/api/play`,
           { url: cleanUrl },
-          { withCredentials: true }
+          {
+            withCredentials: true
+          }
         );
 
         if (!response.data.success || !response.data.audio_url) {
@@ -70,6 +72,11 @@ const usePlayer = () => {
         this.updateMetadata(title, artist, thumbnail);
       } catch (error) {
         console.error('Error playing song:', error);
+        if (error.response?.status === 401) {
+          // Handle unauthorized error
+          window.location.href = '/login';
+          return;
+        }
         await this.handlePlaybackError();
       } finally {
         setPlayerState(prev => ({ ...prev, isProcessingPlay: false }));

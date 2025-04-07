@@ -31,7 +31,7 @@ const Dashboard = ({ onLogout }) => {
   } = usePlayer();
 
   const handleImageError = (e) => {
-    e.target.src = '/placeholder-music.svg';
+    e.target.src = 'https://via.placeholder.com/300x300?text=No+Image';
     e.target.onerror = null;
   };
 
