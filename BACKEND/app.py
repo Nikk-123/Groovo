@@ -33,16 +33,18 @@ CORS(app,
 @app.after_request
 def after_request(response):
     origin = request.headers.get('Origin')
-    if origin in [
+    allowed_origins = [
         "http://localhost:5173", 
         "http://127.0.0.1:5173", 
         "https://spotify-3-0-es19.onrender.com",
         "https://spotify30.netlify.app"
-    ]:
-        response.headers.add('Access-Control-Allow-Origin', origin)
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
+    ]
+    
+    if origin in allowed_origins:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+        response.headers['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,OPTIONS'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
     return response
 
 app.secret_key = 'Chayan@12'
@@ -296,10 +298,17 @@ def api_dashboard():
 def api_play():
     if request.method == 'OPTIONS':
         response = jsonify({'status': 'ok'})
-        response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', 'http://localhost:5173'))
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        origin = request.headers.get('Origin')
+        if origin in [
+            "http://localhost:5173", 
+            "http://127.0.0.1:5173", 
+            "https://spotify-3-0-es19.onrender.com",
+            "https://spotify30.netlify.app"
+        ]:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+            response.headers['Access-Control-Allow-Methods'] = 'POST,OPTIONS'
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
         return response
 
     data = request.get_json()
@@ -356,14 +365,28 @@ def api_play():
                 'artist': artist,
                 'duration': duration
             })
-            response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', 'http://localhost:5173'))
-            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            origin = request.headers.get('Origin')
+            if origin in [
+                "http://localhost:5173", 
+                "http://127.0.0.1:5173", 
+                "https://spotify-3-0-es19.onrender.com",
+                "https://spotify30.netlify.app"
+            ]:
+                response.headers['Access-Control-Allow-Origin'] = origin
+                response.headers['Access-Control-Allow-Credentials'] = 'true'
             return response
     except Exception as e:
         print(f"[ERROR] /api/play: {str(e)}")
         response = jsonify({"success": False, "error": f"Error fetching audio: {str(e)}"}), 500
-        response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', 'http://localhost:5173'))
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        origin = request.headers.get('Origin')
+        if origin in [
+            "http://localhost:5173", 
+            "http://127.0.0.1:5173", 
+            "https://spotify-3-0-es19.onrender.com",
+            "https://spotify30.netlify.app"
+        ]:
+            response[0].headers['Access-Control-Allow-Origin'] = origin
+            response[0].headers['Access-Control-Allow-Credentials'] = 'true'
         return response
 
 # Search API (unchanged, already JSON-based)
