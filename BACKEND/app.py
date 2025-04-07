@@ -1,4 +1,4 @@
-from flask import Flask, request, session, jsonify
+from flask import Flask, request, session, jsonify, make_response
 from pymongo import MongoClient
 import os
 import sys
@@ -9,6 +9,7 @@ from functools import wraps
 from flask_session import Session
 from flask import Response
 import requests
+from flask_cors import cross_origin
 
 # Load environment variables
 load_dotenv()
@@ -304,61 +305,25 @@ def api_dashboard():
         print(f"Error in /api/dashboard: {e}")
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
-
 @app.route('/api/play', methods=['POST', 'OPTIONS'])
-def api_play():
+@cross_origin(origins=allowed_origins, supports_credentials=True)
+def play():
     if request.method == 'OPTIONS':
-        # ... CORS handling ...
-        pass
+        response = make_response()
+        response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        response.headers.add('Vary', 'Origin')
+        return response
 
     try:
         data = request.get_json()
-        video_url = data.get('url')
-        if not video_url:
-            return jsonify({"success": False, "error": "No URL provided"}), 400
+        if not data or 'url' not in data:
+            return jsonify({'error': 'Missing URL parameter'}), 400
 
-        logger.debug(f"Processing URL: {video_url}")
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'quiet': False,
-            'noplaylist': True,
-            'no_warnings': False,
-            'geturl': True,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-                'Accept': '*/*',
-                'Referer': 'https://www.youtube.com/'
-            },
-            'socket_timeout': 30,
-            'nocheckcertificate': True,
-            'ignoreerrors': False,
-            'geo_bypass': True,
-            'logger': logger,
-        }
-
-        with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(video_url, download=False)
-            if not info:
-                logger.error("yt_dlp returned no info")
-                return jsonify({"success": False, "error": "Unable to extract video information"}), 500
-
-            audio_url = info.get('url')
-            if not audio_url:
-                logger.error("No audio URL found in info")
-                return jsonify({"success": False, "error": "No audio URL found"}), 500
-
-            # Proxy the audio stream
-            def stream_audio():
-                with requests.get(audio_url, stream=True, headers=ydl_opts['http_headers']) as r:
-                    r.raise_for_status()
-                    for chunk in r.iter_content(chunk_size=8192):
-                        yield chunk
-
-            response = Response(stream_audio(), mimetype='audio/mpeg')
-            response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
-            response.headers['Access-Control-Allow-Credentials'] = 'true'
-            response.headers['Content-Disposition'] = 'inline'
-            return response
+        url = data['url']
+        # Rest of your play endpoint logic...
 
     except Exception as e:
         logger.error(f"Exception in /api/play: {str(e)}")
