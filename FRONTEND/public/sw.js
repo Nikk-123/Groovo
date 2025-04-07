@@ -12,15 +12,19 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Opened cache');
         return cache.addAll(urlsToCache);
       })
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  // Skip caching for the play endpoint
-  if (event.request.url.includes('/api/play')) {
+  // Skip chrome-extension URLs
+  if (event.request.url.startsWith('chrome-extension://')) {
+    return;
+  }
+
+  // Skip API requests
+  if (event.request.url.includes('/api/')) {
     return;
   }
 

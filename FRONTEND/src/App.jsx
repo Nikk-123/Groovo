@@ -58,6 +58,9 @@ function App() {
 
   const handleLoginSuccess = async () => {
     try {
+      // Wait a moment to ensure cookies are set
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       // Verify the session immediately after login
       const response = await axios.get(`${API_URL}/api/dashboard`, {
         withCredentials: true,
