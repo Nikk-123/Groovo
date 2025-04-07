@@ -10,6 +10,8 @@ from flask_session import Session
 from flask import Response
 import requests
 import logging
+import time
+from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv()
@@ -23,6 +25,21 @@ allowed_origins = [
     "https://spotify-3-0-es19.onrender.com",
     "https://spotify30.netlify.app"
 ]
+
+# Cache for video info
+video_cache = {}
+CACHE_DURATION = 3600  # 1 hour
+
+def get_cached_video_info(video_id):
+    now = datetime.now()
+    if video_id in video_cache:
+        cached_time, info = video_cache[video_id]
+        if now - cached_time < timedelta(seconds=CACHE_DURATION):
+            return info
+    return None
+
+def cache_video_info(video_id, info):
+    video_cache[video_id] = (datetime.now(), info)
 
 # Flask app setup
 app = Flask(__name__)
@@ -327,6 +344,25 @@ def play():
         url = data['url']
         logger.debug(f"Processing URL: {url}")
         
+        # Extract video ID from URL
+        video_id = None
+        if 'youtube.com/watch?v=' in url:
+            video_id = url.split('youtube.com/watch?v=')[1].split('&')[0]
+        elif 'youtu.be/' in url:
+            video_id = url.split('youtu.be/')[1].split('?')[0]
+
+        if not video_id:
+            return jsonify({'error': 'Invalid YouTube URL'}), 400
+
+        # Check cache first
+        cached_info = get_cached_video_info(video_id)
+        if cached_info:
+            logger.debug(f"Using cached info for video {video_id}")
+            audio_url = cached_info.get('url')
+            if audio_url:
+                return stream_audio_response(audio_url)
+
+        # If not in cache, fetch from YouTube
         ydl_opts = {
             'format': 'bestaudio/best',
             'quiet': True,
@@ -366,20 +402,12 @@ def play():
             'geo_bypass': True,
             'geo_bypass_country': 'US',
             'geo_bypass_ip_block': None,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-                'Accept': '*/*',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Referer': 'https://www.youtube.com/',
-                'Origin': 'https://www.youtube.com',
-                'DNT': '1',
-                'Connection': 'keep-alive',
-                'Sec-Fetch-Dest': 'empty',
-                'Sec-Fetch-Mode': 'cors',
-                'Sec-Fetch-Site': 'same-origin',
-                'Pragma': 'no-cache',
-                'Cache-Control': 'no-cache'
+            'cookiesfrombrowser': ('chrome',),
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['dash', 'hls'],
+                    'player_skip': ['js', 'configs', 'webpage']
+                }
             }
         }
 
@@ -395,23 +423,10 @@ def play():
                     logger.error("No audio URL found in info")
                     return jsonify({"success": False, "error": "No audio URL found"}), 500
 
-                # Proxy the audio stream
-                def stream_audio():
-                    try:
-                        with requests.get(audio_url, stream=True, headers=ydl_opts['http_headers']) as r:
-                            r.raise_for_status()
-                            for chunk in r.iter_content(chunk_size=8192):
-                                if chunk:
-                                    yield chunk
-                    except Exception as e:
-                        logger.error(f"Error streaming audio: {str(e)}")
-                        yield b''
+                # Cache the successful result
+                cache_video_info(video_id, info)
 
-                response = Response(stream_audio(), mimetype='audio/mpeg')
-                response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
-                response.headers['Access-Control-Allow-Credentials'] = 'true'
-                response.headers['Content-Disposition'] = 'inline'
-                return response
+                return stream_audio_response(audio_url)
 
             except Exception as e:
                 logger.error(f"Error in yt_dlp: {str(e)}")
@@ -420,6 +435,38 @@ def play():
     except Exception as e:
         logger.error(f"Exception in /api/play: {str(e)}")
         return jsonify({"success": False, "error": f"Server error: {str(e)}"}), 500
+
+def stream_audio_response(audio_url):
+    def stream_audio():
+        try:
+            with requests.get(audio_url, stream=True, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+                'Accept': '*/*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': 'https://www.youtube.com/',
+                'Origin': 'https://www.youtube.com',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-origin',
+                'Pragma': 'no-cache',
+                'Cache-Control': 'no-cache'
+            }) as r:
+                r.raise_for_status()
+                for chunk in r.iter_content(chunk_size=8192):
+                    if chunk:
+                        yield chunk
+        except Exception as e:
+            logger.error(f"Error streaming audio: {str(e)}")
+            yield b''
+
+    response = Response(stream_audio(), mimetype='audio/mpeg')
+    response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    response.headers['Content-Disposition'] = 'inline'
+    return response
 
 # Search API (unchanged, already JSON-based)
 @app.route('/api/search', methods=['GET'])
