@@ -56,16 +56,22 @@ const usePlayer = () => {
         }));
 
         const response = await axios.post(
-          'https://spotify-3-0-es19.onrender.com/api/play',
+          `https://spotify-3-0-es19.onrender.com/api/play`,
           { url: cleanUrl },
           {
             withCredentials: true,
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            timeout: 30000 // 30 second timeout
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 30000,
+            responseType: 'blob', // Expect a stream
           }
         );
+
+        const audioBlob = response.data;
+        const audioUrl = URL.createObjectURL(audioBlob);
+        console.log('Generated blob URL:', audioUrl);
+        await this.setupAudioPlayback(audioUrl, 0); // Duration not available in stream
+        setPlayerState(prev => ({ ...prev, isPlaying: true }));
+        this.updateMetadata(title, artist, thumbnail);
 
         if (!response.data.success) {
           throw new Error(response.data.error || 'Failed to get audio URL');
@@ -85,11 +91,11 @@ const usePlayer = () => {
           window.location.href = '/login';
           return;
         }
-        
+
         // Handle specific error messages from the server
         const errorMessage = error.response?.data?.error || error.message || 'Failed to play the song';
         alert(`Error: ${errorMessage}`);
-        
+
         await this.handlePlaybackError();
       } finally {
         setPlayerState(prev => ({ ...prev, isProcessingPlay: false }));
@@ -190,10 +196,10 @@ const usePlayer = () => {
           ...prev,
           retryCount: prev.retryCount + 1,
         }));
-        
+
         // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         if (playerState.currentSong) {
           try {
             await this.play(
