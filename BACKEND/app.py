@@ -17,7 +17,12 @@ app = Flask(__name__)
 # CORS configuration
 CORS(app, 
      resources={r"/*": {
-         "origins": ["http://localhost:5173", "http://127.0.0.1:5173", "https://spotify-3-0-es19.onrender.com"],
+         "origins": [
+             "http://localhost:5173", 
+             "http://127.0.0.1:5173", 
+             "https://spotify-3-0-es19.onrender.com",
+             "https://spotify30.netlify.app"
+         ],
          "supports_credentials": True,
          "allow_headers": ["Content-Type", "Authorization"],
          "expose_headers": ["Content-Type", "Authorization"],
@@ -28,7 +33,12 @@ CORS(app,
 @app.after_request
 def after_request(response):
     origin = request.headers.get('Origin')
-    if origin in ["http://localhost:5173", "http://127.0.0.1:5173", "https://spotify-3-0-es19.onrender.com"]:
+    if origin in [
+        "http://localhost:5173", 
+        "http://127.0.0.1:5173", 
+        "https://spotify-3-0-es19.onrender.com",
+        "https://spotify30.netlify.app"
+    ]:
         response.headers.add('Access-Control-Allow-Origin', origin)
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
         response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
