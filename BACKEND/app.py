@@ -33,7 +33,7 @@ CORS(app,
 @app.after_request
 def after_request(response):
     origin = request.headers.get('Origin')
-    allowed_origins = [ 
+    allowed_origins = [
         "https://spotify-3-0-es19.onrender.com",
         "https://spotify30.netlify.app"
     ]
@@ -44,6 +44,7 @@ def after_request(response):
         response.headers['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,OPTIONS'
         response.headers['Access-Control-Allow-Credentials'] = 'true'
         response.headers['Access-Control-Expose-Headers'] = 'Set-Cookie'
+        response.headers['Vary'] = 'Origin'
     return response
 
 app.secret_key = 'REMOVED_SECRET_KEY'
