@@ -10,12 +10,8 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
     try {
       const registration = await navigator.serviceWorker.register("/sw.js", {
         scope: "/",
-        type: "module",
       });
-      console.log(
-        "ServiceWorker registration successful with scope: ",
-        registration.scope
-      );
+      console.log("ServiceWorker registration successful with scope: ", registration.scope);
     } catch (error) {
       console.error("ServiceWorker registration failed: ", error);
     }
