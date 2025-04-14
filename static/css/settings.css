@@ -1,0 +1,86 @@
+/* Custom Scrollbar for Sidebar and Main Content */
+.sidebar::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .sidebar::-webkit-scrollbar-track {
+    background: #1a1a1a;
+  }
+  
+  .sidebar::-webkit-scrollbar-thumb {
+    background-color: #4a4a4a;
+    border-radius: 4px;
+  }
+  
+  .sidebar::-webkit-scrollbar-thumb:hover {
+    background-color: #6b6b6b;
+  }
+  
+  /* Main content scrollbar */
+  body::-webkit-scrollbar {
+    width: 10px;
+  }
+  
+  body::-webkit-scrollbar-track {
+    background: #000;
+  }
+  
+  body::-webkit-scrollbar-thumb {
+    background-color: #4a4a4a;
+    border-radius: 5px;
+  }
+  
+  body::-webkit-scrollbar-thumb:hover {
+    background-color: #6b6b6b;
+  }
+  
+  /* Smooth scrolling for anchor links */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* New styles for registration section */
+#loading, #faceIdOverlay {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: auto;
+    height: auto;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    text-align: center;
+    font-size: 24px;
+    z-index: 1000;
+    padding: 20px;
+    border-radius: 10px;
+  }
+  
+  #videoContainer {
+    position: relative;
+    margin-top: 20px;
+  }
+  
+  #video, #canvas {
+    display: none; /* Hide video and canvas */
+  }
+
+  /* Face ID Animation */
+.face-id-icon {
+    font-size: 64px;
+    color: #1db954;
+    animation: scan 2s infinite;
+  }
+  
+  @keyframes scan {
+    0% {
+      transform: rotate(0deg) scale(1);
+    }
+    50% {
+      transform: rotate(10deg) scale(1.1);
+    }
+    100% {
+      transform: rotate(0deg) scale(1);
+    }
+  }

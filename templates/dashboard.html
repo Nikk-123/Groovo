@@ -46,10 +46,14 @@
           <i class="fas fa-user-circle"></i>
         </button>
         <div class="dropdown-menu" id="profileDropdown">
-          <div class="dropdown-header">
+            <div class="dropdown-header">
             <i class="fas fa-user-circle"></i>
             <span>{{ user_email }}</span>
-          </div>
+            </div>
+            <a href="{{ url_for('settings') }}" class="dropdown-item">
+            <i class="fas fa-cog"></i>
+            Settings
+            </a>
           <div class="dropdown-divider"></div>
           <a href="{{ url_for('logout') }}" class="dropdown-item">
             <i class="fas fa-sign-out-alt"></i>
