@@ -699,9 +699,7 @@ def train_and_save_model(username, user_folder):
         logging.error(f"Error deleting frames for {username}: {str(e)}")
 
 
-# @app.route('/match', methods=['GET', 'POST'])
-# def match():
-#     return render_template('match.html')
+
 
 @app.route('/match_face', methods=['POST'])
 def match_face():
