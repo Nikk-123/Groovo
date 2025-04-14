@@ -115,7 +115,7 @@ jobs:
 
       - name: Verify EXE Creation
         run: dir dist
- Whitaker, Christopher <christopher.whitaker@outlook.com>
+ # Whitaker, Christopher <christopher.whitaker@outlook.com>
         shell: cmd
 
       - name: Upload EXE to Artifacts
