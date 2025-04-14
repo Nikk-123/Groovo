@@ -34,13 +34,29 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller pywebview[cef] opencv-python-headless deepface
         shell: cmd
-        continue-on-error: false
 
-      - name: Cache DeepFace models
+      - name: Get Latest Release Tag and Increment
+        id: versioning
         run: |
-          python -c "from deepface import DeepFace; DeepFace.represent(img_path='nonexistent.jpg', model_name='VGG-Face', enforce_detection=False)"
+          for /f "tokens=*" %%i in ('git describe --tags --abbrev=0 2^>nul') do set LATEST_TAG=%%i
+          if not defined LATEST_TAG set LATEST_TAG=v1.0.0
+          set VERSION_NUMBER=%LATEST_TAG:v=%
+          for /f "tokens=1 delims=." %%a in ("%VERSION_NUMBER%") do set MAJOR=%%a
+          for /f "tokens=2 delims=." %%b in ("%VERSION_NUMBER%") do set MINOR=%%b
+          for /f "tokens=3 delims=." %%c in ("%VERSION_NUMBER%") do set PATCH=%%c
+          set /a NEW_PATCH=%PATCH% + 1
+          set NEW_TAG=v%MAJOR%.%MINOR%.%NEW_PATCH%
+          echo NEW_TAG=%NEW_TAG% >> %GITHUB_ENV%
         shell: cmd
-        continue-on-error: true  # Ignore errors from nonexistent.jpg
+
+      - name: Cache DeepFace Models
+        run: |
+          echo "Attempting to cache DeepFace models..."
+          python -c "import deepface; import cv2; import numpy as np; img = np.zeros((224, 224, 3), dtype=np.uint8); cv2.imwrite('temp.jpg', img); from deepface import DeepFace; DeepFace.represent(img_path='temp.jpg', model_name='VGG-Face', enforce_detection=False); print('Weights cached successfully')"
+          if exist "temp.jpg" del "temp.jpg"
+          dir "%USERPROFILE%\.deepface\weights" || echo "Weights directory not found"
+        shell: cmd
+        continue-on-error: true
 
       - name: Ensure .env is included
         run: |
@@ -52,22 +68,42 @@ jobs:
 
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --noconsole --clean ^
-            --add-data "templates;templates" ^
-            --add-data "static;static" ^
-            --add-data ".env;." ^
-            --add-data "%USERPROFILE%\.deepface\weights;.deepface\weights" ^
-            --hidden-import=pkg_resources ^
-            --hidden-import=deepface ^
-            --hidden-import=cv2 ^
-            --hidden-import=yt_dlp ^
-            --hidden-import=pywebview ^
-            --hidden-import=pymongo ^
-            --hidden-import=scipy ^
-            --hidden-import=webview ^
-            --hidden-import=webview.platforms.cef ^
-            --name "GareebKaSpotify-${{ env.NEW_TAG }}" ^
-            app.py
+          set DEEPFACE_WEIGHTS=%USERPROFILE%\.deepface\weights
+          if exist "%DEEPFACE_WEIGHTS%" (
+            pyinstaller --onefile --noconsole --clean ^
+              --add-data "templates;templates" ^
+              --add-data "static;static" ^
+              --add-data ".env;." ^
+              --add-data "%DEEPFACE_WEIGHTS%;.deepface\weights" ^
+              --hidden-import=pkg_resources ^
+              --hidden-import=deepface ^
+              --hidden-import=cv2 ^
+              --hidden-import=yt_dlp ^
+              --hidden-import=pywebview ^
+              --hidden-import=pymongo ^
+              --hidden-import=scipy ^
+              --hidden-import=webview ^
+              --hidden-import=webview.platforms.cef ^
+              --name "GareebKaSpotify-${{ env.NEW_TAG }}" ^
+              app.py
+          ) else (
+            echo "WARNING: DeepFace weights not found, building without them"
+            pyinstaller --onefile --noconsole --clean ^
+              --add-data "templates;templates" ^
+              --add-data "static;static" ^
+              --add-data ".env;." ^
+              --hidden-import=pkg_resources ^
+              --hidden-import=deepface ^
+              --hidden-import=cv2 ^
+              --hidden-import=yt_dlp ^
+              --hidden-import=pywebview ^
+              --hidden-import=pymongo ^
+              --hidden-import=scipy ^
+              --hidden-import=webview ^
+              --hidden-import=webview.platforms.cef ^
+              --name "GareebKaSpotify-${{ env.NEW_TAG }}" ^
+              app.py
+          )
         shell: cmd
 
       - name: Verify EXE Creation
@@ -85,20 +121,6 @@ jobs:
         with:
           name: env-file
           path: .env
-
-      - name: Get Latest Release Tag and Increment
-        id: versioning
-        run: |
-          for /f "tokens=*" %%i in ('git describe --tags --abbrev=0 2^>nul') do set LATEST_TAG=%%i
-          if not defined LATEST_TAG set LATEST_TAG=v1.0.0
-          set VERSION_NUMBER=%LATEST_TAG:v=%
-          for /f "tokens=1 delims=." %%a in ("%VERSION_NUMBER%") do set MAJOR=%%a
-          for /f "tokens=2 delims=." %%b in ("%VERSION_NUMBER%") do set MINOR=%%b
-          for /f "tokens=3 delims=." %%c in ("%VERSION_NUMBER%") do set PATCH=%%c
-          set /a NEW_PATCH=%PATCH% + 1
-          set NEW_TAG=v%MAJOR%.%MINOR%.%NEW_PATCH%
-          echo NEW_TAG=%NEW_TAG% >> %GITHUB_ENV%
-        shell: cmd
 
       - name: Push New Tag
         run: |
@@ -118,6 +140,7 @@ jobs:
             🚀 New version of Gareeb ka Spotify released: ${{ env.NEW_TAG }}
 
             - Standalone EXE with Face ID and music streaming.
+            - Note: Ensure a valid MONGO_URI is set in .env for MongoDB connectivity.
           draft: false
           prerelease: false
         env:
