@@ -28,11 +28,19 @@ jobs:
           pip install -r requirements.txt
         shell: cmd
 
-      - name: Install dependencies
+      - name: Install Build Tools for Windows
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools wheel
+          pip install pywin32
+        shell: cmd
+
+      - name: Install dependencies with fallback for webview
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller pywebview[winforms] opencv-python-headless
+          pip install pyinstaller pywebview[winforms] opencv-python-headless || echo "webview installation failed, skipping."
+          pip install pywebview || echo "Fallback installation of pywebview failed, skipping."
         shell: cmd
 
       - name: Cache DeepFace models
