@@ -6,6 +6,13 @@ import sys
 from dotenv import load_dotenv
 from flask_cors import CORS
 from yt_dlp import YoutubeDL
+import base64
+import cv2
+import numpy as np
+from deepface import DeepFace
+import pickle
+import logging
+from scipy.spatial.distance import cosine
 
 # Load environment variables
 if getattr(sys, 'frozen', False):
@@ -18,6 +25,21 @@ else:
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.secret_key = 'REMOVED_SECRET_KEY'
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+# Directories
+UPLOAD_FOLDER = 'uploads'
+MODEL_FOLDER = 'models'
+for folder in [UPLOAD_FOLDER, MODEL_FOLDER]:
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MODEL_FOLDER'] = MODEL_FOLDER
+
+# In-memory storage for users
+users = []
 
 # MongoDB Atlas setup
 MONGO_URI = os.getenv('MONGO_URI')
@@ -267,6 +289,33 @@ def dashboard():
                          user_library_urls=user_library_urls,
                          trending=trending_songs,
                          mood_playlists=mood_playlists)
+
+@app.route('/settings')
+def settings():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    return render_template('setting.html')
+
+@app.route('/edit_profile', methods=['POST'])
+def edit_profile():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    username = request.form.get('username')
+    email = request.form.get('email')
+
+    user_email = session['user_id']
+    try:
+        users_collection.update_one(
+            {'email': user_email},
+            {'$set': {'username': username, 'email': email}}
+        )
+        session['user_id'] = email  # Update session with new email
+        return redirect(url_for('settings'))
+    except Exception as e:
+        print(f"Error updating profile: {e}")
+        return "An error occurred while updating your profile. Please try again later."
 
 @app.route('/play', methods=['POST', 'OPTIONS'])
 def play():
@@ -540,6 +589,168 @@ def manifest():
         ]
     })
 
+@app.route('/face_auth')
+def face_auth():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    return render_template('face_auth.html')
+
+@app.route('/update_face_auth', methods=['POST'])
+def update_face_auth():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    enable_face_auth = request.form.get('enableFaceAuth') == 'on'
+
+    user_email = session['user_id']
+    try:
+        users_collection.update_one(
+            {'email': user_email},
+            {'$set': {'face_auth_enabled': enable_face_auth}}
+        )
+        return redirect(url_for('face_auth'))
+    except Exception as e:
+        print(f"Error updating face authentication: {e}")
+        return "An error occurred while updating face authentication settings. Please try again later."
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        if username:
+            users.append(username)
+            return jsonify({'status': 'success', 'message': 'Registration started'})
+    return render_template('register.html')
+
+
+@app.route('/upload_frames', methods=['POST'])
+def upload_frames():
+    data = request.get_json()
+    frames = data.get('frames', [])
+    username = data.get('username', 'unknown')
+    
+    # Create user-specific folder
+    user_folder = os.path.join(app.config['UPLOAD_FOLDER'], username)
+    if not os.path.exists(user_folder):
+        os.makedirs(user_folder)
+    
+    # Save frames
+    for i, frame in enumerate(frames):
+        frame_data = frame.split(',')[1]
+        frame_bytes = base64.b64decode(frame_data)
+        frame_path = os.path.join(user_folder, f'frame_{i}.jpg')
+        with open(frame_path, 'wb') as f:
+            f.write(frame_bytes)
+    
+    # Train model and save as .pkl
+    try:
+        train_and_save_model(username, user_folder)
+        return jsonify({'status': 'success', 'message': f'{len(frames)} frames saved and model trained'})
+    except Exception as e:
+        logging.error(f"Error processing frames for {username}: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Error processing frames'}), 500
+
+def train_and_save_model(username, user_folder):
+    """Load images, generate face embeddings, save as .pkl file, and delete frames."""
+    embeddings = []
+    
+    for i in range(100):
+        frame_path = os.path.join(user_folder, f'frame_{i}.jpg')
+        if not os.path.exists(frame_path):
+            logging.warning(f"Frame {frame_path} not found")
+            continue
+            
+        try:
+            img = cv2.imread(frame_path)
+            if img is None:
+                logging.warning(f"Failed to load image {frame_path}")
+                continue
+            embedding = DeepFace.represent(img, model_name='VGG-Face', enforce_detection=False)
+            if embedding:
+                embeddings.append(embedding[0]['embedding'])
+        except Exception as e:
+            logging.error(f"Error processing frame {i} for {username}: {str(e)}")
+            continue
+    
+    if not embeddings:
+        raise Exception("No valid embeddings generated")
+    
+    avg_embedding = np.mean(embeddings, axis=0)
+    
+    model_path = os.path.join(app.config['MODEL_FOLDER'], f'{username}.pkl')
+    with open(model_path, 'wb') as f:
+        pickle.dump({'username': username, 'embedding': avg_embedding}, f)
+    logging.info(f"Model saved for {username} at {model_path}")
+    
+    # Delete frames to save space
+    try:
+        for i in range(100):
+            frame_path = os.path.join(user_folder, f'frame_{i}.jpg')
+            if os.path.exists(frame_path):
+                os.remove(frame_path)
+                logging.info(f"Deleted frame {frame_path}")
+        # Optionally, delete the user folder if empty
+        if os.path.exists(user_folder) and not os.listdir(user_folder):
+            os.rmdir(user_folder)
+            logging.info(f"Deleted empty user folder {user_folder}")
+    except Exception as e:
+        logging.error(f"Error deleting frames for {username}: {str(e)}")
+
+
+
+
+@app.route('/match_face', methods=['POST'])
+def match_face():
+    try:
+        data = request.get_json()
+        frame = data.get('frame')
+        if not frame:
+            return jsonify({'status': 'error', 'message': 'No frame provided'}), 400
+        
+        # Decode base64 frame
+        frame_data = frame.split(',')[1]
+        frame_bytes = base64.b64decode(frame_data)
+        nparr = np.frombuffer(frame_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        # Generate embedding
+        embedding = DeepFace.represent(img, model_name='VGG-Face', enforce_detection=False)
+        if not embedding:
+            return jsonify({'status': 'error', 'message': 'No face detected'})
+        
+        live_embedding = embedding[0]['embedding']
+        
+        # Load all .pkl models
+        best_match = None
+        best_score = float('inf')
+        threshold = 0.6  # Cosine distance threshold
+        
+        for pkl_file in os.listdir(app.config['MODEL_FOLDER']):
+            if pkl_file.endswith('.pkl'):
+                with open(os.path.join(app.config['MODEL_FOLDER'], pkl_file), 'rb') as f:
+                    model_data = pickle.load(f)
+                stored_embedding = model_data['embedding']
+                username = model_data['username']
+                
+                # Compute cosine distance
+                score = cosine(live_embedding, stored_embedding)
+                if score < best_score:
+                    best_score = score
+                    best_match = username
+                
+        if best_score < threshold:
+            session['user_id'] = best_match  # Set session for dashboard
+            return jsonify({'status': 'success', 'username': best_match, 'verified': True})
+        else:
+            return jsonify({'status': 'success', 'username': 'No Match', 'verified': False})
+            
+    except Exception as e:
+        logging.error(f"Error matching face: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Error matching face'}), 500
+
+
 def test_db_connection():
     try:
         print("Testing MongoDB connection...")
@@ -554,7 +765,7 @@ if __name__ == "__main__":
     if test_db_connection():
         # Start Flask in a separate thread
         from threading import Thread
-        flask_thread = Thread(target=lambda: app.run(debug=False, use_reloader=False, port=5000))
+        flask_thread = Thread(target=lambda: app.run(debug=True, use_reloader=False, port=5000))
         flask_thread.daemon = True
         flask_thread.start()
         

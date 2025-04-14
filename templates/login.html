@@ -1,376 +1,244 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000000" />
     <title>Login - Gareeb ka Spotify</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    <link rel="icon" href="{{ url_for('static', filename='icons/2pic(1).png') }}" sizes="682x461">
-    <link rel="icon" href="{{ url_for('static', filename='icons/2pic(2).png') }}" sizes="680x484">
-    <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png">
-
-
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        }
-
-        body {
-            background: linear-gradient(to bottom, #1DB954, #191414);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .header {
-            width: 100%;
-            padding: 25px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: center;
-        }
-
-        .logo {
-            color: white;
-            font-size: 2rem;
-            font-weight: bold;
-            text-decoration: none;
-        }
-
-        .login-container {
-            background: #000000;
-            border-radius: 8px;
-            width: 100%;
-            max-width: 450px;
-            margin: 40px auto;
-            padding: 40px;
-            color: white;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-        }
-
-        h1 {
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 32px;
-            font-weight: 700;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        input {
-            width: 100%;
-            padding: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
-            background: #282828;
-            color: white;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: #1DB954;
-        }
-
-        button {
-            width: 100%;
-            padding: 14px;
-            background: #1DB954;
-            color: white;
-            border: none;
-            border-radius: 500px;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            margin-top: 20px;
-        }
-
-        button:hover {
-            background: #1ed760;
-            transform: scale(1.02);
-        }
-
-        .divider {
-            margin: 20px 0;
-            text-align: center;
-            position: relative;
-        }
-
-        .divider::before,
-        .divider::after {
-            content: "";
-            position: absolute;
-            top: 50%;
-            width: 45%;
-            height: 1px;
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .divider::before {
-            left: 0;
-        }
-
-        .divider::after {
-            right: 0;
-        }
-
-        .signup-link {
-            text-align: center;
-            margin-top: 20px;
-            padding: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .signup-link a {
-            color: #1DB954;
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .signup-link a:hover {
-            color: #1ed760;
-            text-decoration: underline;
-        }
-
-        .flash-messages {
-            width: 100%;
-            max-width: 450px;
-            margin: 20px auto;
-        }
-
-        .flash {
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-            text-align: center;
-        }
-
-        .flash.danger {
-            background: #e91429;
-            color: white;
-        }
-
-        .flash.success {
-            background: #1DB954;
-            color: white;
-        }
-
-        /* Media Queries */
-        @media (max-width: 768px) {
-            .login-container {
-                margin: 20px;
-                padding: 30px;
-                max-width: 90%;
-            }
-
-            h1 {
-                font-size: 28px;
-            }
-
-            .logo {
-                font-size: 1.5rem;
-            }
-
-            input {
-                padding: 12px;
-                font-size: 14px;
-            }
-
-            button {
-                padding: 12px;
-                font-size: 14px;
-            }
-
-            .flash-messages {
-                margin: 10px;
-                max-width: 90%;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .login-container {
-                margin: 10px;
-                padding: 20px;
-            }
-
-            h1 {
-                font-size: 24px;
-                margin-bottom: 20px;
-            }
-
-            .header {
-                padding: 15px 0;
-            }
-
-            .logo {
-                font-size: 1.2rem;
-            }
-
-            .form-group {
-                margin-bottom: 15px;
-            }
-
-            label {
-                font-size: 12px;
-            }
-
-            input {
-                padding: 10px;
-                font-size: 13px;
-            }
-
-            button {
-                padding: 10px;
-                font-size: 13px;
-                margin-top: 15px;
-            }
-
-            .signup-link {
-                padding: 15px;
-                font-size: 13px;
-            }
-
-            .flash {
-                padding: 10px;
-                font-size: 13px;
-            }
-        }
-
-        /* For very small devices */
-        @media (max-width: 320px) {
-            .login-container {
-                padding: 15px;
-            }
-
-            h1 {
-                font-size: 20px;
-            }
-
-            .logo {
-                font-size: 1rem;
-            }
-
-            input, button {
-                padding: 8px;
-                font-size: 12px;
-            }
-        }
-    </style>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome CDN -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <!-- Custom CSS -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/settings.css') }}"
+    />
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
+    <link rel="icon" href="{{ url_for('static', filename='icons/2pic(1).png') }}" sizes="682x461" />
+    <link rel="icon" href="{{ url_for('static', filename='icons/2pic(2).png') }}" sizes="680x484" />
+    <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png" />
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}" />
 </head>
-<body>
-    <div class="header">
-        <a href="/" class="logo">
-            <i class="fab fa-spotify"></i>
-            Gareeb ka Spotify
+<body class="bg-gradient-to-b from-green-500 to-gray-900 text-gray-100 font-sans flex flex-col items-center min-h-screen">
+    <!-- Header -->
+    <header class="w-full py-6 border-b border-gray-700 text-center">
+        <a href="/" class="text-white text-3xl font-bold no-underline hover:text-green-400 transition">
+            <i class="fab fa-spotify mr-2"></i> Gareeb ka Spotify
         </a>
-    </div>
+    </header>
 
+    <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-        <div class="flash-messages">
+        <div class="w-full max-w-md mx-auto mt-4">
             {% for category, message in messages %}
-                <div class="flash {{ category }}">{{ message }}</div>
+                <div class="p-4 rounded {{ 'bg-red-600' if category == 'danger' else 'bg-green-500' }} text-white text-center mb-2">
+                    {{ message }}
+                </div>
             {% endfor %}
         </div>
         {% endif %}
     {% endwith %}
 
-    <div class="login-container">
-        <h1>Log in to continue</h1>
-        <form method="POST">
-            <div class="form-group">
-                <label for="email">Email address</label>
-                <input type="email" id="email" name="email" required placeholder="Enter your email">
+    <!-- Login Container -->
+    <div class="bg-black rounded-lg w-full max-w-md mx-auto my-10 p-8 text-white shadow-2xl">
+        <h1 class="text-3xl font-bold text-center mb-8">Log in to continue</h1>
+        <form method="POST" id="loginForm" class="space-y-6">
+            <div>
+                <label for="email" class="block text-sm font-semibold mb-2">Email address</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    required
+                    placeholder="Enter your email"
+                    class="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
             </div>
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" required placeholder="Password">
+            <div>
+                <label for="password" class="block text-sm font-semibold mb-2">Password</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    required
+                    placeholder="Password"
+                    class="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
             </div>
-            <button type="submit">LOG IN</button>
+            <button
+                type="submit"
+                class="w-full p-3 bg-green-500 text-black font-semibold rounded-full hover:bg-green-600 transition"
+            >
+                LOG IN
+            </button>
         </form>
-        <div class="divider">or</div>
-        <div class="signup-link">
-            <p>Don't have an account?</p>
-            <a href="/signup">SIGN UP FOR GAREEB KA SPOTIFY</a>
+        <div class="relative my-6 text-center text-gray-400">
+            <span class="px-2 bg-black">or</span>
+            <div class="absolute top-1/2 left-0 w-5/12 h-px bg-gray-700"></div>
+            <div class="absolute top-1/2 right-0 w-5/12 h-px bg-gray-700"></div>
+        </div>
+        <button
+            id="faceIdButton"
+            class="w-full p-3 bg-gray-800 text-white font-semibold rounded-full hover:bg-gray-700 transition flex items-center justify-center"
+        >
+            <i class="fas fa-user-circle mr-2"></i> Face ID
+        </button>
+        <div class="mt-6 pt-6 border-t border-gray-700 text-center">
+            <p class="text-gray-400">Don't have an account?</p>
+            <a
+                href="/signup"
+                class="text-green-500 font-semibold hover:text-green-600 hover:underline transition"
+            >
+                SIGN UP FOR GAREEB KA SPOTIFY
+            </a>
         </div>
     </div>
 
+    <!-- Face ID Overlay -->
+    <div id="faceIdOverlay" class="hidden flex-col items-center justify-center">
+        <i class="fas fa-user-circle face-id-icon"></i>
+        <p class="mt-4 text-lg">Scanning Face...</p>
+        <p id="result" class="mt-4 text-lg"></p>
+    </div>
+
+    <!-- Hidden Video and Canvas for Background Processing -->
+    <video id="video" width="320" height="240" autoplay></video>
+    <canvas id="canvas" width="320" height="240"></canvas>
+
     <script>
-       document.querySelector('form').addEventListener('submit', function(e) {
-    e.preventDefault();
+        // Email/Password Login
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const submitButton = this.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Logging in...';
     
-    const formData = new FormData(this);
+            fetch('/login', {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Login failed');
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    if (data.library) {
+                        localStorage.setItem('userLibrary', JSON.stringify(data.library));
+                    }
+                    window.location.href = data.redirect;
+                } else {
+                    const flashMessages = document.querySelector('.flash-messages') || document.createElement('div');
+                    flashMessages.className = 'flash-messages w-full max-w-md mx-auto mt-4';
+                    const message = document.createElement('div');
+                    message.className = 'p-4 rounded bg-red-600 text-white text-center mb-2';
+                    message.textContent = data.message || 'Login failed. Please check your credentials.';
+                    flashMessages.appendChild(message);
+                    document.body.insertBefore(flashMessages, document.querySelector('.login-container'));
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'LOG IN';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                const flashMessages = document.querySelector('.flash-messages') || document.createElement('div');
+                flashMessages.className = 'flash-messages w-full max-w-md mx-auto mt-4';
+                const message = document.createElement('div');
+                message.className = 'p-4 rounded bg-red-600 text-white text-center mb-2';
+                message.textContent = 'Login failed. Please try again.';
+                flashMessages.appendChild(message);
+                document.body.insertBefore(flashMessages, document.querySelector('.login-container'));
+                submitButton.disabled = false;
+                submitButton.textContent = 'LOG IN';
+            });
+        });
     
-    // Show loading state or disable button if needed
-    const submitButton = this.querySelector('button[type="submit"]');
-    submitButton.disabled = true;
-    submitButton.textContent = 'Logging in...';
-
-    fetch('/login', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'Accept': 'application/json'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Login failed');
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            // Store library data in localStorage
-            if (data.library) {
-                localStorage.setItem('userLibrary', JSON.stringify(data.library));
+        // Face ID Login
+        document.getElementById('faceIdButton').addEventListener('click', function() {
+            const overlay = document.getElementById('faceIdOverlay');
+            overlay.style.display = 'flex';
+            startFaceId();
+        });
+    
+        function startFaceId() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const resultDiv = document.getElementById('result');
+    
+            async function startCamera() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = stream;
+                    video.onloadedmetadata = () => {
+                        processFrame();
+                    };
+                } catch (err) {
+                    console.error('Error accessing camera:', err);
+                    resultDiv.textContent = 'Error: Could not access camera';
+                    resultDiv.className = 'text-red-500';
+                    setTimeout(closeOverlay, 2000);
+                }
             }
-            // Redirect to dashboard
-            window.location.href = data.redirect;
-        } else {
-            // Handle login failure
-            const flashMessages = document.querySelector('.flash-messages');
-            if (!flashMessages) {
-                const div = document.createElement('div');
-                div.className = 'flash-messages';
-                document.body.insertBefore(div, document.querySelector('.login-container'));
+    
+            async function processFrame() {
+                if (!video.paused && !video.ended) {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const frameData = canvas.toDataURL('image/jpeg');
+                    await matchFace(frameData);
+                }
             }
-            const message = document.createElement('div');
-            message.className = 'flash danger';
-            message.textContent = data.message || 'Login failed. Please check your credentials.';
-            document.querySelector('.flash-messages').appendChild(message);
-            
-            submitButton.disabled = false;
-            submitButton.textContent = 'LOG IN';
+    
+            async function matchFace(frameData) {
+                try {
+                    const response = await fetch('/match_face', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ frame: frameData })
+                    });
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const result = await response.json();
+                    console.log('Match face response:', result);
+                    
+                    if (result.status === 'success' && result.verified) {
+                        resultDiv.textContent = `Face Verified: ${result.username}`;
+                        resultDiv.className = 'text-green-500';
+                        console.log('Attempting redirect to /dashboard');
+                        setTimeout(() => {
+                            window.location.href = '/dashboard';
+                        }, 1500);
+                    } else {
+                        resultDiv.textContent = result.message || 'No Match';
+                        resultDiv.className = 'text-red-500';
+                        setTimeout(processFrame, 500);
+                    }
+                } catch (err) {
+                    console.error('Error matching face:', err);
+                    resultDiv.textContent = 'Error matching face';
+                    resultDiv.className = 'text-red-500';
+                    setTimeout(processFrame, 500);
+                }
+            }
+    
+            function closeOverlay() {
+                const overlay = document.getElementById('faceIdOverlay');
+                overlay.style.display = 'none';
+                if (video.srcObject) {
+                    video.srcObject.getTracks().forEach(track => track.stop());
+                }
+            }
+    
+            startCamera();
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        const message = document.createElement('div');
-        message.className = 'flash danger';
-        message.textContent = 'Login failed. Please try again.';
-        document.querySelector('.flash-messages').appendChild(message);
-        
-        submitButton.disabled = false;
-        submitButton.textContent = 'LOG IN';
-    });
-});
-
     </script>
 </body>
 </html>
-    

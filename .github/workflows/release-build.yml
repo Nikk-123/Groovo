@@ -1,4 +1,4 @@
-name: Auto Release and Build EXE
+name: Auto Release and Build Standalone EXE
 
 permissions:
   contents: write
@@ -10,7 +10,7 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: windows-latest  # Use Windows for building EXE
+    runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,52 +24,52 @@ jobs:
 
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
+          pip install pyinstaller pywebview opencv-python-headless
+        shell: cmd
 
-      - name: Get Latest Release Tag and Increment
-        id: versioning
+      - name: Cache DeepFace models
         run: |
-          # Get the latest tag or use v1.0.0 if none exist
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
-          
-          # Extract version number (removing 'v')
-          VERSION_NUMBER=$(echo "$LATEST_TAG" | sed 's/v//')
-
-          # Split version (major.minor.patch)
-          MAJOR=$(echo $VERSION_NUMBER | cut -d. -f1)
-          MINOR=$(echo $VERSION_NUMBER | cut -d. -f2)
-          PATCH=$(echo $VERSION_NUMBER | cut -d. -f3)
-
-          # Increment patch version
-          NEW_PATCH=$((PATCH + 1))
-          NEW_TAG="v$MAJOR.$MINOR.$NEW_PATCH"
-
-          # Output new tag
-          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
-        shell: bash
+          python -c "from deepface import DeepFace; DeepFace.represent(img_path='nonexistent.jpg', model_name='VGG-Face', enforce_detection=False)"
+        shell: cmd
+        continue-on-error: true  # Ignore errors from nonexistent.jpg
 
       - name: Ensure .env is included
         run: |
-          if [ ! -f ".env" ]; then
-            echo "WARNING: .env file not found! Creating a dummy .env file."
-            echo "URI=your_mongodb_connection_string" > .env
-          fi
-        shell: bash
+          if not exist ".env" (
+            echo WARNING: .env file not found! Creating a dummy .env file.
+            echo MONGO_URI=your_mongodb_connection_string > .env
+          )
+        shell: cmd
 
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --noconsole --clean --add-data "templates;templates" --add-data "static;static" --add-data ".env;." --name "app-${{ env.NEW_TAG }}" app.py
+          pyinstaller --onefile --noconsole --clean ^
+            --add-data "templates;templates" ^
+            --add-data "static;static" ^
+            --add-data ".env;." ^
+            --add-data "%USERPROFILE%\.deepface\weights;.deepface\weights" ^
+            --hidden-import=pkg_resources ^
+            --hidden-import=deepface ^
+            --hidden-import=cv2 ^
+            --hidden-import=yt_dlp ^
+            --hidden-import=pywebview ^
+            --hidden-import=pymongo ^
+            --hidden-import=scipy ^
+            --name "GareebKaSpotify-${{ env.NEW_TAG }}" ^
+            app.py
         shell: cmd
 
       - name: Verify EXE Creation
         run: dir dist
+        shell: cmd
 
       - name: Upload EXE to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: app-exe-${{ env.NEW_TAG }}
-          path: dist/app-${{ env.NEW_TAG }}.exe
+          name: gareeb-ka-spotify-exe-${{ env.NEW_TAG }}
+          path: dist/GareebKaSpotify-${{ env.NEW_TAG }}.exe
 
       - name: Upload .env to Artifacts (for debugging)
         uses: actions/upload-artifact@v4
@@ -77,27 +77,44 @@ jobs:
           name: env-file
           path: .env
 
+      - name: Get Latest Release Tag and Increment
+        id: versioning
+        run: |
+          # Get the latest tag or use v1.0.0 if none exist
+          for /f "tokens=*" %%i in ('git describe --tags --abbrev=0 2^>nul') do set LATEST_TAG=%%i
+          if not defined LATEST_TAG set LATEST_TAG=v1.0.0
+          
+          # Extract version number (removing 'v')
+          set VERSION_NUMBER=%LATEST_TAG:v=%
+          
+          # Split version (major.minor.patch)
+          for /f "tokens=1 delims=." %%a in ("%VERSION_NUMBER%") do set MAJOR=%%a
+          for /f "tokens=2 delims=." %%b in ("%VERSION_NUMBER%") do set MINOR=%%b
+          for /f "tokens=3 delims=." %%c in ("%VERSION_NUMBER%") do set PATCH=%%c
+          
+          # Increment patch version
+          set /a NEW_PATCH=%PATCH% + 1
+          set NEW_TAG=v%MAJOR%.%MINOR%.%NEW_PATCH%
+          
+          # Output new tag
+          echo NEW_TAG=%NEW_TAG% >> %GITHUB_ENV%
+        shell: cmd
+
       - name: Push New Tag
         run: |
-          # Set up the git user details
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
-        
-          # Create the new tag (using the environment variable NEW_TAG)
           git tag ${{ env.NEW_TAG }}
-        
-          # Push the tag to the remote repository using the built-in GITHUB_TOKEN for authentication
-          git push https://github.com/${{ github.repository }} ${{ env.NEW_TAG }}
-          
-        shell: bash
+          git push origin ${{ env.NEW_TAG }}
+        shell: cmd
 
       - name: Release on GitHub
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/app-${{ env.NEW_TAG }}.exe
+          files: dist/GareebKaSpotify-${{ env.NEW_TAG }}.exe
           tag_name: ${{ env.NEW_TAG }}
-          name: "Release ${{ env.NEW_TAG }}"
-          body: "🚀 New version released: ${{ env.NEW_TAG }} \n\n - Auto-generated update."
+          name: Release ${{ env.NEW_TAG }}
+          body: 🚀 New version of Gareeb ka Spotify released: ${{ env.NEW_TAG }} \n\n - Standalone EXE with Face ID and music streaming.
           draft: false
           prerelease: false
         env:
