@@ -53,7 +53,7 @@ jobs:
       - name: Cache DeepFace Models
         run: |
           echo "Attempting to cache DeepFace models..."
-          python -c "try: import deepface; import cv2; import numpy as np; img = np.zeros((224, 224, 3), dtype=np.uint8); cv2.imwrite('temp.jpg', img); from deepface import DeepFace; DeepFace.represent(img_path='temp.jpg', model_name='VGG-Dace', enforce_detection=False); print('Weights cached successfully'); except Exception as e: print('Failed to cache weights:', e)" || echo "Python script failed, continuing..."
+          python -c "import deepface; import cv2; import numpy as np; img = np.zeros((224, 224, 3), dtype=np.uint8); cv2.imwrite('temp.jpg', img); from deepface import DeepFace; DeepFace.represent(img_path='temp.jpg', model_name='VGG-Face', enforce_detection=False); print('Weights cached successfully')"
           if exist "temp.jpg" (del "temp.jpg") else (echo "No temp.jpg to delete")
           dir "%USERPROFILE%\.deepface\weights" 2>nul || echo "Weights directory not found"
         shell: cmd
