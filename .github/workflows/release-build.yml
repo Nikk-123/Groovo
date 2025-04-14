@@ -83,22 +83,32 @@ jobs:
           # Get the latest tag or use v1.0.0 if none exist
           for /f "tokens=*" %%i in ('git describe --tags --abbrev=0 2^>nul') do set LATEST_TAG=%%i
           if not defined LATEST_TAG set LATEST_TAG=v1.0.0
-          
+
           # Extract version number (removing 'v')
           set VERSION_NUMBER=%LATEST_TAG:v=%
-          
+
           # Split version (major.minor.patch)
           for /f "tokens=1 delims=." %%a in ("%VERSION_NUMBER%") do set MAJOR=%%a
           for /f "tokens=2 delims=." %%b in ("%VERSION_NUMBER%") do set MINOR=%%b
           for /f "tokens=3 delims=." %%c in ("%VERSION_NUMBER%") do set PATCH=%%c
-          
+
           # Increment patch version
           set /a NEW_PATCH=%PATCH% + 1
           set NEW_TAG=v%MAJOR%.%MINOR%.%NEW_PATCH%
-          
+
           # Output new tag
-          echo NEW_TAG=%NEW_TAG% >> %GITHUB_ENV%
+          echo "NEW_TAG=%NEW_TAG%" >> $GITHUB_ENV
         shell: cmd
+        env:
+          GITHUB_ENV: ${{ env.GITHUB_ENV }}
+
+      - name: Export NEW_TAG for Subsequent Steps
+        run: echo "NEW_TAG=${{ env.NEW_TAG }}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Set NEW_TAG as Environment Variable
+        run: echo "NEW_TAG=${{ steps.versioning.outputs.NEW_TAG }}" >> $GITHUB_ENV
+        shell: bash
 
       - name: Push New Tag
         run: |
@@ -113,8 +123,11 @@ jobs:
         with:
           files: dist/GareebKaSpotify-${{ env.NEW_TAG }}.exe
           tag_name: ${{ env.NEW_TAG }}
-          name: Release ${{ env.NEW_TAG }}
-          body: 🚀 New version of Gareeb ka Spotify released: ${{ env.NEW_TAG }} \n\n - Standalone EXE with Face ID and music streaming.
+          name: "Release ${{ env.NEW_TAG }}"
+          body: |
+            🚀 New version of Gareeb ka Spotify released: ${{ env.NEW_TAG }}
+
+            - Standalone EXE with Face ID and music streaming.
           draft: false
           prerelease: false
         env:
