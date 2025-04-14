@@ -268,6 +268,13 @@ def dashboard():
                          trending=trending_songs,
                          mood_playlists=mood_playlists)
 
+@app.route('/settings')
+def settings():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    return render_template('setting.html')
+
 @app.route('/play', methods=['POST', 'OPTIONS'])
 def play():
     if request.method == 'OPTIONS':
