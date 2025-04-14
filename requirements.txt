@@ -10,3 +10,4 @@ deepface
 tensorflow
 tf-keras
 scipy
+opencv-python-headless
