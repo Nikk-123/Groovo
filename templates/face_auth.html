@@ -48,21 +48,31 @@
         <h2 class="text-3xl font-semibold text-white mb-4">Manage Face Authentication</h2>
         <p class="text-gray-400 mb-6">Enable or disable face authentication for enhanced security.</p>
 
+        <!-- Display User Email -->
+        <div class="text-center text-gray-400 mb-4">
+          Logged in as: <span class="font-semibold text-white">{{ session['user_id'] }}</span>
+        </div>
+
+    
+
         <form action="{{ url_for('update_face_auth') }}" method="POST" class="space-y-6">
-          <div class="flex items-center">
-            <label for="enableFaceAuth" class="relative inline-block w-12 h-6">
-              <input
-                type="checkbox"
-                id="enableFaceAuth"
-                name="enableFaceAuth"
-                class="opacity-0 w-0 h-0"
-              />
-              <span
-                class="absolute cursor-pointer top-0 left-0 right-0 bottom-0 bg-gray-700 rounded-full transition duration-300 before:absolute before:h-4 before:w-4 before:left-1 before:bottom-1 before:bg-white before:rounded-full before:transition before:duration-300 checked:bg-green-500 checked:before:translate-x-6"
-              ></span>
-            </label>
-            <span class="ml-4 text-gray-300">Toggle to enable or disable face authentication</span>
-          </div>
+            <div class="flex items-center">
+                <label for="enableFaceAuth" class="relative inline-block w-12 h-6">
+                  <label for="enableFaceAuth" class="sr-only">Enable Face Authentication</label>
+                  <input
+                    type="checkbox"
+                    id="enableFaceAuth"
+                    name="enableFaceAuth"
+                    class="opacity-0 w-0 h-0"
+                    onchange="toggleRegisterSection()"
+                  />
+                  <span
+                    class="absolute cursor-pointer top-0 left-0 right-0 bottom-0 bg-gray-700 rounded-full transition duration-300 before:absolute before:h-4 before:w-4 before:left-1 before:bottom-1 before:bg-white before:rounded-full before:transition before:duration-300 checked:bg-green-500 checked:before:translate-x-6"
+                  ></span>
+                </label>
+                <span class="ml-4 text-gray-300">Toggle to enable or disable face authentication</span>
+                <span id="statusText" class="ml-4 text-gray-500 font-semibold">Disabled</span>
+              </div>
 
           <button
             type="submit"
@@ -71,7 +81,151 @@
             Save Changes
           </button>
         </form>
+
+        <!-- Registration Section (Hidden by Default) -->
+        <div id="registerSection" class="hidden mt-8">
+          <h3 class="text-2xl font-semibold text-white mb-4">Register Face</h3>
+          <form id="registerForm" method="POST" action="{{ url_for('register') }}" class="space-y-4">
+            <input
+              type="hidden"
+              id="username"
+              name="username"
+              value="{{ session['user_id'] }}"
+            />
+            <button
+              type="submit"
+              class="px-6 py-3 bg-green-500 text-black font-semibold rounded-full hover:bg-green-600 transition"
+            >
+              Start Face Capture
+            </button>
+          </form>
+          <div id="videoContainer" class="bg-gray-800 rounded-lg overflow-hidden">
+            <video id="video" width="640" height="480" autoplay class="w-full"></video>
+            <canvas id="canvas" width="640" height="480"></canvas>
+          </div>
+          <div id="loading">Capturing 100 frames... Please wait.</div>
+          
+        </div>
       </div>
     </div>
+
+    <!-- JavaScript for Toggle and MediaPipe -->
+    <script type="module">
+      // Toggle registration section visibility
+      function toggleRegisterSection() {
+        const registerSection = document.getElementById('registerSection');
+        const enableFaceAuth = document.getElementById('enableFaceAuth');
+        registerSection.classList.toggle('hidden', !enableFaceAuth.checked);
+      }
+
+      // MediaPipe Face Detection
+      import { FaceDetector, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.js';
+
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const loading = document.getElementById('loading');
+      const form = document.getElementById('registerForm');
+      const usernameInput = document.getElementById('username');
+      let framesCaptured = [];
+      let isCapturing = false;
+
+      let faceDetector;
+
+      async function initializeMediaPipe() {
+        const filesetResolver = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+        );
+        faceDetector = await FaceDetector.createFromOptions(filesetResolver, {
+          baseOptions: {
+            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite`
+          },
+          runningMode: 'VIDEO'
+        });
+        console.log('MediaPipe Face Detector initialized');
+      }
+
+      async function startCamera() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          video.srcObject = stream;
+        } catch (err) {
+          console.error('Error accessing camera:', err);
+          alert('Could not access camera. Please allow camera permissions.');
+        }
+      }
+
+      video.addEventListener('loadeddata', () => {
+        console.log('Video stream is ready');
+      });
+
+      console.log(`Canvas dimensions: ${canvas.width}x${canvas.height}`);
+      console.log(`Video dimensions: ${video.videoWidth}x${video.videoHeight}`);
+
+      function captureFrames() {
+        if (!isCapturing) return;
+
+        if (framesCaptured.length < 100) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          try {
+            const detections = faceDetector.detectForVideo(video, Date.now());
+            if (detections.detections.length > 0) {
+              detections.detections.forEach(detection => {
+                const box = detection.boundingBox;
+                ctx.strokeStyle = 'red';
+                ctx.strokeRect(box.originX, box.originY, box.width, box.height);
+              });
+            }
+          } catch (err) {
+            console.error('Error during face detection:', err);
+          }
+
+          const frameData = canvas.toDataURL('image/jpeg');
+          framesCaptured.push(frameData);
+
+          setTimeout(captureFrames, 200);
+        } else {
+          isCapturing = false;
+          loading.style.display = 'none';
+          sendFramesToServer();
+        }
+      }
+
+      async function sendFramesToServer() {
+        const username = usernameInput.value;
+        try {
+          const response = await fetch('/upload_frames', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, frames: framesCaptured })
+          });
+          const result = await response.json();
+          alert(result.message);
+          window.location.href = '{{ url_for("settings") }}';
+        } catch (err) {
+          console.error('Error uploading frames:', err);
+          alert('Error uploading frames.');
+        }
+      }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!usernameInput.value) {
+          alert('User ID is missing.');
+          return;
+        }
+
+        await startCamera();
+        loading.style.display = 'block';
+        isCapturing = true;
+        framesCaptured = [];
+        captureFrames();
+      });
+
+      initializeMediaPipe();
+    </script>
+    <!-- Include player.js -->
+    <script src="{{ url_for('static', filename='js/player.js') }}"></script>
   </body>
 </html>
