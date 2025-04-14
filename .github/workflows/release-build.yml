@@ -91,7 +91,7 @@ jobs:
               --hidden-import=scipy ^
               --hidden-import=webview ^
               --hidden-import=webview.platforms.cef ^
-              --name "GareebKaSpotify-%NEW_TAG%" ^
+              --name "GareebKaSpotify-${{NEW_TAG}}" ^
               app.py
           ) else (
             echo "WARNING: DeepFace weights not found, building without them"
@@ -108,7 +108,7 @@ jobs:
               --hidden-import=scipy ^
               --hidden-import=webview ^
               --hidden-import=webview.platforms.cef ^
-              --name "GareebKaSpotify-%NEW_TAG%" ^
+              --name "GareebKaSpotify-${{NEW_TAG}}" ^
               app.py
           )
         shell: cmd
@@ -133,18 +133,18 @@ jobs:
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
-          git tag %NEW_TAG%
-          git push origin %NEW_TAG%
+          git tag ${{NEW_TAG}}
+          git push origin ${{NEW_TAG}}
         shell: cmd
 
       - name: Release on GitHub
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/GareebKaSpotify-%NEW_TAG%.exe
-          tag_name: %NEW_TAG%
-          name: Release %NEW_TAG%
+          files: dist/GareebKaSpotify-${{NEW_TAG}}.exe
+          tag_name: ${{NEW_TAG}}
+          name: Release ${{NEW_TAG}}
           body: |
-            🚀 New version of Gareeb ka Spotify released: %NEW_TAG%
+            🚀 New version of Gareeb ka Spotify released: ${{NEW_TAG}}
 
             - Standalone EXE with Face ID and music streaming.
             - Note: Ensure a valid MONGO_URI is set in .env for MongoDB connectivity.
