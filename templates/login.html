@@ -103,16 +103,13 @@
     <div id="faceIdOverlay" class="hidden flex-col items-center justify-center">
         <i class="fas fa-user-circle face-id-icon"></i>
         <p class="mt-4 text-lg">Scanning Face...</p>
-        <div id="videoContainer" class="bg-gray-800 rounded-lg mt-4">
-            <video id="video" width="320" height="240" autoplay class="w-full"></video>
-            <canvas id="canvas" width="320" height="240"></canvas>
-        </div>
         <p id="result" class="mt-4 text-lg"></p>
     </div>
 
-    <!-- JavaScript -->
-    <!-- Replace the <script> section in your login.html with this -->
-<!-- Replace the <script> section in login.html -->
+    <!-- Hidden Video and Canvas for Background Processing -->
+    <video id="video" width="320" height="240" autoplay></video>
+    <canvas id="canvas" width="320" height="240"></canvas>
+
     <script>
         // Email/Password Login
         document.getElementById('loginForm').addEventListener('submit', function(e) {
