@@ -40,6 +40,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller pywebview[winforms] opencv-python-headless || echo "webview installation failed, skipping."
+          pip install pywebview || echo "Fallback installation of pywebview failed, skipping."
         shell: cmd
 
       - name: Cache DeepFace models
