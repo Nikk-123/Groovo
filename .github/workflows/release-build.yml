@@ -120,8 +120,8 @@ jobs:
       - name: Upload EXE to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: gareeb-ka-spotify-exe-%NEW_TAG%
-          path: dist/GareebKaSpotify-%NEW_TAG%.exe
+          name: gareeb-ka-spotify-exe-${{NEW_TAG}}
+          path: dist/GareebKaSpotify-${{NEW_TAG}}.exe
 
       - name: Upload .env to Artifacts (for debugging)
         uses: actions/upload-artifact@v4
