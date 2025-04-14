@@ -13,6 +13,7 @@ from deepface import DeepFace
 import pickle
 import logging
 from scipy.spatial.distance import cosine
+import base64
 
 # Load environment variables
 if getattr(sys, 'frozen', False):
@@ -652,8 +653,10 @@ def upload_frames():
         logging.error(f"Error processing frames for {username}: {str(e)}")
         return jsonify({'status': 'error', 'message': 'Error processing frames'}), 500
 
+import base64
+
 def train_and_save_model(username, user_folder):
-    """Load images, generate face embeddings, save as .pkl file, and delete frames."""
+    """Load images, generate face embeddings, save as .pkl file in MongoDB, and delete frames."""
     embeddings = []
     
     for i in range(100):
@@ -679,10 +682,31 @@ def train_and_save_model(username, user_folder):
     
     avg_embedding = np.mean(embeddings, axis=0)
     
-    model_path = os.path.join(app.config['MODEL_FOLDER'], f'{username}.pkl')
-    with open(model_path, 'wb') as f:
-        pickle.dump({'username': username, 'embedding': avg_embedding}, f)
-    logging.info(f"Model saved for {username} at {model_path}")
+    # Save model to MongoDB
+    try:
+        # Create a dictionary for the model data
+        model_data = {
+            'username': username,
+            'embedding': avg_embedding.tolist()  # Convert numpy array to list for MongoDB compatibility
+        }
+        
+        # Serialize the model data to a pickle file in memory
+        model_pickle = pickle.dumps(model_data)
+        
+        # Encode the pickle data to base64 for MongoDB storage
+        model_base64 = base64.b64encode(model_pickle).decode('utf-8')
+        
+        # Store in MongoDB
+        db.models.update_one(
+            {'username': username},
+            {'$set': {'model_data': model_base64}},
+            upsert=True
+        )
+        logging.info(f"Model for {username} saved to MongoDB")
+        
+    except Exception as e:
+        logging.error(f"Error saving model to MongoDB for {username}: {str(e)}")
+        raise
     
     # Delete frames to save space
     try:
@@ -722,16 +746,20 @@ def match_face():
         
         live_embedding = embedding[0]['embedding']
         
-        # Load all .pkl models
+        # Load models from MongoDB\ collection
         best_match = None
         best_score = float('inf')
         threshold = 0.6  # Cosine distance threshold
         
-        for pkl_file in os.listdir(app.config['MODEL_FOLDER']):
-            if pkl_file.endswith('.pkl'):
-                with open(os.path.join(app.config['MODEL_FOLDER'], pkl_file), 'rb') as f:
-                    model_data = pickle.load(f)
-                stored_embedding = model_data['embedding']
+        # Retrieve all models from MongoDB
+        models = db.models.find()
+        
+        for model in models:
+            try:
+                # Decode base64 model data
+                model_pickle = base64.b64decode(model['model_data'])
+                model_data = pickle.loads(model_pickle)
+                stored_embedding = np.array(model_data['embedding'])
                 username = model_data['username']
                 
                 # Compute cosine distance
@@ -740,6 +768,10 @@ def match_face():
                     best_score = score
                     best_match = username
                 
+            except Exception as e:
+                logging.error(f"Error processing model for {model.get('username', 'unknown')}: {str(e)}")
+                continue
+        
         if best_score < threshold:
             session['user_id'] = best_match  # Set session for dashboard
             return jsonify({'status': 'success', 'username': best_match, 'verified': True})
@@ -749,7 +781,6 @@ def match_face():
     except Exception as e:
         logging.error(f"Error matching face: {str(e)}")
         return jsonify({'status': 'error', 'message': 'Error matching face'}), 500
-
 
 def test_db_connection():
     try:
