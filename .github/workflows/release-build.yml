@@ -32,7 +32,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller pywebview opencv-python-headless
+          pip install pyinstaller pywebview[winforms] opencv-python-headless
         shell: cmd
 
       - name: Cache DeepFace models
