@@ -275,6 +275,26 @@ def settings():
 
     return render_template('setting.html')
 
+@app.route('/edit_profile', methods=['POST'])
+def edit_profile():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    username = request.form.get('username')
+    email = request.form.get('email')
+
+    user_email = session['user_id']
+    try:
+        users_collection.update_one(
+            {'email': user_email},
+            {'$set': {'username': username, 'email': email}}
+        )
+        session['user_id'] = email  # Update session with new email
+        return redirect(url_for('settings'))
+    except Exception as e:
+        print(f"Error updating profile: {e}")
+        return "An error occurred while updating your profile. Please try again later."
+
 @app.route('/play', methods=['POST', 'OPTIONS'])
 def play():
     if request.method == 'OPTIONS':
@@ -547,6 +567,31 @@ def manifest():
         ]
     })
 
+@app.route('/face_auth')
+def face_auth():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    return render_template('face_auth.html')
+
+@app.route('/update_face_auth', methods=['POST'])
+def update_face_auth():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    enable_face_auth = request.form.get('enableFaceAuth') == 'on'
+
+    user_email = session['user_id']
+    try:
+        users_collection.update_one(
+            {'email': user_email},
+            {'$set': {'face_auth_enabled': enable_face_auth}}
+        )
+        return redirect(url_for('face_auth'))
+    except Exception as e:
+        print(f"Error updating face authentication: {e}")
+        return "An error occurred while updating face authentication settings. Please try again later."
+
 def test_db_connection():
     try:
         print("Testing MongoDB connection...")
@@ -561,7 +606,7 @@ if __name__ == "__main__":
     if test_db_connection():
         # Start Flask in a separate thread
         from threading import Thread
-        flask_thread = Thread(target=lambda: app.run(debug=False, use_reloader=False, port=5000))
+        flask_thread = Thread(target=lambda: app.run(debug=True, use_reloader=False, port=5000))
         flask_thread.daemon = True
         flask_thread.start()
         
