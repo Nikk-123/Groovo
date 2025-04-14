@@ -69,7 +69,7 @@ jobs:
 
       - name: Ensure Build Directory
         run: |
-          mkdir build 2>nul || echo "Build directory already exists"
+          mkdir build 2>nul || (echo "Build directory already exists" && exit 0)
         shell: cmd
 
       - name: Build EXE with PyInstaller
@@ -115,6 +115,7 @@ jobs:
 
       - name: Verify EXE Creation
         run: dir dist
+ Whitaker, Christopher <christopher.whitaker@outlook.com>
         shell: cmd
 
       - name: Upload EXE to Artifacts
