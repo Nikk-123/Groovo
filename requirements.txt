@@ -2,7 +2,7 @@ Flask
 flask-cors
 pymongo
 python-dotenv
-webview
+pywebview[cef]
 yt-dlp
 numpy
 opencv-python
