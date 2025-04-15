@@ -33,6 +33,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller pywebview[cef] opencv-python-headless deepface tf-keras pymongo yt-dlp scipy
+          pip install cefpython3==66.1  # Ensure compatibility with Python 3.11
+        shell: cmd
+
+      - name: Set TensorFlow Environment Variable
+        run: |
+          set TF_ENABLE_ONEDNN_OPTS=0
         shell: cmd
 
       - name: Get Latest Release Tag and Increment
@@ -58,6 +64,15 @@ jobs:
           dir "%USERPROFILE%\.deepface\weights" 2>nul || echo "Weights directory not found"
         shell: cmd
         continue-on-error: true
+
+      - name: Verify DeepFace Weights Directory
+        run: |
+          if not exist "%USERPROFILE%\.deepface\weights" (
+            echo "WARNING: DeepFace weights directory not found!"
+          ) else (
+            echo "DeepFace weights directory exists."
+          )
+        shell: cmd
 
       - name: Ensure .env is included
         run: |
