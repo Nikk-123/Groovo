@@ -1,5 +1,5 @@
 import webview
-from flask import Flask, redirect, request, session, jsonify, render_template, url_for
+from flask import Flask, redirect, request, session, jsonify, render_template, url_for, flash
 from pymongo import MongoClient
 import os
 import sys
@@ -31,7 +31,7 @@ app.secret_key = 'REMOVED_SECRET_KEY'
 logging.basicConfig(level=logging.INFO)
 
 # Directories
-UPLOAD_FOLDER = 'uploads'
+UPLOAD_FOLDER = 'Uploads'
 MODEL_FOLDER = 'models'
 for folder in [UPLOAD_FOLDER, MODEL_FOLDER]:
     if not os.path.exists(folder):
@@ -248,7 +248,8 @@ def signup():
             new_user = {
                 'email': email,
                 'password': password,
-                'library': []
+                'library': [],
+                'face_auth_enabled': False
             }
             
             users_collection.insert_one(new_user)
@@ -295,7 +296,6 @@ def dashboard():
 def settings():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-
     return render_template('setting.html')
 
 @app.route('/edit_profile', methods=['POST'])
@@ -312,7 +312,7 @@ def edit_profile():
             {'email': user_email},
             {'$set': {'username': username, 'email': email}}
         )
-        session['user_id'] = email  # Update session with new email
+        session['user_id'] = email
         return redirect(url_for('settings'))
     except Exception as e:
         print(f"Error updating profile: {e}")
@@ -575,7 +575,7 @@ def not_found_error(error):
 @app.route('/static/manifest.json')
 def manifest():
     return jsonify({
-        "name": "Spotify 2.0",
+        "name": "Spotify 3.0",
         "short_name": "Spotify",
         "start_url": "/",
         "display": "standalone",
@@ -594,27 +594,57 @@ def manifest():
 def face_auth():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-
-    return render_template('face_auth.html')
+    
+    user_email = session['user_id']
+    user_data = get_user_by_email(user_email)
+    
+    if not user_data:
+        session.pop('user_id', None)
+        return redirect(url_for('login'))
+    
+    # Check if user has a face model
+    model = db.models.find_one({'username': user_email})
+    user_data['has_model'] = bool(model)
+    
+    return render_template('face_auth.html', user_data=user_data)
 
 @app.route('/update_face_auth', methods=['POST'])
 def update_face_auth():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-
-    enable_face_auth = request.form.get('enableFaceAuth') == 'on'
-
+    
     user_email = session['user_id']
+    enable_face_auth = request.form.get('enableFaceAuth') == 'on'
+    
     try:
         users_collection.update_one(
             {'email': user_email},
             {'$set': {'face_auth_enabled': enable_face_auth}}
         )
+        flash('Face authentication settings updated successfully.', 'success')
         return redirect(url_for('face_auth'))
     except Exception as e:
-        print(f"Error updating face authentication: {e}")
-        return "An error occurred while updating face authentication settings. Please try again later."
+        logging.error(f"Error updating face authentication for {user_email}: {str(e)}")
+        flash('An error occurred while updating face authentication settings.', 'error')
+        return redirect(url_for('face_auth'))
 
+@app.route('/delete_model', methods=['POST'])
+def delete_model():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    user_email = session['user_id']
+    try:
+        result = db.models.delete_one({'username': user_email})
+        if result.deleted_count > 0:
+            flash('Face model deleted successfully.', 'success')
+        else:
+            flash('No face model found to delete.', 'warning')
+        return redirect(url_for('face_auth'))
+    except Exception as e:
+        logging.error(f"Error deleting face model for {user_email}: {str(e)}")
+        flash('An error occurred while deleting the face model.', 'error')
+        return redirect(url_for('face_auth'))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -624,7 +654,6 @@ def register():
             users.append(username)
             return jsonify({'status': 'success', 'message': 'Registration started'})
     return render_template('register.html')
-
 
 @app.route('/upload_frames', methods=['POST'])
 def upload_frames():
@@ -652,8 +681,6 @@ def upload_frames():
     except Exception as e:
         logging.error(f"Error processing frames for {username}: {str(e)}")
         return jsonify({'status': 'error', 'message': 'Error processing frames'}), 500
-
-import base64
 
 def train_and_save_model(username, user_folder):
     """Load images, generate face embeddings, save as .pkl file in MongoDB, and delete frames."""
@@ -687,7 +714,7 @@ def train_and_save_model(username, user_folder):
         # Create a dictionary for the model data
         model_data = {
             'username': username,
-            'embedding': avg_embedding.tolist()  # Convert numpy array to list for MongoDB compatibility
+            'embedding': avg_embedding.tolist()
         }
         
         # Serialize the model data to a pickle file in memory
@@ -722,9 +749,6 @@ def train_and_save_model(username, user_folder):
     except Exception as e:
         logging.error(f"Error deleting frames for {username}: {str(e)}")
 
-
-
-
 @app.route('/match_face', methods=['POST'])
 def match_face():
     try:
@@ -746,10 +770,10 @@ def match_face():
         
         live_embedding = embedding[0]['embedding']
         
-        # Load models from MongoDB\ collection
+        # Load models from MongoDB collection
         best_match = None
         best_score = float('inf')
-        threshold = 0.6  # Cosine distance threshold
+        threshold = 0.6
         
         # Retrieve all models from MongoDB
         models = db.models.find()
@@ -773,7 +797,7 @@ def match_face():
                 continue
         
         if best_score < threshold:
-            session['user_id'] = best_match  # Set session for dashboard
+            session['user_id'] = best_match
             return jsonify({'status': 'success', 'username': best_match, 'verified': True})
         else:
             return jsonify({'status': 'success', 'username': 'No Match', 'verified': False})

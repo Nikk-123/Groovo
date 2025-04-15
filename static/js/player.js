@@ -855,17 +855,17 @@ function showHome() {
     }
 }
 
-function toggleRegisterSection() {
-    const registerSection = document.getElementById('registerSection');
-    const enableFaceAuth = document.getElementById('enableFaceAuth');
-    const statusText = document.getElementById('statusText');
-    
-    if (registerSection && statusText) {
-      const isEnabled = enableFaceAuth.checked;
-      registerSection.classList.toggle('hidden', !isEnabled);
-      statusText.textContent = isEnabled ? 'Enabled' : 'Disabled';
-      statusText.className = isEnabled
-        ? 'ml-4 text-green-500 font-semibold'
-        : 'ml-4 text-gray-500 font-semibold';
-    }
-  }
+// function toggleRegisterSection() {
+//     const registerSection = document.getElementById('registerSection');
+//     const enableFaceAuth = document.getElementById('enableFaceAuth');
+//     const statusText = document.getElementById('statusText');
+  
+//     if (enableFaceAuth && registerSection && statusText) {
+//       const isEnabled = enableFaceAuth.checked;
+//       registerSection.classList.toggle('hidden', !isEnabled);
+//       statusText.textContent = isEnabled ? 'Enabled' : 'Disabled';
+//       statusText.className = `ml-4 font-semibold ${isEnabled ? 'text-green-500' : 'text-gray-500'}`;
+//     } else {
+//       console.error('Toggle elements not found');
+//     }
+//   }

@@ -84,3 +84,47 @@
       transform: rotate(0deg) scale(1);
     }
   }
+
+
+
+  /* Toggle Slider Styles */
+.toggle-slider {
+  position: relative;
+  width: 3rem; /* 48px */
+  height: 1.5rem; /* 24px */
+  background-color: #4a4a4a; /* Matches your gray theme */
+  border-radius: 9999px;
+  transition: background-color 0.3s ease-in-out;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 1rem; /* 16px */
+  height: 1rem; /* 16px */
+  left: 0.25rem; /* 4px */
+  top: 0.25rem; /* 4px */
+  background-color: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.3s ease-in-out;
+}
+
+input[type="checkbox"]:checked + .toggle-slider {
+  background-color: #22c55e; /* Tailwind's green-500 */
+}
+
+input[type="checkbox"]:checked + .toggle-slider::before {
+  transform: translateX(1.5rem); /* 24px */
+}
+
+/* Ensure no interference with other elements */
+input[type="checkbox"].sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
