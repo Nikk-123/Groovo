@@ -22,6 +22,24 @@
     <link rel="icon" href="{{ url_for('static', filename='icons/2pic(2).png') }}" sizes="680x484" />
     <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png" />
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}" />
+    <!-- Inline CSS for Stop Button -->
+    <style>
+        #stopScanButton {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #ef4444; /* Tailwind red-500 */
+            color: white;
+            padding: 8px;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out;
+        }
+        #stopScanButton:hover {
+            background-color: #dc2626; /* Tailwind red-600 */
+        }
+    </style>
 </head>
 <body class="bg-gradient-to-b from-green-500 to-gray-900 text-gray-100 font-sans flex flex-col items-center min-h-screen">
     <!-- Header -->
@@ -101,14 +119,17 @@
 
     <!-- Face ID Overlay -->
     <div id="faceIdOverlay" class="hidden flex-col items-center justify-center">
+        <button id="stopScanButton" title="Stop Scanning">
+            <i class="fas fa-times"></i>
+        </button>
         <i class="fas fa-user-circle face-id-icon"></i>
         <p class="mt-4 text-lg">Scanning Face...</p>
         <p id="result" class="mt-4 text-lg"></p>
     </div>
 
     <!-- Hidden Video and Canvas for Background Processing -->
-    <video id="video" width="320" height="240" autoplay></video>
-    <canvas id="canvas" width="320" height="240"></canvas>
+    <video id="video" width="320" height="240" autoplay style="display: none;"></video>
+    <canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
 
     <script>
         // Email/Password Login
@@ -172,13 +193,17 @@
             const canvas = document.getElementById('canvas');
             const ctx = canvas.getContext('2d');
             const resultDiv = document.getElementById('result');
+            const overlay = document.getElementById('faceIdOverlay');
+            let isScanning = true;
     
             async function startCamera() {
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                     video.srcObject = stream;
                     video.onloadedmetadata = () => {
-                        processFrame();
+                        if (isScanning) {
+                            processFrame();
+                        }
                     };
                 } catch (err) {
                     console.error('Error accessing camera:', err);
@@ -189,11 +214,12 @@
             }
     
             async function processFrame() {
-                if (!video.paused && !video.ended) {
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    const frameData = canvas.toDataURL('image/jpeg');
-                    await matchFace(frameData);
+                if (!isScanning || video.paused || video.ended) {
+                    return;
                 }
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const frameData = canvas.toDataURL('image/jpeg');
+                await matchFace(frameData);
             }
     
             async function matchFace(frameData) {
@@ -210,6 +236,7 @@
                     console.log('Match face response:', result);
                     
                     if (result.status === 'success' && result.verified) {
+                        isScanning = false;
                         resultDiv.textContent = `Face Verified: ${result.username}`;
                         resultDiv.className = 'text-green-500';
                         console.log('Attempting redirect to /dashboard');
@@ -219,23 +246,33 @@
                     } else {
                         resultDiv.textContent = result.message || 'No Match';
                         resultDiv.className = 'text-red-500';
-                        setTimeout(processFrame, 500);
+                        if (isScanning) {
+                            setTimeout(processFrame, 500);
+                        }
                     }
                 } catch (err) {
                     console.error('Error matching face:', err);
                     resultDiv.textContent = 'Error matching face';
                     resultDiv.className = 'text-red-500';
-                    setTimeout(processFrame, 500);
+                    if (isScanning) {
+                        setTimeout(processFrame, 500);
+                    }
                 }
             }
     
             function closeOverlay() {
-                const overlay = document.getElementById('faceIdOverlay');
+                isScanning = false;
                 overlay.style.display = 'none';
                 if (video.srcObject) {
                     video.srcObject.getTracks().forEach(track => track.stop());
+                    video.srcObject = null;
                 }
+                resultDiv.textContent = '';
+                resultDiv.className = '';
             }
+    
+            // Stop button event listener
+            document.getElementById('stopScanButton').addEventListener('click', closeOverlay);
     
             startCamera();
         }
