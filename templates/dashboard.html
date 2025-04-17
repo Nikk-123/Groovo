@@ -14,12 +14,20 @@
       rel="stylesheet"
       href="{{ url_for('static', filename='css/style.css') }}"
     />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/expanded-player.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/mini-player.css') }}"
+    />
   </head>
   <body>
     <div class="top-nav">
       <div class="left-nav">
         <h1>Gareeb ka Spotify!</h1>
-        <!-- <p>Version: {{ latest_version }}</p> -->
+        
         <button type="button" class="home-btn" onclick="showHome()" title="Home">
           <i class="fas fa-home"></i>
         </button>
