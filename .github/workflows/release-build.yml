@@ -41,6 +41,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install regex tqdm requests packaging filelock
         shell: cmd
 
       - name: Set TensorFlow Environment Variable
@@ -137,11 +138,6 @@ jobs:
               --runtime-hook=hook-tensorflow.py ^
               --collect-binaries tensorflow ^
               --copy-metadata tensorflow ^
-              --copy-metadata tqdm ^
-              --copy-metadata regex ^
-              --copy-metadata requests ^
-              --copy-metadata packaging ^
-              --copy-metadata filelock ^
               --copy-metadata numpy ^
               --copy-metadata keras ^
               --strip ^
@@ -175,11 +171,6 @@ jobs:
               --runtime-hook=hook-tensorflow.py ^
               --collect-binaries tensorflow ^
               --copy-metadata tensorflow ^
-              --copy-metadata tqdm ^
-              --copy-metadata regex ^
-              --copy-metadata requests ^
-              --copy-metadata packaging ^
-              --copy-metadata filelock ^
               --copy-metadata numpy ^
               --copy-metadata keras ^
               --strip ^
