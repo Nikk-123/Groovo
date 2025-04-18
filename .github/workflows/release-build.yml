@@ -25,7 +25,7 @@ jobs:
       - name: Install Build Tools for Windows
         run: |
           python -m pip install --upgrade pip
-          pip install setuptools wheel pywin32
+          pip install setuptools wheel pywin32 upx
         shell: cmd
 
       - name: Install Python Dependencies
@@ -109,6 +109,12 @@ jobs:
               --hidden-import=scipy ^
               --hidden-import=webview ^
               --hidden-import=webview.platforms.cef ^
+              --exclude-module=matplotlib ^
+              --exclude-module=pandas ^
+              --exclude-module=PIL ^
+              --exclude-module=tkinter ^
+              --strip ^
+              --upx-dir="." ^
               --name "GareebKaSpotify-${{ env.NEW_TAG }}" ^
               app.py
           ) else (
@@ -126,6 +132,12 @@ jobs:
               --hidden-import=scipy ^
               --hidden-import=webview ^
               --hidden-import=webview.platforms.cef ^
+              --exclude-module=matplotlib ^
+              --exclude-module=pandas ^
+              --exclude-module=PIL ^
+              --exclude-module=tkinter ^
+              --strip ^
+              --upx-dir="." ^
               --name "GareebKaSpotify-${{ env.NEW_TAG }}" ^
               app.py
           )
