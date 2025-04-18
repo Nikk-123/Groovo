@@ -25,7 +25,16 @@ jobs:
       - name: Install Build Tools for Windows
         run: |
           python -m pip install --upgrade pip
-          pip install setuptools wheel pywin32 upx
+          pip install setuptools wheel pywin32
+        shell: cmd
+
+      - name: Install UPX
+        run: |
+          curl -L -o upx.zip https://github.com/upx/upx/releases/download/v4.2.1/upx-4.2.1-win64.zip
+          powershell Expand-Archive upx.zip -DestinationPath upx
+          move upx\upx-*\upx.exe .
+          del upx.zip
+          rmdir /s /q upx
         shell: cmd
 
       - name: Install Python Dependencies
