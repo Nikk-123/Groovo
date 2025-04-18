@@ -99,6 +99,13 @@ jobs:
           python -m pip install pyinstaller
         shell: cmd
 
+      - name: Create PyInstaller Runtime Hook
+        run: |
+          echo import os > hook-tensorflow.py
+          echo import tensorflow >> hook-tensorflow.py
+          echo binaries = [(os.path.join(os.path.dirname(tensorflow.__file__), 'python', '_pywrap_tensorflow_internal.pyd'), '.')] >> hook-tensorflow.py
+        shell: cmd
+
       - name: Build EXE with PyInstaller
         run: |
           set DEEPFACE_WEIGHTS=%USERPROFILE%\.deepface\weights
@@ -118,10 +125,25 @@ jobs:
               --hidden-import=scipy ^
               --hidden-import=webview ^
               --hidden-import=webview.platforms.cef ^
+              --hidden-import=tensorflow ^
+              --hidden-import=tensorflow.python._pywrap_tensorflow_internal ^
+              --hidden-import=tensorflow.python.keras ^
+              --hidden-import=tensorflow.keras ^
+              --hidden-import=keras ^
               --exclude-module=matplotlib ^
               --exclude-module=pandas ^
               --exclude-module=PIL ^
               --exclude-module=tkinter ^
+              --runtime-hook=hook-tensorflow.py ^
+              --collect-binaries tensorflow ^
+              --copy-metadata tensorflow ^
+              --copy-metadata tqdm ^
+              --copy-metadata regex ^
+              --copy-metadata requests ^
+              --copy-metadata packaging ^
+              --copy-metadata filelock ^
+              --copy-metadata numpy ^
+              --copy-metadata keras ^
               --strip ^
               --upx-dir="." ^
               --name "GareebKaSpotify-${{ env.NEW_TAG }}" ^
@@ -141,10 +163,25 @@ jobs:
               --hidden-import=scipy ^
               --hidden-import=webview ^
               --hidden-import=webview.platforms.cef ^
+              --hidden-import=tensorflow ^
+              --hidden-import=tensorflow.python._pywrap_tensorflow_internal ^
+              --hidden-import=tensorflow.python.keras ^
+              --hidden-import=tensorflow.keras ^
+              --hidden-import=keras ^
               --exclude-module=matplotlib ^
               --exclude-module=pandas ^
               --exclude-module=PIL ^
               --exclude-module=tkinter ^
+              --runtime-hook=hook-tensorflow.py ^
+              --collect-binaries tensorflow ^
+              --copy-metadata tensorflow ^
+              --copy-metadata tqdm ^
+              --copy-metadata regex ^
+              --copy-metadata requests ^
+              --copy-metadata packaging ^
+              --copy-metadata filelock ^
+              --copy-metadata numpy ^
+              --copy-metadata keras ^
               --strip ^
               --upx-dir="." ^
               --name "GareebKaSpotify-${{ env.NEW_TAG }}" ^
