@@ -1,0 +1,187 @@
+from flask import Flask, request, jsonify
+from pymongo import MongoClient
+import os
+import cv2
+import numpy as np
+from deepface import DeepFace
+import pickle
+import base64
+import logging
+from scipy.spatial.distance import cosine
+from dotenv import load_dotenv
+
+# Flask app setup
+app = Flask(__name__)
+app.secret_key = 'FaceServiceKey'
+logging.basicConfig(level=logging.INFO)
+
+# Load environment variables
+load_dotenv()
+
+# MongoDB setup
+MONGO_URI = os.getenv('MONGO_URI')
+if not MONGO_URI:
+    logging.error("MONGO_URI not found")
+    exit(1)
+client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, connectTimeoutMS=20000)
+db = client.get_database('music_app')
+
+# Directories
+UPLOAD_FOLDER = 'Uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+def train_and_save_model(username, user_folder):
+    """Load images, generate face embeddings, save as .pkl file in MongoDB, and delete frames."""
+    embeddings = []
+    
+    for i in range(100):
+        frame_path = os.path.join(user_folder, f'frame_{i}.jpg')
+        if not os.path.exists(frame_path):
+            logging.warning(f"Frame {frame_path} not found")
+            continue
+        try:
+            img = cv2.imread(frame_path)
+            if img is None:
+                logging.warning(f"Failed to load image {frame_path}")
+                continue
+            embedding = DeepFace.represent(img, model_name='VGG-Face', enforce_detection=False)
+            if embedding:
+                embeddings.append(embedding[0]['embedding'])
+        except Exception as e:
+            logging.error(f"Error processing frame {i} for {username}: {str(e)}")
+            continue
+    
+    if not embeddings:
+        raise Exception("No valid embeddings generated")
+    
+    avg_embedding = np.mean(embeddings, axis=0)
+    
+    try:
+        model_data = {'username': username, 'embedding': avg_embedding.tolist()}
+        model_pickle = pickle.dumps(model_data)
+        model_base64 = base64.b64encode(model_pickle).decode('utf-8')
+        db.models.update_one(
+            {'username': username},
+            {'$set': {'model_data': model_base64}},
+            upsert=True
+        )
+        logging.info(f"Model for {username} saved to MongoDB")
+    except Exception as e:
+        logging.error(f"Error saving model to MongoDB for {username}: {str(e)}")
+        raise
+    
+    try:
+        for i in range(100):
+            frame_path = os.path.join(user_folder, f'frame_{i}.jpg')
+            if os.path.exists(frame_path):
+                os.remove(frame_path)
+        if os.path.exists(user_folder) and not os.listdir(user_folder):
+            os.rmdir(user_folder)
+    except Exception as e:
+        logging.error(f"Error deleting frames for {username}: {str(e)}")
+
+@app.route('/upload_frames', methods=['POST'])
+def upload_frames():
+    data = request.get_json()
+    frames = data.get('frames', [])
+    username = data.get('username', 'unknown')
+    
+    user_folder = os.path.join(app.config['UPLOAD_FOLDER'], username)
+    if not os.path.exists(user_folder):
+        os.makedirs(user_folder)
+    
+    for i, frame in enumerate(frames):
+        frame_data = frame.split(',')[1]
+        frame_bytes = base64.b64decode(frame_data)
+        frame_path = os.path.join(user_folder, f'frame_{i}.jpg')
+        with open(frame_path, 'wb') as f:
+            f.write(frame_bytes)
+    
+    try:
+        train_and_save_model(username, user_folder)
+        return jsonify({'status': 'success', 'message': f'{len(frames)} frames saved and model trained'})
+    except Exception as e:
+        logging.error(f"Error processing frames for {username}: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Error processing frames'}), 500
+
+@app.route('/match_face', methods=['POST'])
+def match_face():
+    try:
+        data = request.get_json()
+        frame = data.get('frame')
+        if not frame:
+            return jsonify({'status': 'error', 'message': 'No frame provided'}), 400
+        
+        frame_data = frame.split(',')[1]
+        frame_bytes = base64.b64decode(frame_data)
+        nparr = np.frombuffer(frame_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        embedding = DeepFace.represent(img, model_name='VGG-Face', enforce_detection=False)
+        if not embedding:
+            return jsonify({'status': 'error', 'message': 'No face detected'})
+        
+        live_embedding = embedding[0]['embedding']
+        
+        best_match = None
+        best_score = float('inf')
+        threshold = 0.6
+        
+        models = db.models.find()
+        for model in models:
+            try:
+                model_pickle = base64.b64decode(model['model_data'])
+                model_data = pickle.loads(model_pickle)
+                stored_embedding = np.array(model_data['embedding'])
+                username = model_data['username']
+                
+                score = cosine(live_embedding, stored_embedding)
+                if score < best_score:
+                    best_score = score
+                    best_match = username
+            except Exception as e:
+                logging.error(f"Error processing model for {model.get('username', 'unknown')}: {str(e)}")
+                continue
+        
+        if best_score < threshold:
+            return jsonify({'status': 'success', 'username': best_match, 'verified': True})
+        else:
+            return jsonify({'status': 'success', 'username': 'No Match', 'verified': False})
+            
+    except Exception as e:
+        logging.error(f"Error matching face: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Error matching face'}), 500
+
+@app.route('/delete_model', methods=['POST'])
+def delete_model():
+    username = request.json.get('username')
+    if not username:
+        return jsonify({'status': 'error', 'message': 'Username required'}), 400
+    
+    try:
+        result = db.models.delete_one({'username': username})
+        if result.deleted_count > 0:
+            return jsonify({'status': 'success', 'message': 'Face model deleted successfully'})
+        else:
+            return jsonify({'status': 'warning', 'message': 'No face model found to delete'})
+    except Exception as e:
+        logging.error(f"Error deleting face model for {username}: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Error deleting face model'}), 500
+
+@app.route('/check_model', methods=['POST'])
+def check_model():
+    username = request.json.get('username')
+    if not username:
+        return jsonify({'has_model': False, 'message': 'Username required'}), 400
+    try:
+        model = db.models.find_one({'username': username})
+        logging.info(f"Checked model for {username}: {'Found' if model else 'Not found'}")
+        return jsonify({'has_model': bool(model)})
+    except Exception as e:
+        logging.error(f"Error checking model for {username}: {str(e)}")
+        return jsonify({'has_model': False, 'message': str(e)}), 500
+
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5001)), debug=True)

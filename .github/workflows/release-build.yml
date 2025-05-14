@@ -1,4 +1,4 @@
-name: Auto Release and Build Standalone EXE
+name: Auto Release and Build EXE
 
 permissions:
   contents: write
@@ -10,7 +10,7 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: windows-latest
+    runs-on: windows-latest  # Use Windows for building EXE
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,174 +22,54 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Build Tools for Windows
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install setuptools wheel pywin32
-        shell: cmd
-
-      - name: Install UPX
-        run: |
-          curl -L -o upx.zip https://github.com/upx/upx/releases/download/v4.2.1/upx-4.2.1-win64.zip
-          powershell Expand-Archive upx.zip -DestinationPath upx
-          move upx\upx-*\upx.exe .
-          del upx.zip
-          rmdir /s /q upx
-        shell: cmd
-
-      - name: Install Python Dependencies
-        run: |
-          python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install regex tqdm requests packaging filelock
-        shell: cmd
-
-      - name: Set TensorFlow Environment Variable
-        run: |
-          set TF_ENABLE_ONEDNN_OPTS=0
-        shell: cmd
+          pip install pyinstaller
 
       - name: Get Latest Release Tag and Increment
         id: versioning
         run: |
-          for /f "tokens=*" %%i in ('git describe --tags --abbrev=0 2^>nul') do set LATEST_TAG=%%i
-          if not defined LATEST_TAG set LATEST_TAG=v1.0.0
-          set VERSION_NUMBER=%LATEST_TAG:v=%
-          for /f "tokens=1 delims=." %%a in ("%VERSION_NUMBER%") do set MAJOR=%%a
-          for /f "tokens=2 delims=." %%b in ("%VERSION_NUMBER%") do set MINOR=%%b
-          for /f "tokens=3 delims=." %%c in ("%VERSION_NUMBER%") do set PATCH=%%c
-          set /a NEW_PATCH=%PATCH% + 1
-          set NEW_TAG=v%MAJOR%.%MINOR%.%NEW_PATCH%
-          echo NEW_TAG=%NEW_TAG%>>%GITHUB_ENV%
-          echo Current NEW_TAG is %NEW_TAG%
-        shell: cmd
+          # Get the latest tag or use v1.0.0 if none exist
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
+          
+          # Extract version number (removing 'v')
+          VERSION_NUMBER=$(echo "$LATEST_TAG" | sed 's/v//')
 
-      - name: Cache DeepFace Models
-        run: |
-          echo "Attempting to cache DeepFace models..."
-          python -c "import deepface; import cv2; import numpy as np; img = np.zeros((224, 224, 3), dtype=np.uint8); cv2.imwrite('temp.jpg', img); from deepface import DeepFace; DeepFace.represent(img_path='temp.jpg', model_name='VGG-Face', enforce_detection=False); print('Weights cached successfully')"
-          if exist "temp.jpg" (del "temp.jpg") else (echo "No temp.jpg to delete")
-          dir "%USERPROFILE%\.deepface\weights" 2>nul || echo "Weights directory not found"
-        shell: cmd
-        continue-on-error: true
+          # Split version (major.minor.patch)
+          MAJOR=$(echo $VERSION_NUMBER | cut -d. -f1)
+          MINOR=$(echo $VERSION_NUMBER | cut -d. -f2)
+          PATCH=$(echo $VERSION_NUMBER | cut -d. -f3)
 
-      - name: Verify DeepFace Weights Directory
-        run: |
-          if not exist "%USERPROFILE%\.deepface\weights" (
-            echo "WARNING: DeepFace weights directory not found!"
-          ) else (
-            echo "DeepFace weights directory exists."
-          )
-        shell: cmd
+          # Increment patch version
+          NEW_PATCH=$((PATCH + 1))
+          NEW_TAG="v$MAJOR.$MINOR.$NEW_PATCH"
+
+          # Output new tag
+          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
+        shell: bash
 
       - name: Ensure .env is included
         run: |
-          if not exist ".env" (
-            echo WARNING: .env file not found! Creating a dummy .env file.
-            echo MONGO_URI=your_mongodb_connection_string > .env
-          )
-        shell: cmd
-
-      - name: Ensure Build Directory
-        run: |
-          mkdir build 2>nul || (echo "Build directory already exists" && exit 0)
-        shell: cmd
-
-      - name: Install PyInstaller
-        run: |
-          python -m pip install pyinstaller
-        shell: cmd
-
-      - name: Create PyInstaller Runtime Hook
-        run: |
-          echo import os > hook-tensorflow.py
-          echo import tensorflow >> hook-tensorflow.py
-          echo binaries = [(os.path.join(os.path.dirname(tensorflow.__file__), 'python', '_pywrap_tensorflow_internal.pyd'), '.')] >> hook-tensorflow.py
-        shell: cmd
+          if [ ! -f ".env" ]; then
+            echo "WARNING: .env file not found! Creating a dummy .env file."
+            echo "URI=your_mongodb_connection_string" > .env
+          fi
+        shell: bash
 
       - name: Build EXE with PyInstaller
         run: |
-          set DEEPFACE_WEIGHTS=%USERPROFILE%\.deepface\weights
-          echo Building EXE with NEW_TAG=%NEW_TAG%
-          if exist "%DEEPFACE_WEIGHTS%" (
-            pyinstaller --onefile --noconsole --clean ^
-              --add-data "templates;templates" ^
-              --add-data "static;static" ^
-              --add-data ".env;." ^
-              --add-data "%DEEPFACE_WEIGHTS%;.deepface\weights" ^
-              --hidden-import=pkg_resources ^
-              --hidden-import=deepface ^
-              --hidden-import=cv2 ^
-              --hidden-import=yt_dlp ^
-              --hidden-import=pywebview ^
-              --hidden-import=pymongo ^
-              --hidden-import=scipy ^
-              --hidden-import=webview ^
-              --hidden-import=webview.platforms.cef ^
-              --hidden-import=tensorflow ^
-              --hidden-import=tensorflow.python._pywrap_tensorflow_internal ^
-              --hidden-import=tensorflow.python.keras ^
-              --hidden-import=tensorflow.keras ^
-              --hidden-import=keras ^
-              --exclude-module=matplotlib ^
-              --exclude-module=pandas ^
-              --exclude-module=PIL ^
-              --exclude-module=tkinter ^
-              --runtime-hook=hook-tensorflow.py ^
-              --collect-binaries tensorflow ^
-              --copy-metadata tensorflow ^
-              --copy-metadata numpy ^
-              --copy-metadata keras ^
-              --strip ^
-              --upx-dir="." ^
-              --name "GareebKaSpotify-${{ env.NEW_TAG }}" ^
-              app.py
-          ) else (
-            echo "WARNING: DeepFace weights not found, building without them"
-            pyinstaller --onefile --noconsole --clean ^
-              --add-data "templates;templates" ^
-              --add-data "static;static" ^
-              --add-data ".env;." ^
-              --hidden-import=pkg_resources ^
-              --hidden-import=deepface ^
-              --hidden-import=cv2 ^
-              --hidden-import=yt_dlp ^
-              --hidden-import=pywebview ^
-              --hidden-import=pymongo ^
-              --hidden-import=scipy ^
-              --hidden-import=webview ^
-              --hidden-import=webview.platforms.cef ^
-              --hidden-import=tensorflow ^
-              --hidden-import=tensorflow.python._pywrap_tensorflow_internal ^
-              --hidden-import=tensorflow.python.keras ^
-              --hidden-import=tensorflow.keras ^
-              --hidden-import=keras ^
-              --exclude-module=matplotlib ^
-              --exclude-module=pandas ^
-              --exclude-module=PIL ^
-              --exclude-module=tkinter ^
-              --runtime-hook=hook-tensorflow.py ^
-              --collect-binaries tensorflow ^
-              --copy-metadata tensorflow ^
-              --copy-metadata numpy ^
-              --copy-metadata keras ^
-              --strip ^
-              --upx-dir="." ^
-              --name "GareebKaSpotify-${{ env.NEW_TAG }}" ^
-              app.py
-          )
+          pyinstaller --onefile --noconsole --clean --add-data "templates;templates" --add-data "static;static" --add-data ".env;." --name "app-${{ env.NEW_TAG }}" app.py
         shell: cmd
 
       - name: Verify EXE Creation
         run: dir dist
- # Whitaker, Christopher <christopher.whitaker@outlook.com>
-        shell: cmd
 
       - name: Upload EXE to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: gareeb-ka-spotify-exe-${{ env.NEW_TAG }}
-          path: dist/GareebKaSpotify-${{ env.NEW_TAG }}.exe
+          name: app-exe-${{ env.NEW_TAG }}
+          path: dist/app-${{ env.NEW_TAG }}.exe
 
       - name: Upload .env to Artifacts (for debugging)
         uses: actions/upload-artifact@v4
@@ -199,23 +79,25 @@ jobs:
 
       - name: Push New Tag
         run: |
+          # Set up the git user details
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
+        
+          # Create the new tag (using the environment variable NEW_TAG)
           git tag ${{ env.NEW_TAG }}
-          git push origin ${{ env.NEW_TAG }}
-        shell: cmd
+        
+          # Push the tag to the remote repository using the built-in GITHUB_TOKEN for authentication
+          git push https://github.com/${{ github.repository }} ${{ env.NEW_TAG }}
+          
+        shell: bash
 
       - name: Release on GitHub
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/GareebKaSpotify-${{ env.NEW_TAG }}.exe
+          files: dist/app-${{ env.NEW_TAG }}.exe
           tag_name: ${{ env.NEW_TAG }}
-          name: Release ${{ env.NEW_TAG }}
-          body: |
-            🚀 New version of Gareeb ka Spotify released: ${{ env.NEW_TAG }}
-
-            - Standalone EXE with Face ID and music streaming.
-            - Note: Ensure a valid MONGO_URI is set in .env for MongoDB connectivity.
+          name: "Release ${{ env.NEW_TAG }}"
+          body: "🚀 New version released: ${{ env.NEW_TAG }} \n\n - Auto-generated update."
           draft: false
           prerelease: false
         env:

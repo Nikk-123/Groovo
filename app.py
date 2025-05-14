@@ -6,14 +6,11 @@ import sys
 from dotenv import load_dotenv
 from flask_cors import CORS
 from yt_dlp import YoutubeDL
-import base64
-import cv2
-import numpy as np
-from deepface import DeepFace
-import pickle
 import logging
-from scipy.spatial.distance import cosine
-import base64
+import requests
+
+# Add face service URL (set via environment variable)
+FACE_SERVICE_URL = os.getenv('FACE_SERVICE_URL', 'http://localhost:5001')
 
 # Load environment variables
 if getattr(sys, 'frozen', False):
@@ -30,14 +27,14 @@ app.secret_key = 'Chayan@12'
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
-# Directories
-UPLOAD_FOLDER = 'Uploads'
-MODEL_FOLDER = 'models'
-for folder in [UPLOAD_FOLDER, MODEL_FOLDER]:
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MODEL_FOLDER'] = MODEL_FOLDER
+# # Directories
+# UPLOAD_FOLDER = 'Uploads'
+# MODEL_FOLDER = 'models'
+# for folder in [UPLOAD_FOLDER, MODEL_FOLDER]:
+#     if not os.path.exists(folder):
+#         os.makedirs(folder)
+# app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# app.config['MODEL_FOLDER'] = MODEL_FOLDER
 
 # In-memory storage for users
 users = []
@@ -602,9 +599,17 @@ def face_auth():
         session.pop('user_id', None)
         return redirect(url_for('login'))
     
-    # Check if user has a face model
-    model = db.models.find_one({'username': user_email})
-    user_data['has_model'] = bool(model)
+    try:
+        logging.info(f"Checking face model for {user_email} at {FACE_SERVICE_URL}/check_model")
+        response = requests.post(f'{FACE_SERVICE_URL}/check_model', json={'username': user_email}, timeout=5)
+        response.raise_for_status()
+        response_data = response.json()
+        user_data['has_model'] = response_data.get('has_model', False)
+        logging.info(f"Face service response: {response_data}")
+    except Exception as e:
+        logging.error(f"Error checking face model for {user_email}: {str(e)}")
+        user_data['has_model'] = False
+        flash('Unable to connect to face service.', 'error')
     
     return render_template('face_auth.html', user_data=user_data)
 
@@ -635,16 +640,15 @@ def delete_model():
     
     user_email = session['user_id']
     try:
-        result = db.models.delete_one({'username': user_email})
-        if result.deleted_count > 0:
-            flash('Face model deleted successfully.', 'success')
-        else:
-            flash('No face model found to delete.', 'warning')
+        response = requests.post(f'{FACE_SERVICE_URL}/delete_model', json={'username': user_email})
+        result = response.json()
+        flash(result['message'], result['status'])
         return redirect(url_for('face_auth'))
     except Exception as e:
         logging.error(f"Error deleting face model for {user_email}: {str(e)}")
-        flash('An error occurred while deleting the face model.', 'error')
+        flash('Error contacting face service.', 'error')
         return redirect(url_for('face_auth'))
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -658,153 +662,32 @@ def register():
 @app.route('/upload_frames', methods=['POST'])
 def upload_frames():
     data = request.get_json()
-    frames = data.get('frames', [])
-    username = data.get('username', 'unknown')
-    
-    # Create user-specific folder
-    user_folder = os.path.join(app.config['UPLOAD_FOLDER'], username)
-    if not os.path.exists(user_folder):
-        os.makedirs(user_folder)
-    
-    # Save frames
-    for i, frame in enumerate(frames):
-        frame_data = frame.split(',')[1]
-        frame_bytes = base64.b64decode(frame_data)
-        frame_path = os.path.join(user_folder, f'frame_{i}.jpg')
-        with open(frame_path, 'wb') as f:
-            f.write(frame_bytes)
-    
-    # Train model and save as .pkl
     try:
-        train_and_save_model(username, user_folder)
-        return jsonify({'status': 'success', 'message': f'{len(frames)} frames saved and model trained'})
+        response = requests.post(f'{FACE_SERVICE_URL}/upload_frames', json=data)
+        return jsonify(response.json()), response.status_code
     except Exception as e:
-        logging.error(f"Error processing frames for {username}: {str(e)}")
-        return jsonify({'status': 'error', 'message': 'Error processing frames'}), 500
-
-def train_and_save_model(username, user_folder):
-    """Load images, generate face embeddings, save as .pkl file in MongoDB, and delete frames."""
-    embeddings = []
-    
-    for i in range(100):
-        frame_path = os.path.join(user_folder, f'frame_{i}.jpg')
-        if not os.path.exists(frame_path):
-            logging.warning(f"Frame {frame_path} not found")
-            continue
-            
-        try:
-            img = cv2.imread(frame_path)
-            if img is None:
-                logging.warning(f"Failed to load image {frame_path}")
-                continue
-            embedding = DeepFace.represent(img, model_name='VGG-Face', enforce_detection=False)
-            if embedding:
-                embeddings.append(embedding[0]['embedding'])
-        except Exception as e:
-            logging.error(f"Error processing frame {i} for {username}: {str(e)}")
-            continue
-    
-    if not embeddings:
-        raise Exception("No valid embeddings generated")
-    
-    avg_embedding = np.mean(embeddings, axis=0)
-    
-    # Save model to MongoDB
-    try:
-        # Create a dictionary for the model data
-        model_data = {
-            'username': username,
-            'embedding': avg_embedding.tolist()
-        }
-        
-        # Serialize the model data to a pickle file in memory
-        model_pickle = pickle.dumps(model_data)
-        
-        # Encode the pickle data to base64 for MongoDB storage
-        model_base64 = base64.b64encode(model_pickle).decode('utf-8')
-        
-        # Store in MongoDB
-        db.models.update_one(
-            {'username': username},
-            {'$set': {'model_data': model_base64}},
-            upsert=True
-        )
-        logging.info(f"Model for {username} saved to MongoDB")
-        
-    except Exception as e:
-        logging.error(f"Error saving model to MongoDB for {username}: {str(e)}")
-        raise
-    
-    # Delete frames to save space
-    try:
-        for i in range(100):
-            frame_path = os.path.join(user_folder, f'frame_{i}.jpg')
-            if os.path.exists(frame_path):
-                os.remove(frame_path)
-                logging.info(f"Deleted frame {frame_path}")
-        # Optionally, delete the user folder if empty
-        if os.path.exists(user_folder) and not os.listdir(user_folder):
-            os.rmdir(user_folder)
-            logging.info(f"Deleted empty user folder {user_folder}")
-    except Exception as e:
-        logging.error(f"Error deleting frames for {username}: {str(e)}")
+        logging.error(f"Error uploading frames: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Error contacting face service'}), 500
 
 @app.route('/match_face', methods=['POST'])
 def match_face():
+    data = request.get_json()
     try:
-        data = request.get_json()
-        frame = data.get('frame')
-        if not frame:
-            return jsonify({'status': 'error', 'message': 'No frame provided'}), 400
-        
-        # Decode base64 frame
-        frame_data = frame.split(',')[1]
-        frame_bytes = base64.b64decode(frame_data)
-        nparr = np.frombuffer(frame_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
-        # Generate embedding
-        embedding = DeepFace.represent(img, model_name='VGG-Face', enforce_detection=False)
-        if not embedding:
-            return jsonify({'status': 'error', 'message': 'No face detected'})
-        
-        live_embedding = embedding[0]['embedding']
-        
-        # Load models from MongoDB collection
-        best_match = None
-        best_score = float('inf')
-        threshold = 0.6
-        
-        # Retrieve all models from MongoDB
-        models = db.models.find()
-        
-        for model in models:
-            try:
-                # Decode base64 model data
-                model_pickle = base64.b64decode(model['model_data'])
-                model_data = pickle.loads(model_pickle)
-                stored_embedding = np.array(model_data['embedding'])
-                username = model_data['username']
-                
-                # Compute cosine distance
-                score = cosine(live_embedding, stored_embedding)
-                if score < best_score:
-                    best_score = score
-                    best_match = username
-                
-            except Exception as e:
-                logging.error(f"Error processing model for {model.get('username', 'unknown')}: {str(e)}")
-                continue
-        
-        if best_score < threshold:
-            session['user_id'] = best_match
-            return jsonify({'status': 'success', 'username': best_match, 'verified': True})
-        else:
-            return jsonify({'status': 'success', 'username': 'No Match', 'verified': False})
-            
+        response = requests.post(f'{FACE_SERVICE_URL}/match_face', json=data)
+        result = response.json()
+        if result.get('status') == 'success' and result.get('verified'):
+            session['user_id'] = result['username']
+            return jsonify({
+                'status': 'success',
+                'verified': True,
+                'username': result['username'],
+                'redirect': url_for('dashboard')  # Redirect to dashboard
+            }), response.status_code
+        return jsonify(result), response.status_code
     except Exception as e:
         logging.error(f"Error matching face: {str(e)}")
-        return jsonify({'status': 'error', 'message': 'Error matching face'}), 500
+        return jsonify({'status': 'error', 'message': 'Error contacting face service'}), 500
+    
 
 def test_db_connection():
     try:
@@ -820,12 +703,12 @@ if __name__ == "__main__":
     if test_db_connection():
         # Start Flask in a separate thread
         from threading import Thread
-        flask_thread = Thread(target=lambda: app.run(debug=True, use_reloader=False, port=5000))
+        flask_thread = Thread(target=lambda: app.run(debug=True, use_reloader=False, port=8000))
         flask_thread.daemon = True
         flask_thread.start()
         
         # Create and start webview window
-        webview.create_window("Spotify-3.0", "http://127.0.0.1:5000/")
+        webview.create_window("Spotify-3.0", "http://127.0.0.1:8000/")
         webview.start()
     else:
         print("Application cannot start due to database connection failure")
