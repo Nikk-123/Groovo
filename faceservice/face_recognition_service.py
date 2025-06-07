@@ -3,7 +3,7 @@ from pymongo import MongoClient
 import os
 import cv2
 import numpy as np
-from deepface import DeepFace
+import face_recognition
 import pickle
 import base64
 import logging
@@ -15,7 +15,7 @@ app = Flask(__name__)
 app.secret_key = 'FaceServiceKey'
 logging.basicConfig(level=logging.INFO)
 
-# Load environment variables
+# Load environment variables (for local development)
 load_dotenv()
 
 # MongoDB setup
@@ -27,14 +27,14 @@ client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, connectTimeoutMS=
 db = client.get_database('music_app')
 
 # Directories
-UPLOAD_FOLDER = 'Uploads'
+UPLOAD_FOLDER = '/tmp/Uploads'  # Use /tmp for ephemeral storage on Railway
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def train_and_save_model(username, user_folder):
-    """Load images, generate face embeddings, save as .pkl file in MongoDB, and delete frames."""
-    embeddings = []
+    """Load images, generate face encodings using face_recognition, save as .pkl file in MongoDB, and delete frames."""
+    encodings = []
     
     for i in range(100):
         frame_path = os.path.join(user_folder, f'frame_{i}.jpg')
@@ -46,20 +46,24 @@ def train_and_save_model(username, user_folder):
             if img is None:
                 logging.warning(f"Failed to load image {frame_path}")
                 continue
-            embedding = DeepFace.represent(img, model_name='VGG-Face', enforce_detection=False)
-            if embedding:
-                embeddings.append(embedding[0]['embedding'])
+            # Convert BGR (OpenCV) to RGB (face_recognition)
+            rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            # Get face encodings (returns list of encodings, take first if available)
+            face_encodings = face_recognition.face_encodings(rgb_img)
+            if face_encodings:
+                encodings.append(face_encodings[0])
         except Exception as e:
             logging.error(f"Error processing frame {i} for {username}: {str(e)}")
             continue
     
-    if not embeddings:
-        raise Exception("No valid embeddings generated")
+    if not encodings:
+        raise Exception("No valid face encodings generated")
     
-    avg_embedding = np.mean(embeddings, axis=0)
+    # Average the encodings
+    avg_encoding = np.mean(encodings, axis=0)
     
     try:
-        model_data = {'username': username, 'embedding': avg_embedding.tolist()}
+        model_data = {'username': username, 'embedding': avg_encoding.tolist()}
         model_pickle = pickle.dumps(model_data)
         model_base64 = base64.b64encode(model_pickle).decode('utf-8')
         db.models.update_one(
@@ -119,25 +123,28 @@ def match_face():
         nparr = np.frombuffer(frame_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         
-        embedding = DeepFace.represent(img, model_name='VGG-Face', enforce_detection=False)
-        if not embedding:
+        # Convert BGR to RGB for face_recognition
+        rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        face_encodings = face_recognition.face_encodings(rgb_img)
+        if not face_encodings:
             return jsonify({'status': 'error', 'message': 'No face detected'})
         
-        live_embedding = embedding[0]['embedding']
+        live_encoding = face_encodings[0]
         
         best_match = None
         best_score = float('inf')
-        threshold = 0.6
+        threshold = 0.6  # face_recognition's default tolerance for face comparison
         
         models = db.models.find()
         for model in models:
             try:
                 model_pickle = base64.b64decode(model['model_data'])
                 model_data = pickle.loads(model_pickle)
-                stored_embedding = np.array(model_data['embedding'])
+                stored_encoding = np.array(model_data['embedding'])
                 username = model_data['username']
                 
-                score = cosine(live_embedding, stored_embedding)
+                # Use cosine distance for consistency with original code
+                score = cosine(live_encoding, stored_encoding)
                 if score < best_score:
                     best_score = score
                     best_match = username
@@ -182,6 +189,12 @@ def check_model():
     except Exception as e:
         logging.error(f"Error checking model for {username}: {str(e)}")
         return jsonify({'has_model': False, 'message': str(e)}), 500
-
+        
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({'status': 'success', 'message': 'Face recognition service is running'})
+         
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5001)), debug=True)
+    # For Railway, this block is typically not used as Gunicorn is specified in Procfile
+    port = int(os.environ.get('PORT', 5001))
+    app.run(host='0.0.0.0', port=port)
