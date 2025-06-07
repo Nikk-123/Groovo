@@ -1,13 +1,23 @@
+# Web Framework
 Flask
 flask-cors
+
+# Database
 pymongo
 python-dotenv
+
+# GUI
 pywebview[cef]
+
+# Media Processing
 yt-dlp
-numpy
 opencv-python
-deepface
+opencv-python-headless
+
+# Machine Learning & Face Recognition
+numpy
+scipy
 tensorflow
 tf-keras
-scipy
-opencv-python-headless
+deepface
+face-recognition
