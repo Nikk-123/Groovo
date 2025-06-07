@@ -1,6 +1,5 @@
 import webview
 from flask import Flask, redirect, request, session, jsonify, render_template, url_for, flash
-from pymongo import MongoClient
 import os
 import sys
 from dotenv import load_dotenv
@@ -9,15 +8,16 @@ from yt_dlp import YoutubeDL
 import logging
 import requests
 
-# Add face service URL (set via environment variable)
-FACE_SERVICE_URL = os.getenv('FACE_SERVICE_URL', 'https://groovoface-production.up.railway.app/')
-
 # Load environment variables
 if getattr(sys, 'frozen', False):
     bundle_dir = sys._MEIPASS
     load_dotenv(os.path.join(bundle_dir, '.env'))
 else:
     load_dotenv()
+
+# Add face service URL (set via environment variable)
+FACE_SERVICE_URL = os.getenv('FACE_SERVICE_URL', 'https://groovoface-production.up.railway.app/')
+AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'http://localhost:9000')
 
 # Flask app setup
 app = Flask(__name__)
@@ -27,45 +27,8 @@ app.secret_key = 'REMOVED_SECRET_KEY'
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
-# # Directories
-# UPLOAD_FOLDER = 'Uploads'
-# MODEL_FOLDER = 'models'
-# for folder in [UPLOAD_FOLDER, MODEL_FOLDER]:
-#     if not os.path.exists(folder):
-#         os.makedirs(folder)
-# app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-# app.config['MODEL_FOLDER'] = MODEL_FOLDER
-
 # In-memory storage for users
 users = []
-
-# MongoDB Atlas setup
-MONGO_URI = os.getenv('MONGO_URI')
-if not MONGO_URI:
-    print("Error: MONGO_URI not found in environment variables")
-    sys.exit(1)
-client = MongoClient(
-    MONGO_URI,
-    serverSelectionTimeoutMS=5000,
-    connectTimeoutMS=20000,
-    connect=True
-)
-db = client.get_database('music_app')
-users_collection = db.users
-
-# User class
-class User:
-    def __init__(self, user_id, email, password, library):
-        self.user_id = user_id
-        self.email = email
-        self.password = password
-        self.library = library
-
-    def check_password(self, password):
-        return self.password == password
-
-def get_user_by_email(email):
-    return users_collection.find_one({'email': email})
 
 def fetch_mood_playlists(playlist_size=7):
     moods = {
@@ -192,42 +155,35 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
         
-        user_data = get_user_by_email(email)
-        
-        if user_data:
-            try:
-                user = User(user_data['_id'], user_data['email'], user_data['password'], user_data['library'])
-                if user.check_password(password):
-                    session['user_id'] = email
-                    if request.headers.get('Accept') == 'application/json':
-                        return jsonify({
-                            'success': True,
-                            'redirect': url_for('dashboard'),
-                            'library': user_data.get('library', [])
-                        })
-                    return redirect(url_for('dashboard'))
-                else:
-                    if request.headers.get('Accept') == 'application/json':
-                        return jsonify({
-                            'success': False,
-                            'message': 'Invalid email or password'
-                        })
-                    return render_template('login.html', error="Invalid email or password")
-            except Exception as e:
-                print(f"Error during login: {str(e)}")
+        try:
+            response = requests.post(f'{AUTH_SERVICE_URL}/api/login', 
+                                  json={'email': email, 'password': password})
+            data = response.json()
+            
+            if data.get('success'):
+                session['user_id'] = email
+                if request.headers.get('Accept') == 'application/json':
+                    return jsonify({
+                        'success': True,
+                        'redirect': url_for('dashboard'),
+                        'library': data.get('library', [])
+                    })
+                return redirect(url_for('dashboard'))
+            else:
                 if request.headers.get('Accept') == 'application/json':
                     return jsonify({
                         'success': False,
-                        'message': 'An error occurred during login'
+                        'message': data.get('message', 'Invalid email or password')
                     })
-                return render_template('login.html', error="An error occurred during login")
-        else:
+                return render_template('login.html', error=data.get('message', 'Invalid email or password'))
+        except Exception as e:
+            print(f"Error during login: {str(e)}")
             if request.headers.get('Accept') == 'application/json':
                 return jsonify({
                     'success': False,
-                    'message': 'Invalid email or password'
+                    'message': 'An error occurred during login'
                 })
-            return render_template('login.html', error="Invalid email or password")
+            return render_template('login.html', error="An error occurred during login")
     
     return render_template('login.html')
 
@@ -237,30 +193,50 @@ def signup():
         email = request.form.get('email')
         password = request.form.get('password')
 
-        existing_user = get_user_by_email(email)
-        if existing_user:
-            return 'User already exists'
-        
         try:
-            new_user = {
-                'email': email,
-                'password': password,
-                'library': [],
-                'face_auth_enabled': False
-            }
+            response = requests.post(f'{AUTH_SERVICE_URL}/api/signup', 
+                                  json={'email': email, 'password': password})
+            data = response.json()
             
-            users_collection.insert_one(new_user)
-            return redirect(url_for('login'))
+            if data.get('success'):
+                return redirect(url_for('login'))
+            else:
+                return render_template('signup.html', error=data.get('message', 'Signup failed'))
         except Exception as e:
             print(f"Error during signup: {str(e)}")
-            return 'An error occurred during signup'
+            return render_template('signup.html', error="An error occurred during signup")
             
     return render_template('signup.html')
 
 @app.route('/logout')
 def logout():
-    session.pop('user_id', None)
+    try:
+        user_email = session.get('user_id')
+        if user_email:
+            requests.post(f'{AUTH_SERVICE_URL}/api/logout', 
+                        headers={'X-User-Email': user_email})
+        session.pop('user_id', None)
+    except Exception as e:
+        print(f"Error during logout: {str(e)}")
     return redirect(url_for('login'))
+
+@app.route('/check-session')
+def check_session():
+    try:
+        user_email = session.get('user_id')
+        if user_email:
+            response = requests.get(f'{AUTH_SERVICE_URL}/api/check-session',
+                                 headers={'X-User-Email': user_email})
+            data = response.json()
+            if data.get('success'):
+                return jsonify({
+                    'success': True,
+                    'user': data.get('user'),
+                    'library': data.get('library', [])
+                })
+    except Exception as e:
+        print(f"Error checking session: {str(e)}")
+    return jsonify({'success': False, 'message': 'No active session'}), 401
 
 @app.route('/')
 def index():
@@ -272,22 +248,31 @@ def dashboard():
         return redirect(url_for('login'))
     
     user_email = session['user_id']
-    user_data = get_user_by_email(user_email)
-    
-    if not user_data:
+    try:
+        # Get user data from auth service
+        response = requests.get(f'{AUTH_SERVICE_URL}/api/check-session',
+                             headers={'X-User-Email': user_email})
+        data = response.json()
+        
+        if not data.get('success'):
+            session.pop('user_id', None)
+            return redirect(url_for('login'))
+        
+        user_data = data
+        trending_songs = fetch_trending()
+        mood_playlists = fetch_mood_playlists()
+        user_library_urls = [song['url'] for song in user_data.get('library', [])]
+        
+        return render_template('dashboard.html',
+                             user_email=user_email,
+                             user_library=user_data.get('library', []),
+                             user_library_urls=user_library_urls,
+                             trending=trending_songs,
+                             mood_playlists=mood_playlists)
+    except Exception as e:
+        print(f"Error in dashboard: {str(e)}")
         session.pop('user_id', None)
         return redirect(url_for('login'))
-    
-    trending_songs = fetch_trending()
-    mood_playlists = fetch_mood_playlists()
-    user_library_urls = [song['url'] for song in user_data.get('library', [])]
-    
-    return render_template('dashboard.html',
-                         user_email=user_email,
-                         user_library=user_data.get('library', []),
-                         user_library_urls=user_library_urls,
-                         trending=trending_songs,
-                         mood_playlists=mood_playlists)
 
 @app.route('/settings')
 def settings():
@@ -482,27 +467,11 @@ def add_to_library():
         song_data = request.json
         user_email = session['user_id']
         
-        if not song_data or not isinstance(song_data, dict):
-            return jsonify({
-                'success': False,
-                'message': 'Invalid song data'
-            }), 400
-
-        result = users_collection.update_one(
-            {'email': user_email},
-            {'$addToSet': {'library': song_data}}
-        )
+        response = requests.post(f'{AUTH_SERVICE_URL}/library/add',
+                              json=song_data,
+                              headers={'X-User-Email': user_email})
         
-        if result.modified_count > 0:
-            return jsonify({
-                'success': True,
-                'message': 'Song added to library'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'Song already in library or user not found'
-            })
+        return jsonify(response.json()), response.status_code
             
     except Exception as e:
         print(f"Error adding to library: {str(e)}")
@@ -520,15 +489,11 @@ def remove_from_library():
         song_data = request.json
         user_email = session['user_id']
         
-        result = users_collection.update_one(
-            {'email': user_email},
-            {'$pull': {'library': {'url': song_data['url']}}}
-        )
+        response = requests.post(f'{AUTH_SERVICE_URL}/library/remove',
+                              json=song_data,
+                              headers={'X-User-Email': user_email})
         
-        return jsonify({
-            'success': True,
-            'message': 'Song removed from library'
-        })
+        return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({
             'success': False,
@@ -542,12 +507,19 @@ def get_library():
     
     try:
         user_email = session['user_id']
-        user_data = get_user_by_email(user_email)
+        response = requests.get(f'{AUTH_SERVICE_URL}/api/check-session',
+                             headers={'X-User-Email': user_email})
+        data = response.json()
         
+        if data.get('success'):
+            return jsonify({
+                'success': True,
+                'library': data.get('library', [])
+            })
         return jsonify({
-            'success': True,
-            'library': user_data.get('library', [])
-        })
+            'success': False,
+            'message': 'Failed to fetch library'
+        }), 500
     except Exception as e:
         return jsonify({
             'success': False,
@@ -649,7 +621,6 @@ def delete_model():
         flash('Error contacting face service.', 'error')
         return redirect(url_for('face_auth'))
 
-
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -689,27 +660,13 @@ def match_face():
         return jsonify({'status': 'error', 'message': 'Error contacting face service'}), 500
     
 
-def test_db_connection():
-    try:
-        print("Testing MongoDB connection...")
-        client.admin.command('ping')
-        print("Successfully connected to MongoDB!")
-        return True
-    except Exception as e:
-        print(f"Failed to connect to MongoDB: {str(e)}")
-        return False
-
 if __name__ == "__main__":
-    if test_db_connection():
-        # Start Flask in a separate thread
-        from threading import Thread
-        flask_thread = Thread(target=lambda: app.run(debug=True, use_reloader=False, port=8000))
-        flask_thread.daemon = True
-        flask_thread.start()
-        
-        # Create and start webview window
-        webview.create_window("Spotify-3.0", "http://127.0.0.1:8000/")
-        webview.start()
-    else:
-        print("Application cannot start due to database connection failure")
-        sys.exit(1)
+    # Start Flask in a separate thread
+    from threading import Thread
+    flask_thread = Thread(target=lambda: app.run(debug=True, use_reloader=False, port=8000))
+    flask_thread.daemon = True
+    flask_thread.start()
+    
+    # Create and start webview window
+    webview.create_window("Spotify-3.0", "http://127.0.0.1:8000/")
+    webview.start()
