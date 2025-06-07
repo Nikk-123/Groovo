@@ -1,0 +1,8 @@
+flask
+pymongo
+opencv-python-headless
+face_recognition
+numpy
+scipy
+python-dotenv
+gunicorn
