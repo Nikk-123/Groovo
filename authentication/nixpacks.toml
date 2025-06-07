@@ -1,8 +1,8 @@
 [phases.setup]
 nixPkgs = [
     'python39',
-    'python39Packages.setuptools_57_5_0',
-    'python39Packages.pip_23_3_1',
+    'python39Packages.pip',
+    'python39Packages.setuptools',
     'python39Packages.wheel',
     'gcc',
     'gcc-unwrapped',
@@ -11,7 +11,7 @@ nixPkgs = [
 
 [phases.install]
 cmds = [
-    'python -m pip install --no-cache-dir --upgrade pip==23.3.1 setuptools==57.5.0 wheel',
+    'python -m pip install --no-cache-dir --upgrade pip setuptools wheel',
     'python -m pip install --no-cache-dir -r requirements.txt'
 ]
 
