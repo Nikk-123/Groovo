@@ -190,6 +190,10 @@ def check_model():
         logging.error(f"Error checking model for {username}: {str(e)}")
         return jsonify({'has_model': False, 'message': str(e)}), 500
 
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({'status': 'success', 'message': 'Face recognition service is running'})
+
 if __name__ == "__main__":
     # For Railway, this block is typically not used as Gunicorn is specified in Procfile
     port = int(os.environ.get('PORT', 5001))
