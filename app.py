@@ -10,7 +10,7 @@ import logging
 import requests
 
 # Add face service URL (set via environment variable)
-FACE_SERVICE_URL = os.getenv('FACE_SERVICE_URL', 'http://localhost:5001')
+FACE_SERVICE_URL = os.getenv('FACE_SERVICE_URL', 'https://faceservice-production.up.railway.app/')
 
 # Load environment variables
 if getattr(sys, 'frozen', False):
