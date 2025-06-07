@@ -6,10 +6,11 @@ nixPkgs = [
 
 [phases.install]
 cmds = [
-    'curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py',
-    'python get-pip.py',
-    'python -m pip install --no-cache-dir -r requirements.txt'
+    'python -m venv /opt/venv',
+    '. /opt/venv/bin/activate',
+    'python -m pip install --upgrade pip',
+    'python -m pip install -r requirements.txt'
 ]
 
 [start]
-cmd = 'gunicorn auth:app' 
+cmd = '/opt/venv/bin/gunicorn auth:app' 
