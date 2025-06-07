@@ -1,17 +1,13 @@
 [phases.setup]
 nixPkgs = [
     'python39',
-    'python39Packages.pip',
-    'python39Packages.setuptools',
-    'python39Packages.wheel',
-    'gcc',
-    'gcc-unwrapped',
-    'stdenv.cc.cc.lib'
+    'gcc'
 ]
 
 [phases.install]
 cmds = [
-    'python -m pip install --no-cache-dir --upgrade pip setuptools wheel',
+    'curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py',
+    'python get-pip.py',
     'python -m pip install --no-cache-dir -r requirements.txt'
 ]
 
