@@ -660,6 +660,23 @@ def match_face():
         return jsonify({'status': 'error', 'message': 'Error contacting face service'}), 500
     
 
+@app.route('/shutdown', methods=['GET'])
+def shutdown():
+    try:
+        # Get the shutdown function from the environment
+        shutdown_func = request.environ.get('werkzeug.server.shutdown')
+        if shutdown_func is None:
+            # If we're not running with Werkzeug server, use a different approach
+            import os
+            import signal
+            os.kill(os.getpid(), signal.SIGTERM)
+            return 'Server shutting down...'
+        shutdown_func()
+        return 'Server shutting down...'
+    except Exception as e:
+        print(f"Error during shutdown: {str(e)}")
+        return 'Error during shutdown', 500
+
 if __name__ == "__main__":
     # Start Flask in a separate thread
     from threading import Thread
@@ -668,5 +685,32 @@ if __name__ == "__main__":
     flask_thread.start()
     
     # Create and start webview window
-    webview.create_window("Spotify-3.0", "http://127.0.0.1:8000/")
+    window = webview.create_window("Spotify-3.0", "http://127.0.0.1:8000/")
+    
+    def cleanup():
+        try:
+            # Stop Flask server
+            import requests
+            try:
+                requests.get('http://127.0.0.1:8000/shutdown', timeout=1)
+            except:
+                pass  # Ignore any connection errors during shutdown
+            
+            # Clear any in-memory data
+            users.clear()
+            
+            # Force exit the application
+            import sys
+            sys.exit(0)
+            
+        except Exception as e:
+            print(f"Error during cleanup: {str(e)}")
+            # Force exit even if there's an error
+            import sys
+            sys.exit(1)
+    
+    # Register cleanup function
+    window.events.closed += cleanup
+    
+    # Start webview
     webview.start()
