@@ -287,18 +287,35 @@ def edit_profile():
 
     username = request.form.get('username')
     email = request.form.get('email')
-
     user_email = session['user_id']
+
     try:
-        users_collection.update_one(
-            {'email': user_email},
-            {'$set': {'username': username, 'email': email}}
+        # Call auth service API to update profile
+        response = requests.post(
+            f'{AUTH_SERVICE_URL}/api/update-profile',
+            json={
+                'username': username,
+                'email': email,
+                'current_email': user_email
+            },
+            headers={'X-User-Email': user_email}
         )
-        session['user_id'] = email
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('success'):
+                session['user_id'] = email  # Update session with new email
+                flash('Profile updated successfully', 'success')
+            else:
+                flash(data.get('message', 'Failed to update profile'), 'error')
+        else:
+            flash('Failed to update profile', 'error')
+            
         return redirect(url_for('settings'))
     except Exception as e:
-        print(f"Error updating profile: {e}")
-        return "An error occurred while updating your profile. Please try again later."
+        logging.error(f"Error updating profile: {str(e)}")
+        flash('An error occurred while updating your profile', 'error')
+        return redirect(url_for('settings'))
 
 @app.route('/play', methods=['POST', 'OPTIONS'])
 def play():
@@ -565,25 +582,34 @@ def face_auth():
         return redirect(url_for('login'))
     
     user_email = session['user_id']
-    user_data = get_user_by_email(user_email)
-    
-    if not user_data:
-        session.pop('user_id', None)
-        return redirect(url_for('login'))
-    
     try:
+        # Get user data from auth service
+        response = requests.get(f'{AUTH_SERVICE_URL}/api/check-session',
+                             headers={'X-User-Email': user_email})
+        data = response.json()
+        
+        if not data.get('success'):
+            session.pop('user_id', None)
+            return redirect(url_for('login'))
+        
+        user_data = data.get('user', {})
+        
+        # Check face model
         logging.info(f"Checking face model for {user_email} at {FACE_SERVICE_URL}/check_model")
-        response = requests.post(f'{FACE_SERVICE_URL}/check_model', json={'username': user_email}, timeout=5)
-        response.raise_for_status()
-        response_data = response.json()
-        user_data['has_model'] = response_data.get('has_model', False)
-        logging.info(f"Face service response: {response_data}")
+        face_response = requests.post(f'{FACE_SERVICE_URL}/check_model', 
+                                   json={'username': user_email}, 
+                                   timeout=5)
+        face_response.raise_for_status()
+        face_data = face_response.json()
+        user_data['has_model'] = face_data.get('has_model', False)
+        logging.info(f"Face service response: {face_data}")
+        
+        return render_template('face_auth.html', user_data=user_data)
+        
     except Exception as e:
-        logging.error(f"Error checking face model for {user_email}: {str(e)}")
-        user_data['has_model'] = False
-        flash('Unable to connect to face service.', 'error')
-    
-    return render_template('face_auth.html', user_data=user_data)
+        logging.error(f"Error in face_auth: {str(e)}")
+        flash('Unable to connect to services.', 'error')
+        return redirect(url_for('login'))
 
 @app.route('/update_face_auth', methods=['POST'])
 def update_face_auth():
@@ -594,15 +620,26 @@ def update_face_auth():
     enable_face_auth = request.form.get('enableFaceAuth') == 'on'
     
     try:
-        users_collection.update_one(
-            {'email': user_email},
-            {'$set': {'face_auth_enabled': enable_face_auth}}
+        # Call auth service API to update face auth settings
+        response = requests.post(
+            f'{AUTH_SERVICE_URL}/api/update-face-auth',
+            json={'face_auth_enabled': enable_face_auth},
+            headers={'X-User-Email': user_email}
         )
-        flash('Face authentication settings updated successfully.', 'success')
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('success'):
+                flash('Face authentication settings updated successfully', 'success')
+            else:
+                flash(data.get('message', 'Failed to update face authentication settings'), 'error')
+        else:
+            flash('Failed to update face authentication settings', 'error')
+            
         return redirect(url_for('face_auth'))
     except Exception as e:
-        logging.error(f"Error updating face authentication for {user_email}: {str(e)}")
-        flash('An error occurred while updating face authentication settings.', 'error')
+        logging.error(f"Error updating face authentication: {str(e)}")
+        flash('An error occurred while updating face authentication settings', 'error')
         return redirect(url_for('face_auth'))
 
 @app.route('/delete_model', methods=['POST'])
