@@ -109,8 +109,8 @@ The application follows a microservices architecture with three main components:
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/Nikk-123/Spotify-3.0.git
-   cd Spotify-3.0
+   git clone https://github.com/Nikk-123/GROOVO.git
+   cd GROOVO
    ```
 
 2. **Create Virtual Environment**
@@ -196,7 +196,7 @@ Each service includes:
 ## 📁 Project Structure
 
 ```
-Spotify-3.0/
+GROOVO/
 ├── app.py                          # Main Flask application
 ├── requirements.txt                # Main app dependencies
 ├── README.md                       # Project documentation
@@ -350,7 +350,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Chayan (Nikk-123)**
 - GitHub: [@Nikk-123](https://github.com/Nikk-123)
-- Project: [Spotify-3.0](https://github.com/Nikk-123/Spotify-3.0)
+- Project: [GROOVO](https://github.com/Nikk-123/GROOVO)
 
 ## 🙏 Acknowledgments
 
