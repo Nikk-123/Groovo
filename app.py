@@ -94,20 +94,32 @@ def fetch_mood_playlists(playlist_size=7):
     
     except Exception as e:
         print(f"Error fetching mood playlists: {e}")
-        return {}
+        # Return a basic structure to prevent template errors
+        return {
+            'Happy': [],
+            'Chill': [],
+            'Workout': [],
+            'Focus': [],
+            'Party': [],
+            'Bollywood Party': [],
+            'Classical': [],
+            'Bhakti': [],
+            'Romantic': [],
+            'Punjabi': []
+        }
 
 def fetch_trending():
     try:
         options = {
             'quiet': True,
             'extract_flat': True,
-            'playlist_items': '1-28',  
             'no_warnings': True,
         }
         
         with YoutubeDL(options) as ydl:
+            # Use a more reliable search for trending music
             trending_data = ydl.extract_info(
-                'https://www.youtube.com/feed/trending?bp=4gINGgt5dG1hX2NoYXJ0cw%3D%3D',
+                'ytsearch25:trending music 2025 latest hits',
                 download=False
             )
             
@@ -147,7 +159,16 @@ def fetch_trending():
             return trending_songs  
     except Exception as e:
         print(f"Error fetching trending: {e}")
-        return []
+        # Return some fallback content if trending fails
+        fallback_songs = [
+            {
+                "title": "Popular Music",
+                "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                "artist": "Various Artists",
+                "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
+            }
+        ]
+        return fallback_songs
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -561,12 +582,12 @@ def not_found_error(error):
 @app.route('/static/manifest.json')
 def manifest():
     return jsonify({
-        "name": "Spotify 3.0",
-        "short_name": "Spotify",
+        "name": "Groovo",
+        "short_name": "Groovo",
         "start_url": "/",
         "display": "standalone",
-        "background_color": "#ffffff",
-        "theme_color": "#000000",
+        "background_color": "#121212",
+        "theme_color": "#1db954",
         "icons": [
             {
                 "src": "/static/favicon.png",
@@ -722,7 +743,7 @@ if __name__ == "__main__":
     flask_thread.start()
     
     # Create and start webview window
-    window = webview.create_window("Spotify-3.0", "http://127.0.0.1:8000/")
+    window = webview.create_window("Groovo", "http://127.0.0.1:8000/")
     
     def cleanup():
         try:
