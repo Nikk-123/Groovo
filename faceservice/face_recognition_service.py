@@ -195,6 +195,7 @@ def home():
     return jsonify({'status': 'success', 'message': 'Face recognition service is running'})
          
 if __name__ == "__main__":
-    # For Railway, this block is typically not used as Gunicorn is specified in Procfile
-    port = int(os.environ.get('PORT', 5001))
-    app.run(host='0.0.0.0', port=port)
+    # Only run the development server if not running under gunicorn
+    if os.environ.get("RUN_MAIN") == "true" or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        port = int(os.environ.get('PORT', 5001))
+        app.run(debug=True, host='0.0.0.0', port=port)
