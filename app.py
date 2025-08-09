@@ -17,7 +17,7 @@ else:
 
 # Add face service URL (set via environment variable)
 FACE_SERVICE_URL = os.getenv('FACE_SERVICE_URL', '#')
-AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'https://login-auth-jgxb.onrender.com')
+AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'http://192.168.0.112:9000')
 
 # Flask app setup
 app = Flask(__name__)
