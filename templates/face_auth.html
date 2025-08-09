@@ -88,6 +88,7 @@
         <h1 class="text-2xl font-bold text-white flex items-center">
           <i class="fas fa-cog mr-2"></i> Face Authentication
         </h1>
+  <div id="greetingText" class="text-xs text-gray-400 mt-1" data-username="{{ session['user_id'] if session and 'user_id' in session else '' }}">Good day</div>
       </div>
       <nav class="mt-4">
         <a
@@ -485,6 +486,7 @@
       initializeMediaPipe();
     </script>
     <!-- Include player.js -->
-    <script src="{{ url_for('static', filename='js/player.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/player.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/greeting.js') }}"></script>
   </body>
 </html>

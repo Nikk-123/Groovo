@@ -302,8 +302,12 @@ const Player = {
 
     updateAllPlayButtons(url) {
         const icon = PlayerState.isPlaying ? 'fa-pause' : 'fa-play';
-        Elements.controls.play.mini.innerHTML = `<i class="fas ${icon}"></i>`;
-        Elements.controls.play.main.innerHTML = `<i class="fas ${icon}"></i>`;
+        if (Elements.controls.play.mini) {
+            Elements.controls.play.mini.innerHTML = `<i class="fas ${icon}"></i>`;
+        }
+        if (Elements.controls.play.main) {
+            Elements.controls.play.main.innerHTML = `<i class="fas ${icon}"></i>`;
+        }
     },
 
     playFromLibrary(url, title, thumbnail, artist) {
@@ -528,8 +532,11 @@ const Library = {
     },
 
     updateDisplay() {
-        const libraryList = document.getElementById('libraryList');
-        const emptyMessage = document.getElementById('emptyLibraryMessage');
+    const libraryList = document.getElementById('libraryList');
+    const emptyMessage = document.getElementById('emptyLibraryMessage');
+
+    // If the page doesn't have a library UI, skip rendering to avoid errors
+    if (!libraryList || !emptyMessage) return;
 
         if (PlayerState.library.length === 0) {
             libraryList.style.display = 'none';
@@ -537,9 +544,9 @@ const Library = {
             return;
         }
 
-        libraryList.style.display = 'block';
-        emptyMessage.style.display = 'none';
-        libraryList.innerHTML = PlayerState.library.map(song => this.createSongElement(song)).join('');
+    libraryList.style.display = 'block';
+    emptyMessage.style.display = 'none';
+    libraryList.innerHTML = PlayerState.library.map(song => this.createSongElement(song)).join('');
     },
 
     createSongElement(song) {
@@ -560,7 +567,7 @@ const Library = {
                         onclick="Player.togglePlayFromLibrary('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')"
                         title="Play/Pause"
                     >
-                        <i class="fas {% if song.url == current_song_url and is_playing %}fa-pause{% else %}fa-play{% endif %}"></i>
+                        <i class="fas fa-play"></i>
                     </button>
                     <button class="remove-from-library" 
                         onclick="Library.remove(${JSON.stringify(song)})">
@@ -595,6 +602,7 @@ const Library = {
 // Search Functionality (unchanged)
 const Search = {
     init() {
+        if (!Elements.search.input) return; // Only attach on pages with search
         Elements.search.input.addEventListener('input', debounce(this.handleSearch.bind(this), 500));
     },
 
@@ -716,20 +724,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Setup event listeners for play controls
     ['mini', 'main'].forEach(type => {
-        Elements.controls.play[type].addEventListener('click', PlaybackControls.togglePlayPause);
-        Elements.controls.prev[type].addEventListener('click', PlaybackControls.playPrevious);
-        Elements.controls.next[type].addEventListener('click', PlaybackControls.playNext);
+        if (Elements.controls.play[type]) {
+            Elements.controls.play[type].addEventListener('click', (e)=>{ e.stopPropagation(); PlaybackControls.togglePlayPause(); });
+        }
+        if (Elements.controls.prev[type]) {
+            Elements.controls.prev[type].addEventListener('click', (e)=>{ e.stopPropagation(); PlaybackControls.playPrevious(); });
+        }
+        if (Elements.controls.next[type]) {
+            Elements.controls.next[type].addEventListener('click', (e)=>{ e.stopPropagation(); PlaybackControls.playNext(); });
+        }
         
         // Add shuffle and repeat handlers
         const shuffleBtn = Elements.controls.shuffle[type];
         if (shuffleBtn) {
-            shuffleBtn.addEventListener('click', PlaybackControls.toggleShuffle);
+            shuffleBtn.addEventListener('click', (e)=>{ e.stopPropagation(); PlaybackControls.toggleShuffle(); });
             shuffleBtn.classList.toggle('active', PlayerState.isShuffleOn);
         }
 
         const repeatBtn = Elements.controls.repeat[type];
         if (repeatBtn) {
-            repeatBtn.addEventListener('click', PlaybackControls.toggleRepeat);
+            repeatBtn.addEventListener('click', (e)=>{ e.stopPropagation(); PlaybackControls.toggleRepeat(); });
             repeatBtn.classList.toggle('active', PlayerState.repeatMode !== 'off');
             repeatBtn.classList.toggle('once', PlayerState.repeatMode === 'once');
         }
@@ -749,6 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
             control.step = "0.01";
             control.value = PlayerState.volume;
             control.addEventListener('input', handleVolumeChange);
+            control.addEventListener('click', (e)=> e.stopPropagation());
         }
     });
 
@@ -760,7 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('#miniVolumeBtn, #volumeBtn').forEach(button => {
         if (button) {
-            button.addEventListener('click', handleVolumeButtonClick);
+            button.addEventListener('click', (e)=>{ e.stopPropagation(); handleVolumeButtonClick(); });
         }
     });
 
@@ -768,28 +783,36 @@ document.addEventListener('DOMContentLoaded', () => {
     updateVolumeControls(PlayerState.volume);
 
     // Player view transitions
-    Elements.miniPlayer.addEventListener('click', () => {
-        Elements.expandedPlayer.classList.add('show');
-        document.body.style.overflow = 'hidden';
-    });
+    if (Elements.miniPlayer) {
+        Elements.miniPlayer.addEventListener('click', (e) => {
+            // Avoid expanding if the user clicks controls or progress/volume areas
+            const blockSelectors = '.mini-control-btn, .mini-progress-bar, .mini-progress-bar *, .mini-volume-controls, .mini-volume-controls *';
+            if (e.target.closest(blockSelectors)) return;
+            if (Elements.expandedPlayer) {
+                Elements.expandedPlayer.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+        });
+    }
 
-    Elements.minimizeBtn.addEventListener('click', () => {
-        Elements.expandedPlayer.classList.remove('show');
-        document.body.style.overflow = '';
-    });
+    if (Elements.minimizeBtn) {
+        Elements.minimizeBtn.addEventListener('click', () => {
+            if (Elements.expandedPlayer) Elements.expandedPlayer.classList.remove('show');
+            document.body.style.overflow = '';
+        });
+    }
 
     // Unified progress bar handler
     document.querySelectorAll('.mini-player .progress-bar, .expanded-player .progress-bar')
         .forEach(bar => {
-            if (bar) {
-                bar.addEventListener('click', (e) => {
-                    const rect = bar.getBoundingClientRect();
-                    const percentage = (e.clientX - rect.left) / rect.width;
-                    if (PlayerState.audio?.duration) {
-                        PlayerState.audio.currentTime = percentage * PlayerState.audio.duration;
-                    }
-                });
-            }
+            bar.addEventListener('click', (e) => {
+                const rect = bar.getBoundingClientRect();
+                const percentage = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
+                if (PlayerState.audio && !Number.isNaN(PlayerState.audio.duration)) {
+                    PlayerState.audio.currentTime = percentage * PlayerState.audio.duration;
+                }
+                e.stopPropagation();
+            });
         });
 
     // Notification permission

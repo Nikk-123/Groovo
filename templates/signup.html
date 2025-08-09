@@ -1,231 +1,92 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000000" />
     <title>Sign Up - GROOVO</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    <link rel="icon" href="{{ url_for('static', filename='icons/2pic(1).png') }}" sizes="682x461">
-    <link rel="icon" href="{{ url_for('static', filename='icons/2pic(2).png') }}" sizes="680x484">
-    <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png">
-
-
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        }
-
-        body {
-            background: linear-gradient(to bottom, #1DB954, #191414);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .header {
-            width: 100%;
-            padding: 25px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: center;
-        }
-
-        .logo {
-            color: white;
-            font-size: 2rem;
-            font-weight: bold;
-            text-decoration: none;
-        }
-
-        .signup-container {
-            background: #000000;
-            border-radius: 8px;
-            width: 100%;
-            max-width: 450px;
-            margin: 40px auto;
-            padding: 40px;
-            color: white;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-        }
-
-        h1 {
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 32px;
-            font-weight: 700;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        input {
-            width: 100%;
-            padding: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
-            background: #282828;
-            color: white;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: #1DB954;
-        }
-
-        button {
-            width: 100%;
-            padding: 14px;
-            background: #1DB954;
-            color: white;
-            border: none;
-            border-radius: 500px;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            margin-top: 20px;
-        }
-
-        button:hover {
-            background: #1ed760;
-            transform: scale(1.02);
-        }
-
-        .divider {
-            margin: 20px 0;
-            text-align: center;
-            position: relative;
-        }
-
-        .divider::before,
-        .divider::after {
-            content: "";
-            position: absolute;
-            top: 50%;
-            width: 45%;
-            height: 1px;
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .divider::before {
-            left: 0;
-        }
-
-        .divider::after {
-            right: 0;
-        }
-
-        .login-link {
-            text-align: center;
-            margin-top: 20px;
-            padding: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .login-link a {
-            color: #1DB954;
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .login-link a:hover {
-            color: #1ed760;
-            text-decoration: underline;
-        }
-
-        .flash-messages {
-            width: 100%;
-            max-width: 450px;
-            margin: 20px auto;
-        }
-
-        .flash {
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-            text-align: center;
-        }
-
-        .flash.warning {
-            background: #e91429;
-            color: white;
-        }
-
-        .flash.success {
-            background: #1DB954;
-            color: white;
-        }
-
-        .terms {
-            font-size: 12px;
-            color: #b3b3b3;
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        @media (max-width: 500px) {
-            .signup-container {
-                margin: 20px;
-                padding: 20px;
-            }
-        }
-    </style>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome CDN -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
+    <link rel="icon" href="{{ url_for('static', filename='icons/2pic(1).png') }}" sizes="682x461" />
+    <link rel="icon" href="{{ url_for('static', filename='icons/2pic(2).png') }}" sizes="680x484" />
+    <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png" />
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}" />
 </head>
-<body>
-    <div class="header">
-        <a href="/" class="logo">
-            <i class="fab fa-spotify"></i>
-            GROOVO
+<body class="bg-gradient-to-b from-green-500 to-gray-900 text-gray-100 font-sans flex flex-col min-h-screen items-center overflow-hidden">
+    <!-- Header -->
+    <header class="w-full py-6 border-b border-gray-700 text-center">
+        <a href="/" class="text-white text-3xl font-bold no-underline hover:text-green-400 transition">
+            <i class="fab fa-spotify mr-2"></i> GROOVO
         </a>
-    </div>
+    </header>
 
+    <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-        <div class="flash-messages">
+        <div class="w-full max-w-md mx-auto mt-4">
             {% for category, message in messages %}
-                <div class="flash {{ category }}">{{ message }}</div>
+                <div class="p-4 rounded {{ 'bg-red-600' if category == 'danger' else 'bg-green-500' }} text-white text-center mb-2">
+                    {{ message }}
+                </div>
             {% endfor %}
         </div>
         {% endif %}
     {% endwith %}
 
-    <div class="signup-container">
-        <h1>Sign up for free</h1>
-        <form method="POST">
-            <div class="form-group">
-                <label for="email">What's your email?</label>
-                <input type="email" id="email" name="email" required placeholder="Enter your email">
+    <!-- Signup Container -->
+    <div class="bg-black rounded-lg w-full max-w-md mx-auto mt-10 mb-0 p-8 text-white shadow-2xl">
+        <h1 class="text-3xl font-bold text-center mb-8">Sign up for free</h1>
+        <form method="POST" class="space-y-6">
+            <div>
+                <label for="email" class="block text-sm font-semibold mb-2">What's your email?</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    required
+                    placeholder="Enter your email"
+                    class="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
             </div>
-            <div class="form-group">
-                <label for="password">Create a password</label>
-                <input type="password" id="password" name="password" required placeholder="Create a password">
+            <div>
+                <label for="password" class="block text-sm font-semibold mb-2">Create a password</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    required
+                    placeholder="Create a password"
+                    class="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
             </div>
-            <button type="submit">SIGN UP</button>
-            <div class="terms">
-                By clicking on sign-up, you agree to GROOVO's Terms and Conditions of Use.
-            </div>
+            <button
+                type="submit"
+                class="w-full p-3 bg-green-500 text-black font-semibold rounded-full hover:bg-green-600 transition"
+            >
+                SIGN UP
+            </button>
+            
         </form>
-        <div class="divider">or</div>
-        <div class="login-link">
-            <p>Already have an account?</p>
-            <a href="/login">LOG IN TO GROOVO</a>
+        <div class="my-4 text-center">
+            <p class="text-xs text-gray-400">
+                By clicking on sign-up, you agree to GROOVO's Terms and Conditions of Use.
+            </p>
+        </div>
+        <div class="pt-6 border-t border-gray-700 text-center">
+            <p class="text-gray-400">Already have an account?</p>
+            <a href="/login" class="text-green-500 font-semibold hover:text-green-600 hover:underline transition">LOG IN TO GROOVO</a>
         </div>
     </div>
+
     <!-- Footer with Creator Credit -->
     <footer class="w-full text-center py-4 text-gray-400 text-sm">
-        Created by <a href="https://github.com/Nikk-123" target="_blank" style="color: #1DB954; text-decoration: none;">Nikk-123</a>
+        Created by <a href="https://github.com/Nikk-123" target="_blank" class="text-green-500 hover:text-green-400 transition">Nikk-123</a>
     </footer>
 </body>
 </html>
