@@ -319,11 +319,13 @@ def test_db_connection():
         print(f"Failed to connect to MongoDB: {str(e)}")
         return False
 
-port = int(os.environ.get("PORT", 5000))
+
 if __name__ == "__main__":
-    if test_db_connection():
-        # Run API server only, no webview, no threading
-        app.run(debug=True, host="0.0.0.0", port=port)
-    else:
-        print("Application cannot start due to database connection failure")
-        sys.exit(1)
+    # Only run the development server if not running under gunicorn
+    if os.environ.get("RUN_MAIN") == "true" or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        if test_db_connection():
+            port = int(os.environ.get("PORT", 5000))
+            app.run(debug=True, host="0.0.0.0", port=port)
+        else:
+            print("Application cannot start due to database connection failure")
+            sys.exit(1)
