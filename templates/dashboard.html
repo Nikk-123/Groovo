@@ -1429,6 +1429,8 @@ body.library-open {
     right: 2px;
     color: #1DB954;
 }
+
+/* Greeting hero uses global styles */
     </style>
   </head>
   <body>
@@ -1480,6 +1482,10 @@ body.library-open {
     </div>
 
     <div class="main">
+      <section class="greeting-hero">
+        <div class="greeting-text" id="greetingText" data-username="{{ user_email | default('') }}">Good day</div>
+        
+      </section>
       <div id="searchResultsContainer" style="display: none;">
         <h1>Search Results</h1>
         <ul id="search-result" class="song-list"></ul>
@@ -1490,7 +1496,7 @@ body.library-open {
       </div>
 
       <div id="trendingContainer">
-        <h1>Trending Songs</h1>
+        <h2>Here’s what’s trending right now</h2>
         <ul class="song-list">
           {% for song in trending %}
           <li
@@ -1640,7 +1646,7 @@ body.library-open {
               </div>
               <div class="mini-progress-container">
                 <span class="time current-time">0:00</span>
-                <div class="mini-progress-bar" id="miniProgressBar">
+                <div class="mini-progress-bar progress-bar" id="miniProgressBar">
                   <div class="progress" id="miniProgress"></div>
                 </div>
                 <span class="time total-time">0:00</span>
@@ -1658,7 +1664,7 @@ body.library-open {
               </button>
               <input
                 type="range"
-                id="volumeControl"
+                id="miniVolumeControl"
                 min="0"
                 max="1"
                 step="0.01"
@@ -1852,6 +1858,7 @@ body.library-open {
       </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/player.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/player.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/greeting.js') }}"></script>
   </body>
 </html>
