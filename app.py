@@ -16,7 +16,7 @@ else:
     load_dotenv()
 
 # Add face service URL (set via environment variable)
-FACE_SERVICE_URL = os.getenv('FACE_SERVICE_URL', 'https://groovoface-production.up.railway.app/')
+FACE_SERVICE_URL = os.getenv('FACE_SERVICE_URL', '#')
 AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'https://login-auth-jgxb.onrender.com')
 
 # Flask app setup
