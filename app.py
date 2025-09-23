@@ -170,15 +170,56 @@ def fetch_trending():
         ]
         return fallback_songs
 
+# @app.route('/login', methods=['GET', 'POST'])
+# def login():
+#     if request.method == 'POST':
+#         email = request.form.get('email')
+#         password = request.form.get('password')
+        
+#         try:
+#             response = requests.post(f'{AUTH_SERVICE_URL}/api/login', 
+#                                   json={'email': email, 'password': password})
+#             data = response.json()
+            
+#             if data.get('success'):
+#                 session['user_id'] = email
+#                 if request.headers.get('Accept') == 'application/json':
+#                     return jsonify({
+#                         'success': True,
+#                         'redirect': url_for('dashboard'),
+#                         'library': data.get('library', [])
+#                     })
+#                 return redirect(url_for('dashboard'))
+#             else:
+#                 if request.headers.get('Accept') == 'application/json':
+#                     return jsonify({
+#                         'success': False,
+#                         'message': data.get('message', 'Invalid email or password')
+#                     })
+#                 return render_template('login.html', error=data.get('message', 'Invalid email or password'))
+#         except Exception as e:
+#             print(f"Error during login: {str(e)}")
+#             if request.headers.get('Accept') == 'application/json':
+#                 return jsonify({
+#                     'success': False,
+#                     'message': 'An error occurred during login'
+#                 })
+#             return render_template('login.html', error="An error occurred during login")
+    
+#     return render_template('login.html')
+
+#NEW 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    error = None  # Initialize error variable
+
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
         
         try:
             response = requests.post(f'{AUTH_SERVICE_URL}/api/login', 
-                                  json={'email': email, 'password': password})
+                                     json={'email': email, 'password': password})
             data = response.json()
             
             if data.get('success'):
@@ -191,43 +232,61 @@ def login():
                     })
                 return redirect(url_for('dashboard'))
             else:
-                if request.headers.get('Accept') == 'application/json':
-                    return jsonify({
-                        'success': False,
-                        'message': data.get('message', 'Invalid email or password')
-                    })
-                return render_template('login.html', error=data.get('message', 'Invalid email or password'))
+                error = data.get('message', 'Invalid email or password')
         except Exception as e:
             print(f"Error during login: {str(e)}")
-            if request.headers.get('Accept') == 'application/json':
-                return jsonify({
-                    'success': False,
-                    'message': 'An error occurred during login'
-                })
-            return render_template('login.html', error="An error occurred during login")
+            error = "An error occurred during login"
     
-    return render_template('login.html')
+    # Single render_template call for GET or failed POST
+    return render_template('login.html', error=error)
 
+
+# @app.route('/signup', methods=['GET', 'POST'])
+# def signup():
+#     if request.method == 'POST':
+#         email = request.form.get('email')
+#         password = request.form.get('password')
+
+#         try:
+#             response = requests.post(f'{AUTH_SERVICE_URL}/api/signup', 
+#                                   json={'email': email, 'password': password})
+#             data = response.json()
+            
+#             if data.get('success'):
+#                 return redirect(url_for('login'))
+#             else:
+#                 return render_template('signup.html', error=data.get('message', 'Signup failed'))
+#         except Exception as e:
+#             print(f"Error during signup: {str(e)}")
+#             return render_template('signup.html', error="An error occurred during signup")
+            
+#     return render_template('signup.html')
+
+# NEW
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
+    error = None  # Initialize error variable
+
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
 
         try:
             response = requests.post(f'{AUTH_SERVICE_URL}/api/signup', 
-                                  json={'email': email, 'password': password})
+                                     json={'email': email, 'password': password})
             data = response.json()
             
             if data.get('success'):
                 return redirect(url_for('login'))
             else:
-                return render_template('signup.html', error=data.get('message', 'Signup failed'))
+                error = data.get('message', 'Signup failed')
         except Exception as e:
             print(f"Error during signup: {str(e)}")
-            return render_template('signup.html', error="An error occurred during signup")
-            
-    return render_template('signup.html')
+            error = "An error occurred during signup"
+    
+    # Single render_template call for GET or failed POST
+    return render_template('signup.html', error=error)
+
 
 @app.route('/logout')
 def logout():
@@ -437,11 +496,12 @@ def search_song():
             'quiet': True,
             'extract_flat': True,
             'no_warnings': True,
-            'default_search': 'ytsearch10',
+            'default_search': 'ytsearch25',
+            'source_address': '0.0.0.0',
         }
 
         with YoutubeDL(ydl_opts) as ydl:
-            search_query = f"ytsearch10:{query} music"
+            search_query = f"ytsearch25:{query} music"
             info = ydl.extract_info(search_query, download=False)
             
             results = []
