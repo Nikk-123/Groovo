@@ -5,6 +5,7 @@ import sys
 from dotenv import load_dotenv
 from flask_cors import CORS
 from yt_dlp import YoutubeDL
+from yt_dlp.utils import DownloadError
 import logging
 import requests
 
@@ -406,20 +407,18 @@ def play():
         response.headers.add('Access-Control-Allow-Methods', 'POST')
         return response
 
-    data = request.get_json()
+    data = request.get_json() or {}
     video_url = data.get('url')
 
     if not video_url:
         return jsonify({"success": False, "error": "No URL provided"}), 400
 
-    ydl_opts = {
-        'format': 'bestaudio/best',
+    base_opts = {
         'quiet': True,
         'noplaylist': True,
         'no_warnings': True,
-        'extractaudio': True,
-        'geturl': True,
-        'simulate': True,
+        'skip_download': True,
+        'ignore_no_formats_error': True,
         'force_generic_extractor': False,
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
@@ -430,54 +429,111 @@ def play():
         'source_address': '0.0.0.0',
     }
 
+    format_candidates = [
+        'bestaudio[protocol^=https]',
+        'bestaudio/best',
+        'best',
+    ]
+
+    info = None
+    last_error = None
+
     try:
-        with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(video_url, download=False)
-            
-            if not info:
-                return jsonify({
-                    "success": False,
-                    "error": "Unable to extract video information"
-                }), 500
+        for fmt in format_candidates:
+            ydl_opts = dict(base_opts)
+            ydl_opts['format'] = fmt
+            try:
+                with YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(video_url, download=False)
+                if info:
+                    break
+            except DownloadError as err:
+                last_error = err
+                continue
 
-            audio_url = info.get('url') or info.get('direct_url')
-            if not audio_url:
-                formats = info.get('formats', [])
-                audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
-                if audio_formats:
-                    audio_url = audio_formats[-1].get('url')
-                else:
-                    return jsonify({
-                        "success": False,
-                        "error": "No audio formats available"
-                    }), 500
+        if not info:
+            error_message = str(last_error) if last_error else 'Unable to extract video information'
+            return jsonify({
+                "success": False,
+                "error": error_message
+            }), 500
 
-            thumbnails = info.get('thumbnails', [])
-            thumbnail_url = ''
-            if thumbnails:
-                sorted_thumbs = sorted(thumbnails, key=lambda x: x.get('height', 0), reverse=True)
-                thumbnail_url = sorted_thumbs[0].get('url', '')
+        if info.get('_type') == 'playlist':
+            entries = info.get('entries') or []
+            info = next((entry for entry in entries if entry), None)
 
-            artist = (info.get('artist') or 
-                     info.get('uploader') or 
-                     info.get('channel') or 
-                     'Unknown Artist')
+        if not info:
+            return jsonify({
+                "success": False,
+                "error": "Unable to extract video information"
+            }), 500
 
-            title = info.get('title', 'Unknown Title')
-            duration = info.get('duration', 0)
+        audio_url = None
 
-            response = jsonify({
-                'success': True,
-                'audio_url': audio_url,
-                'title': title,
-                'thumbnail': thumbnail_url,
-                'artist': artist,
-                'duration': duration
-            })
-            response.headers.add('Access-Control-Allow-Origin', '*')
-            return response
+        requested_formats = info.get('requested_formats') or []
+        if requested_formats:
+            audio_candidates = [
+                f for f in requested_formats
+                if f.get('vcodec') in (None, 'none') and f.get('url')
+            ]
+            if audio_candidates:
+                audio_url = audio_candidates[-1]['url']
+
+        if not audio_url:
+            formats = info.get('formats') or []
+            audio_formats = [
+                f for f in formats
+                if f.get('acodec') not in (None, 'none') and f.get('vcodec') in (None, 'none') and f.get('url')
+            ]
+
+            def sort_key(fmt):
+                return (
+                    fmt.get('abr') or fmt.get('tbr') or 0,
+                    fmt.get('filesize') or fmt.get('filesize_approx') or 0
+                )
+
+            https_audio = [f for f in audio_formats if str(f.get('protocol', '')).startswith('https')]
+            candidate_formats = sorted(https_audio or audio_formats, key=sort_key)
+            if candidate_formats:
+                audio_url = candidate_formats[-1]['url']
+            else:
+                audio_url = info.get('url') or info.get('direct_url')
+
+        if not audio_url:
+            return jsonify({
+                "success": False,
+                "error": "No audio formats available"
+            }), 500
+
+        thumbnails = info.get('thumbnails', [])
+        thumbnail_url = ''
+        if thumbnails:
+            sorted_thumbs = sorted(thumbnails, key=lambda x: x.get('height', 0), reverse=True)
+            thumbnail_url = sorted_thumbs[0].get('url', '')
+
+        artist = (
+            info.get('artist') or
+            info.get('uploader') or
+            info.get('channel') or
+            'Unknown Artist'
+        )
+
+        title = info.get('title', 'Unknown Title')
+        duration = info.get('duration', 0)
+
+        response = jsonify({
+            'success': True,
+            'audio_url': audio_url,
+            'title': title,
+            'thumbnail': thumbnail_url,
+            'artist': artist,
+            'duration': duration
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
 
     except Exception as e:
+        logging.exception("yt-dlp playback failure for %s", video_url)
         print(f"[ERROR] /play: {str(e)}")
         return jsonify({
             "success": False,
