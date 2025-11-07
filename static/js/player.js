@@ -314,12 +314,9 @@ const Player = {
         // Create library queue if not already playing from library
         if (!PlayerState.libraryQueue.length) {
             const libraryItems = document.querySelectorAll('.library-item');
-            PlayerState.libraryQueue = Array.from(libraryItems).map(item => ({
-                url: item.dataset.url,
-                title: item.dataset.title,
-                thumbnail: item.dataset.thumbnail,
-                artist: item.dataset.artist
-            }));
+            PlayerState.libraryQueue = Array.from(libraryItems)
+                .map(item => this.getSongDataFromElement(item))
+                .filter(Boolean);
         }
 
         // Find the index of the clicked song in the library queue
@@ -342,6 +339,42 @@ const Player = {
             // If it's a different song, start playing it
             this.playFromLibrary(url, title, thumbnail, artist);
         }
+    },
+
+    togglePlayFromLibraryElement(button) {
+        if (!button) return;
+
+        const item = button.closest('.library-item');
+        const song = item ? this.getSongDataFromElement(item) : this.getSongDataFromElement(button);
+        if (!song) return;
+
+        this.togglePlayFromLibrary(song.url, song.title, song.thumbnail, song.artist);
+    },
+
+    getSongDataFromElement(element) {
+        if (!element) return null;
+
+        const encoded = element.dataset.song;
+        if (encoded) {
+            try {
+                return JSON.parse(decodeURIComponent(encoded));
+            } catch (error) {
+                console.error('Unable to parse encoded song data:', error);
+            }
+        }
+
+        // Fallback to individual data attributes
+        const { url, title, thumbnail, artist } = element.dataset;
+        if (!url) {
+            return null;
+        }
+
+        return {
+            url,
+            title: title || 'Unknown Title',
+            thumbnail: thumbnail || '',
+            artist: artist || 'Unknown Artist'
+        };
     }
 };
 
@@ -550,32 +583,66 @@ const Library = {
     },
 
     createSongElement(song) {
+        const sanitizeAttr = (value = '') => String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        const sanitizedUrl = sanitizeAttr(song.url);
+        const sanitizedTitle = sanitizeAttr(song.title);
+        const sanitizedThumbnail = sanitizeAttr(song.thumbnail);
+        const sanitizedArtist = sanitizeAttr(song.artist);
+        const encodedSong = encodeURIComponent(JSON.stringify({
+            url: song.url,
+            title: song.title,
+            thumbnail: song.thumbnail,
+            artist: song.artist
+        }));
+        const sanitizedEncodedSong = sanitizeAttr(encodedSong);
+
         return `
             <li class="library-item" 
-                data-url="${song.url}"
-                data-title="${song.title}"
-                data-thumbnail="${song.thumbnail}"
-                data-artist="${song.artist}">
-                <img class="song-thumbnail" src="${song.thumbnail}" alt="${song.title}">
+                data-url="${sanitizedUrl}"
+                data-title="${sanitizedTitle}"
+                data-thumbnail="${sanitizedThumbnail}"
+                data-artist="${sanitizedArtist}"
+                data-song="${sanitizedEncodedSong}">
+                <img class="song-thumbnail" src="${sanitizedThumbnail}" alt="${sanitizedTitle}">
                 <div class="library-item-info">
-                    <h3>${song.title}</h3>
-                    <p>${song.artist}</p>
+                    <h3>${sanitizedTitle}</h3>
+                    <p>${sanitizedArtist}</p>
                 </div>
                 <div class="library-item-controls">
                     <button
                         class="play-btn"
-                        onclick="Player.togglePlayFromLibrary('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')"
+                        data-song="${sanitizedEncodedSong}"
+                        onclick="Player.togglePlayFromLibraryElement(this)"
                         title="Play/Pause"
                     >
                         <i class="fas fa-play"></i>
                     </button>
                     <button class="remove-from-library" 
-                        onclick="Library.remove(${JSON.stringify(song)})">
+                        data-song="${sanitizedEncodedSong}"
+                        onclick="Library.removeFromElement(this)">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </li>
         `;
+    },
+
+    async removeFromElement(button) {
+        if (!button || !button.dataset.song) return;
+
+        try {
+            const songData = JSON.parse(decodeURIComponent(button.dataset.song));
+            await this.remove(songData);
+        } catch (error) {
+            console.error('Failed to parse song data for removal:', error);
+            alert('Something went wrong while removing this song. Please try again.');
+        }
     },
 
     async toggleLike(song) {
@@ -871,10 +938,13 @@ function showHome() {
         searchInput.value = '';
     }
     
-    // Add active class to home button
+    // Briefly highlight the home button so it remains responsive on repeated clicks
     const homeBtn = document.querySelector('.home-btn');
     if (homeBtn) {
         homeBtn.classList.add('active');
+        setTimeout(() => {
+            homeBtn.classList.remove('active');
+        }, 200);
     }
 }
 
