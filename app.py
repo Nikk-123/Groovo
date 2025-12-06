@@ -10,6 +10,15 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 import logging
 import requests
+import ctypes
+
+# Set App User Model ID (AUMID) for Windows
+# This ensures the app has a distinct identity in the taskbar and notifications
+try:
+    myappid = 'Groovo.App.v1' # arbitrary string
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+except Exception as e:
+    logging.error(f"Failed to set AUMID: {e}")
 
 # Load environment variables
 if getattr(sys, 'frozen', False):
@@ -703,23 +712,7 @@ def not_found_error(error):
         'message': 'Resource not found'
     }), 404
 
-@app.route('/static/manifest.json')
-def manifest():
-    return jsonify({
-        "name": "Groovo",
-        "short_name": "Groovo",
-        "start_url": "/",
-        "display": "standalone",
-        "background_color": "#121212",
-        "theme_color": "#1db954",
-        "icons": [
-            {
-                "src": "/static/favicon.png",
-                "sizes": "192x192",
-                "type": "image/png"
-            }
-        ]
-    })
+
 
 @app.route('/face_auth')
 def face_auth():
@@ -868,6 +861,15 @@ if __name__ == "__main__":
     flask_thread.start()
     
     # Create and start webview window
+    import os
+    if getattr(sys, 'frozen', False):
+        base_dir = sys._MEIPASS
+    else:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        
+    icon_path = os.path.join(base_dir, 'static', 'icon.png')
+    
+    # Note: 'icon' parameter removed as it causes TypeError in current environment
     window = webview.create_window("Groovo", "http://127.0.0.1:8000/")
     
     def cleanup():
