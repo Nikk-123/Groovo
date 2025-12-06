@@ -2,6 +2,8 @@ import webview
 from flask import Flask, redirect, request, session, jsonify, render_template, url_for, flash
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import timedelta
 from dotenv import load_dotenv
 from flask_cors import CORS
 from yt_dlp import YoutubeDL
@@ -24,12 +26,44 @@ AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'http://192.168.0.112:9000')
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.secret_key = 'REMOVED_SECRET_KEY'
+app.permanent_session_lifetime = timedelta(days=30)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 # In-memory storage for users
 users = []
+
+def fetch_single_mood(mood, search_query, ydl_opts, playlist_size):
+    try:
+        with YoutubeDL(ydl_opts) as ydl:
+            full_query = f'ytsearch{playlist_size}:{search_query}'
+            info = ydl.extract_info(full_query, download=False)
+            playlist_songs = []
+            
+            for entry in info.get('entries', []):
+                if entry:  
+                    thumbnails = entry.get('thumbnails', [])
+                    thumbnail_url = ''
+                    if thumbnails:
+                        for thumb in thumbnails:
+                            if thumb.get('height', 0) >= 180:
+                                thumbnail_url = thumb['url']
+                                break
+                        if not thumbnail_url and thumbnails:
+                            thumbnail_url = thumbnails[0]['url']
+
+                    song = {
+                        'title': entry.get('title', 'Unknown Title'),
+                        'url': f"https://www.youtube.com/watch?v={entry.get('id')}",
+                        'thumbnail': thumbnail_url,
+                        'channel': entry.get('channel', entry.get('uploader', 'Unknown Artist'))
+                    }
+                    playlist_songs.append(song)
+            return mood, playlist_songs
+    except Exception as mood_error:
+        print(f"Error fetching playlist for mood '{mood}': {mood_error}")
+        return mood, []
 
 def fetch_mood_playlists(playlist_size=7):
     moods = {
@@ -59,55 +93,24 @@ def fetch_mood_playlists(playlist_size=7):
     }
     
     try:
-        with YoutubeDL(ydl_opts) as ydl:
-            for mood, search_query in moods.items():
-                try:
-                    full_query = f'ytsearch{playlist_size}:{search_query}'
-                    info = ydl.extract_info(full_query, download=False)
-                    playlist_songs = []
-                    
-                    for entry in info.get('entries', []):
-                        if entry:  
-                            thumbnails = entry.get('thumbnails', [])
-                            thumbnail_url = ''
-                            if thumbnails:
-                                for thumb in thumbnails:
-                                    if thumb.get('height', 0) >= 180:
-                                        thumbnail_url = thumb['url']
-                                        break
-                                if not thumbnail_url and thumbnails:
-                                    thumbnail_url = thumbnails[0]['url']
-
-                            song = {
-                                'title': entry.get('title', 'Unknown Title'),
-                                'url': f"https://www.youtube.com/watch?v={entry.get('id')}",
-                                'thumbnail': thumbnail_url,
-                                'channel': entry.get('channel', entry.get('uploader', 'Unknown Artist'))
-                            }
-                            playlist_songs.append(song)
-                    
-                    mood_playlists[mood] = playlist_songs
-                except Exception as mood_error:
-                    print(f"Error fetching playlist for mood '{mood}': {mood_error}")
-                    mood_playlists[mood] = []  
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_mood = {executor.submit(fetch_single_mood, mood, query, ydl_opts, playlist_size): mood for mood, query in moods.items()}
+            
+            for future in as_completed(future_to_mood):
+                mood, songs = future.result()
+                mood_playlists[mood] = songs
+                
+        # Ensure all keys exist even if failed
+        for mood in moods:
+            if mood not in mood_playlists:
+                mood_playlists[mood] = []
                 
         return mood_playlists
     
     except Exception as e:
         print(f"Error fetching mood playlists: {e}")
         # Return a basic structure to prevent template errors
-        return {
-            'Happy': [],
-            'Chill': [],
-            'Workout': [],
-            'Focus': [],
-            'Party': [],
-            'Bollywood Party': [],
-            'Classical': [],
-            'Bhakti': [],
-            'Romantic': [],
-            'Punjabi': []
-        }
+        return {k: [] for k in moods}
 
 def fetch_trending():
     try:
@@ -212,6 +215,8 @@ def fetch_trending():
 #NEW 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
     error = None  # Initialize error variable
 
     if request.method == 'POST':
@@ -225,6 +230,7 @@ def login():
             
             if data.get('success'):
                 session['user_id'] = email
+                session.permanent = True
                 if request.headers.get('Accept') == 'application/json':
                     return jsonify({
                         'success': True,
@@ -321,6 +327,8 @@ def check_session():
 
 @app.route('/')
 def index():
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 
 @app.route('/dashboard')
@@ -822,6 +830,7 @@ def match_face():
         result = response.json()
         if result.get('status') == 'success' and result.get('verified'):
             session['user_id'] = result['username']
+            session.permanent = True
             return jsonify({
                 'status': 'success',
                 'verified': True,
@@ -887,4 +896,4 @@ if __name__ == "__main__":
     window.events.closed += cleanup
     
     # Start webview
-    webview.start()
+    webview.start(private_mode=False)
