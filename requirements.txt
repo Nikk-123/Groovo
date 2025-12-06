@@ -7,7 +7,7 @@ pymongo
 python-dotenv
 
 # GUI
-pywebview[cef]
+pywebview>=5.0
 
 # Media Processing
 yt-dlp
