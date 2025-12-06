@@ -15,7 +15,11 @@ const PlayerState = {
     retryCount: 0,
     maxRetries: 3,
     shuffledQueue: [],
-    libraryQueue: []
+    libraryQueue: [],
+    customRepeat: {
+        active: false,
+        count: 0
+    }
 };
 
 // DOM Elements (unchanged)
@@ -179,7 +183,7 @@ const Player = {
             PlayerState.audio.volume = PlayerState.volume;
             
             // Setup event handlers
-            PlayerState.audio.onended = () => PlaybackControls.playNext();
+            PlayerState.audio.onended = () => PlaybackControls.playNext(true);
             PlayerState.audio.onerror = (error) => {
                 console.error('Audio playback error:', error);
                 this.handlePlaybackError();
@@ -460,12 +464,40 @@ const PlaybackControls = {
         });
     },
 
-    playNext() {
+    playNext(isAuto = false) {
+        // Handle Custom Repeat
+        if (isAuto && PlayerState.customRepeat.active) {
+            if (PlayerState.customRepeat.count > 0) {
+                PlayerState.customRepeat.count--;
+                updateCustomRepeatDisplay();
+                
+                // If counts remain (after decrement), replay current song
+                if (PlayerState.customRepeat.count > 0) {
+                     if (PlayerState.currentSong) {
+                        Player.play(
+                            PlayerState.currentSong.url,
+                            PlayerState.currentSong.title,
+                            PlayerState.currentSong.thumbnail,
+                            PlayerState.currentSong.artist
+                        );
+                        return;
+                    }
+                } else {
+                    // Count reached 0 on this play completion (it was 1, now 0)
+                    // The song just finished the last repeat.
+                    // Disable custom repeat and proceed to next song.
+                    cancelCustomRepeat();
+                }
+            } else {
+                 cancelCustomRepeat();
+            }
+        }
+
         const queue = PlayerState.isShuffleOn ? PlayerState.shuffledQueue : PlayerState.queue;
         if (queue.length === 0) return;
 
-        // If repeat once is enabled, replay the current song
-        if (PlayerState.repeatMode === 'once' && PlayerState.currentSong) {
+        // If repeat once is enabled, replay the current song (only if auto-advance)
+        if (isAuto && PlayerState.repeatMode === 'once' && PlayerState.currentSong) {
             Player.play(
                 PlayerState.currentSong.url,
                 PlayerState.currentSong.title,
@@ -527,6 +559,11 @@ const Library = {
     },
 
     async add(songData) {
+        // Optimistic update: Add to library and update UI immediately
+        PlayerState.library.push(songData);
+        this.updateDisplay();
+        this.updateLikeButton(songData.url);
+
         try {
             const response = await fetch('/library/add', {
                 method: 'POST',
@@ -534,18 +571,26 @@ const Library = {
                 body: JSON.stringify(songData)
             });
             const data = await response.json();
-            if (data.success) {
-                PlayerState.library.push(songData);
-                this.updateDisplay();
-                this.updateLikeButton(songData.url);
+            if (!data.success) {
+                throw new Error(data.message || 'Failed to add');
             }
         } catch (error) {
             console.error('Error adding to library:', error);
+            // Revert changes on failure
+            PlayerState.library = PlayerState.library.filter(s => s.url !== songData.url);
+            this.updateDisplay();
+            this.updateLikeButton(songData.url);
             alert('Failed to add song to library');
         }
     },
 
     async remove(songData) {
+        // Optimistic update: Remove from library and update UI immediately
+        const originalLibrary = [...PlayerState.library]; // Backup for revert
+        PlayerState.library = PlayerState.library.filter(song => song.url !== songData.url);
+        this.updateDisplay();
+        this.updateLikeButton(songData.url);
+
         try {
             const response = await fetch('/library/remove', {
                 method: 'POST',
@@ -553,13 +598,15 @@ const Library = {
                 body: JSON.stringify(songData)
             });
             const data = await response.json();
-            if (data.success) {
-                PlayerState.library = PlayerState.library.filter(song => song.url !== songData.url);
-                this.updateDisplay();
-                this.updateLikeButton(songData.url);
+            if (!data.success) {
+                throw new Error(data.message || 'Failed to remove');
             }
         } catch (error) {
             console.error('Error removing from library:', error);
+            // Revert changes on failure
+            PlayerState.library = originalLibrary;
+            this.updateDisplay();
+            this.updateLikeButton(songData.url);
             alert('Failed to remove song from library');
         }
     },
@@ -780,8 +827,87 @@ function updateVolumeIcons(volume) {
     const miniVolumeBtn = document.getElementById('miniVolumeBtn');
     const volumeBtn = document.getElementById('volumeBtn');
     
-    if (miniVolumeBtn) miniVolumeBtn.innerHTML = `<i class="fas ${icon}"></i>`;
     if (volumeBtn) volumeBtn.innerHTML = `<i class="fas ${icon}"></i>`;
+}
+
+// Custom Repeat Functions
+function toggleCustomRepeatUI() {
+    const modal = document.getElementById('customRepeatModal');
+    if (modal) {
+        modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
+        
+        // Reset input to 2 when opening
+        if (modal.style.display === 'flex') {
+             const input = document.getElementById('playCountInput');
+             if(input) input.value = 2;
+        }
+    }
+}
+
+function adjustRepeatCount(delta) {
+    const input = document.getElementById('playCountInput');
+    if (input) {
+        let val = parseInt(input.value) || 2;
+        val += delta;
+        if (val < 2) val = 2;
+        if (val > 100) val = 100;
+        input.value = val;
+    }
+}
+
+function confirmCustomRepeat() {
+    const input = document.getElementById('playCountInput');
+    if (input) {
+        const count = parseInt(input.value);
+        if (count >= 2 && count <= 100) {
+            PlayerState.customRepeat.active = true;
+            PlayerState.customRepeat.count = count;
+            
+            // Update UI
+            toggleCustomRepeatUI();
+            updateCustomRepeatDisplay();
+            
+            // Disable standard repeat if active to avoid confusion
+            if (PlayerState.repeatMode !== 'off') {
+                PlaybackControls.toggleRepeat(); // Cycle until off? No, just set to off
+                PlayerState.repeatMode = 'off';
+                // Force update UI for repeat button
+                 const repeatButtons = [
+                    document.getElementById('miniRepeatBtn'),
+                    document.getElementById('repeatBtn')
+                ];
+                repeatButtons.forEach(btn => {
+                    if (btn) {
+                        btn.classList.remove('active', 'once');
+                        btn.title = 'Repeat (off)';
+                    }
+                });
+            }
+        }
+    }
+}
+
+function cancelCustomRepeat() {
+    PlayerState.customRepeat.active = false;
+    PlayerState.customRepeat.count = 0;
+    updateCustomRepeatDisplay();
+}
+
+function updateCustomRepeatDisplay() {
+    const display = document.getElementById('repeatStatusDisplay');
+    const countSpan = document.getElementById('repeatsLeftCount');
+    const customBtn = document.getElementById('customRepeatBtn');
+    
+    if (display && countSpan) {
+        if (PlayerState.customRepeat.active && PlayerState.customRepeat.count > 0) {
+            display.style.display = 'flex';
+            countSpan.textContent = PlayerState.customRepeat.count;
+            if(customBtn) customBtn.classList.add('active'); // Style this if needed
+        } else {
+            display.style.display = 'none';
+            if(customBtn) customBtn.classList.remove('active');
+        }
+    }
 }
 
 // Initialize
