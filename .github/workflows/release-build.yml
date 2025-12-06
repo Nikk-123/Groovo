@@ -59,7 +59,7 @@ jobs:
 
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --noconsole --clean --add-data "templates;templates" --add-data "static;static" --add-data ".env;." --name "app-${{ env.NEW_TAG }}" app.py
+          pyinstaller --onefile --noconsole --clean --add-data "templates;templates" --add-data "static;static" --add-data ".env;." --name "groovo-${{ env.NEW_TAG }}" app.py
         shell: cmd
 
       - name: Verify EXE Creation
@@ -68,8 +68,8 @@ jobs:
       - name: Upload EXE to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: app-exe-${{ env.NEW_TAG }}
-          path: dist/app-${{ env.NEW_TAG }}.exe
+          name: groovo-exe-${{ env.NEW_TAG }}
+          path: dist/groovo-${{ env.NEW_TAG }}.exe
 
       - name: Upload .env to Artifacts (for debugging)
         uses: actions/upload-artifact@v4
@@ -94,7 +94,7 @@ jobs:
       - name: Release on GitHub
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/app-${{ env.NEW_TAG }}.exe
+          files: dist/groovo-${{ env.NEW_TAG }}.exe
           tag_name: ${{ env.NEW_TAG }}
           name: "Release ${{ env.NEW_TAG }}"
           body: "🚀 New version released: ${{ env.NEW_TAG }} \n\n - Auto-generated update."
