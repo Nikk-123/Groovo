@@ -1,274 +1,371 @@
-/* Mini Player Styling (Spotify-inspired) */
+/* Mini Player Redesign - Modern & Premium */
 .mini-player {
-    background: #181818;
-    color: #ffffff;
-    width: 100%;
-    padding: 8px 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.2);
-    display: flex;
-    align-items: center;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  }
-  
-  .mini-player-content {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
-    gap: 16px;
-  }
-  
-  /* Song Info */
-  .mini-song-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 200px;
-  }
-  
-  .mini-thumbnail {
-    width: 48px;
-    height: 48px;
-    object-fit: cover;
-    border-radius: 4px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  }
-  
-  .mini-text-info {
-    display: flex;
-    flex-direction: column;
-    max-width: 150px;
-  }
-  
-  .mini-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: #ffffff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  .mini-artist {
-    font-size: 12px;
-    color: #b3b3b3;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  .mini-like-btn {
-    background: none;
-    border: none;
-    color: #b3b3b3;
-    font-size: 16px;
-    cursor: pointer;
-    transition: color 0.2s ease;
-  }
-  
-  .mini-like-btn:hover {
-    color: #1db954;
-  }
-  
-  .mini-like-btn .fa-heart.fas {
-    color: #1db954;
-  }
-  
-  /* Player Controls */
+  background: rgba(18, 18, 18, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  width: 100%;
+  padding: 0 16px;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+  position: relative;
+  z-index: 1000;
+}
+
+.mini-player-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1400px;
+  /* Wider content area */
+  height: 100%;
+  gap: 32px;
+}
+
+/* --- Song Info Section --- */
+.mini-song-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 30%;
+  min-width: 180px;
+}
+
+.mini-thumbnail {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s ease;
+}
+
+.mini-thumbnail:hover {
+  transform: scale(1.05);
+}
+
+.mini-text-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.mini-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.2px;
+}
+
+.mini-artist {
+  font-size: 12px;
+  font-weight: 400;
+  color: #b3b3b3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.2s;
+}
+
+.mini-artist:hover {
+  color: #ffffff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.mini-like-btn {
+  background: none;
+  border: none;
+  color: #b3b3b3;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 8px;
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.mini-like-btn:hover {
+  color: #1db954;
+  background: rgba(255, 255, 255, 0.05);
+  transform: scale(1.1);
+}
+
+.mini-like-btn .fa-heart.fas {
+  color: #1db954;
+}
+
+/* --- Player Controls Section --- */
+.mini-player-controls {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 600px;
+}
+
+.mini-control-buttons {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 4px;
+}
+
+.mini-control-btn {
+  background: none;
+  border: none;
+  color: #b3b3b3;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  /* Bouncy effect */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 50%;
+}
+
+.mini-control-btn:hover {
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.mini-control-btn.play-pause {
+  width: 36px;
+  height: 36px;
+  background: #ffffff;
+  color: #000000;
+  border-radius: 50%;
+  font-size: 16px;
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+  transition: all 0.2s ease;
+  padding-left: 2px;
+  /* Visual center adjustment for play icon */
+}
+
+.mini-control-btn.play-pause:hover {
+  transform: scale(1.08);
+  /* Slightly larger on hover */
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+  color: #000;
+  /* Ensure icon stays black */
+}
+
+/* Correct icon centering for play button when it toggles */
+.mini-control-btn.play-pause:has(.fa-pause) {
+  padding-left: 0;
+}
+
+.mini-control-btn.active {
+  color: #1db954;
+}
+
+.mini-control-btn.active::after {
+  content: '•';
+  position: absolute;
+  bottom: 0;
+  font-size: 20px;
+  color: #1db954;
+  transform: translateY(10px);
+}
+
+/* --- Progress Bar --- */
+.mini-progress-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.time {
+  font-size: 11px;
+  color: #b3b3b3;
+  font-variant-numeric: tabular-nums;
+  min-width: 35px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.mini-progress-bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  /* Darker track */
+  border-radius: 2px;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  /* Contain the progress */
+}
+
+.mini-progress-bar:hover {
+  height: 6px;
+  border-radius: 3px;
+}
+
+.progress {
+  background: #ffffff;
+  /* White by default like Spotify */
+  height: 100%;
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.1s linear;
+  position: relative;
+}
+
+.mini-progress-bar:hover .progress {
+  background: #1db954;
+  /* Green on hover */
+}
+
+/* --- Volume Controls Section --- */
+.mini-volume-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  width: 30%;
+  min-width: 150px;
+}
+
+.mini-device-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #b3b3b3;
+  font-weight: 500;
+  margin-left: 16px;
+  padding-left: 16px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mini-device-info i {
+  color: #1db954;
+  /* Active device color */
+}
+
+#volumeControl {
+  -webkit-appearance: none;
+  width: 90px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  transition: height 0.1s;
+}
+
+#volumeControl:hover {
+  height: 6px;
+}
+
+#volumeControl::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  /* Hidden by default */
+  transition: opacity 0.2s;
+}
+
+#volumeControl:hover::-webkit-slider-thumb {
+  opacity: 1;
+  /* Show on hover */
+}
+
+
+/* --- Responsive Design --- */
+@media (max-width: 900px) {
   .mini-player-controls {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    max-width: 500px;
+    max-width: 40%;
   }
-  
-  .mini-control-buttons {
-    display: flex;
-    align-items: center;
+}
+
+@media (max-width: 768px) {
+  .mini-player {
+    height: 64px;
+    padding: 0 8px;
+    /* Less padding on mobile */
+    bottom: 56px;
+    /* Space for mobile nav if it exists, or just ensure it sits above bottom edge */
+  }
+
+  .mini-player-content {
     gap: 12px;
   }
-  
-  .mini-control-btn {
-    background: none;
-    border: none;
-    color: #b3b3b3;
-    font-size: 16px;
-    cursor: pointer;
-    transition: color 0.2s ease, transform 0.2s ease;
-  }
-  
-  .mini-control-btn:hover {
-    color: #ffffff;
-    transform: scale(1.1);
-  }
-  
-  .mini-control-btn.play-pause {
-    color: #ffffff;
-    font-size: 20px;
-  }
-  
-  .mini-control-btn.play-pause:hover {
-    color: #1db954;
-  }
-  
-  .mini-progress-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-  }
-  
-  .time {
-    font-size: 10px;
-    color: #b3b3b3;
-    min-width: 30px;
-    text-align: center;
-  }
-  
-  .mini-progress-bar {
+
+  .mini-song-info {
+    width: auto;
     flex: 1;
-    height: 3px;
-    background: #535353;
-    border-radius: 1.5px;
-    position: relative;
-    cursor: pointer;
+    /* Take up available space */
+    min-width: 0;
+    /* Allow shrinking */
   }
-  
-  .progress {
-    background: #1db954;
-    height: 100%;
-    border-radius: 1.5px;
-    transition: width 0.1s linear;
+
+  .mini-thumbnail {
+    width: 42px;
+    height: 42px;
   }
-  
-  .mini-progress-bar:hover .progress {
-    background: #1ed760;
+
+  .mini-text-info {
+    max-width: 140px;
   }
-  
-  /* Volume Controls */
-  .mini-volume-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+
+  /* Hide less important controls on mobile */
+  .mini-player-controls {
+    flex: 0;
+    width: auto;
+    min-width: auto;
   }
-  
-  #miniVolumeBtn {
+
+  .mini-progress-container,
+  .mini-volume-controls,
+  .mini-device-info,
+  .mini-control-btn.shuffle,
+  .mini-control-btn.repeat,
+  .mini-control-btn.prev-btn {
+    /* Consider hiding prev button to save space if needed */
+    display: none !important;
+  }
+
+  #miniPrevBtn {
+    display: none;
+  }
+
+  .mini-control-buttons {
+    gap: 12px;
+    margin: 0;
+  }
+
+  .mini-control-btn.play-pause {
+    width: 32px;
+    height: 32px;
     font-size: 14px;
   }
-  
-  #volumeControl {
-    width: 80px;
-    height: 3px;
-    background: #535353;
-    border-radius: 1.5px;
-    outline: none;
-    cursor: pointer;
-    -webkit-appearance: none;
+
+  /* Ensure like button is visible but improved */
+  .mini-like-btn {
+    margin-left: auto;
+    /* Push to right if in song-info container */
   }
-  
-  #volumeControl::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 10px;
-    height: 10px;
-    background: #1db954;
-    border-radius: 50%;
-    cursor: pointer;
-  }
-  
-  #volumeControl::-webkit-slider-thumb:hover {
-    background: #1ed760;
-  }
-  
-  /* Device Info */
-  .mini-device-info {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: #b3b3b3;
-  }
-  
-  .mini-device-info i {
-    font-size: 14px;
-  }
-  
-  /* Responsive Design */
-  @media (max-width: 768px) {
-    .mini-player {
-      padding: 8px;
-    }
-  
-    .mini-player-content {
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-  
-    .mini-song-info {
-      min-width: 150px;
-    }
-  
-    .mini-thumbnail {
-      width: 40px;
-      height: 40px;
-    }
-  
-    .mini-text-info {
-      max-width: 100px;
-    }
-  
-    .mini-title {
-      font-size: 12px;
-    }
-  
-    .mini-artist {
-      font-size: 10px;
-    }
-  
-    .mini-control-buttons {
-      gap: 8px;
-    }
-  
-    .mini-control-btn {
-      font-size: 14px;
-    }
-  
-    .mini-control-btn.play-pause {
-      font-size: 18px;
-    }
-  
-    #volumeControl {
-      width: 60px;
-    }
-  }
-  
-  @media (max-width: 480px) {
-    .mini-player-content {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-  
-    .mini-song-info {
-      width: 100%;
-      justify-content: space-between;
-    }
-  
-    .mini-player-controls {
-      width: 100%;
-      max-width: none;
-    }
-  
-    .mini-volume-controls {
-      justify-content: center;
-      width: 100%;
-    }
-  
-    .mini-device-info {
-      width: 100%;
-      justify-content: center;
-    }
-  }
+}

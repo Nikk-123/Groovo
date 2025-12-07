@@ -813,13 +813,15 @@ function updateVolumeControls(volume) {
 function updateVolumeIcons(volume) {
     const volumeIcons = {
         mute: 'fa-volume-mute',
-        low: 'fa-volume-down',
-        high: 'fa-volume-up'
+        low: 'fa-volume-off',    // Speaker cone only (Low)
+        medium: 'fa-volume-low', // 1 wave (Medium)
+        high: 'fa-volume-high'   // 2 waves (Full)
     };
 
     const getVolumeIcon = (vol) => {
         if (vol === 0) return volumeIcons.mute;
-        if (vol < 0.5) return volumeIcons.low;
+        if (vol < 0.33) return volumeIcons.low;
+        if (vol < 0.66) return volumeIcons.medium;
         return volumeIcons.high;
     };
 
@@ -827,7 +829,10 @@ function updateVolumeIcons(volume) {
     const miniVolumeBtn = document.getElementById('miniVolumeBtn');
     const volumeBtn = document.getElementById('volumeBtn');
     
-    if (volumeBtn) volumeBtn.innerHTML = `<i class="fas ${icon}"></i>`;
+    // Update both buttons
+    const iconHtml = `<i class="fas ${icon}"></i>`;
+    if (volumeBtn) volumeBtn.innerHTML = iconHtml;
+    if (miniVolumeBtn) miniVolumeBtn.innerHTML = iconHtml;
 }
 
 // Custom Repeat Functions
