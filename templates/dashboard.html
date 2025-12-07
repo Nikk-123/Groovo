@@ -9,9 +9,11 @@
   <!-- <script src="https://cdn.tailwindcss.com"></script> -->
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/expanded-player.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/mini-player.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/skeleton.css') }}" />
 
 </head>
 
@@ -70,7 +72,8 @@
 
     <div id="trendingContainer">
       <h2>Here’s what’s trending right now</h2>
-      <ul class="song-list">
+      <ul class="song-list" id="trending-list">
+        {% if trending %}
         {% for song in trending %}
         <li class="song-item" data-url="{{ song.url }}" data-title="{{ song.title }}"
           data-thumbnail="{{ song.thumbnail }}" data-artist="{{ song.artist }}">
@@ -93,35 +96,31 @@
           </div>
         </li>
         {% endfor %}
+        {% else %}
+        <!-- Skeleton Loading State for Trending -->
+        {% for i in range(7) %}
+        <li class="song-item skeleton">
+          <div class="skeleton-img"></div>
+          <div class="skeleton-text skeleton-title"></div>
+          <div class="skeleton-text skeleton-artist"></div>
+        </li>
+        {% endfor %}
+        {% endif %}
       </ul>
     </div>
 
     <div id="moodPlaylistsContainer">
-      {% for mood, songs in mood_playlists.items() %}
+      {% for mood in mood_playlists %}
       <div class="mood-section">
         <h2>{{ mood }} Mood</h2>
         <div class="mood-playlist">
-          <ul class="song-list">
-            {% for song in songs %}
-            <li class="song-item" data-url="{{ song.url }}" data-title="{{ song.title }}"
-              data-thumbnail="{{ song.thumbnail }}" data-artist="{{ song.channel }}">
-              <img class="song-thumbnail" src="{{ song.thumbnail }}" alt="{{ song.title }}" />
-              <div class="song-info">
-                <h3>{{ song.title }}</h3>
-                <p>{{ song.channel }}</p>
-                <div class="song-buttons">
-                  <button
-                    onclick="Player.play('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.channel }}')"
-                    class="play-btn">
-                    <i class="fas fa-play"></i>
-                  </button>
-                  <button class="add-to-library"
-                    onclick="Library.toggleLike({url: '{{ song.url }}', title: '{{ song.title }}', thumbnail: '{{ song.thumbnail }}', artist: '{{ song.channel }}'})"
-                    title="Save to Library">
-                    <i class="fa-heart {% if song.url in user_library_urls %}fas{% else %}far{% endif %}"></i>
-                  </button>
-                </div>
-              </div>
+          <ul class="song-list" data-mood="{{ mood }}">
+            <!-- Skeleton Loading State for Moods -->
+            {% for i in range(7) %}
+            <li class="song-item skeleton">
+              <div class="skeleton-img"></div>
+              <div class="skeleton-text skeleton-title"></div>
+              <div class="skeleton-text skeleton-artist"></div>
             </li>
             {% endfor %}
           </ul>
@@ -325,6 +324,7 @@
 
   <script src="{{ url_for('static', filename='js/player.js') }}"></script>
   <script src="{{ url_for('static', filename='js/greeting.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/loader.js') }}"></script>
 </body>
 
 </html>

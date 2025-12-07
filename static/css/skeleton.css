@@ -1,0 +1,73 @@
+/* Skeleton Loading Styles */
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* Card Container - Static Background */
+.song-item.skeleton {
+    pointer-events: none;
+    background: #181818;
+    /* Match .song-item in styles.css */
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    border-radius: 8px;
+    gap: 0;
+    /* Let margins handle spacing to match real layout */
+    min-height: auto;
+    /* Let content dictate height */
+    box-shadow: none;
+    animation: none;
+    /* Override any generic skeleton animation */
+}
+
+/* Inner Elements - Shimmer Effect */
+.song-item.skeleton .skeleton-img,
+.song-item.skeleton .skeleton-text {
+    background-color: #2a2a2a;
+    background-image: linear-gradient(90deg,
+            #2a2a2a 0px,
+            #3a3a3a 40px,
+            #2a2a2a 80px);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
+}
+
+/* Thumbnail Placeholder */
+.song-item.skeleton .skeleton-img {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 4px;
+    /* Match .song-thumbnail */
+    margin-bottom: 16px;
+    /* Match .song-thumbnail */
+    box-shadow: none;
+}
+
+/* Text Placeholders */
+.song-item.skeleton .skeleton-text {
+    border-radius: 4px;
+}
+
+.song-item.skeleton .skeleton-title {
+    height: 14px;
+    /* Match h3 font-size */
+    width: 75%;
+    margin-bottom: 8px;
+    /* Match h3 margin-bottom */
+}
+
+.song-item.skeleton .skeleton-artist {
+    height: 12px;
+    /* Match p font-size */
+    width: 50%;
+    margin-bottom: 12px;
+    /* Match p margin-bottom */
+}

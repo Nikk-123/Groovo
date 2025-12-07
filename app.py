@@ -12,6 +12,7 @@ import logging
 import requests
 import ctypes
 
+
 # Set App User Model ID (AUMID) for Windows
 # This ensures the app has a distinct identity in the taskbar and notifications
 try:
@@ -36,6 +37,13 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.secret_key = 'Chayan@12'
 app.permanent_session_lifetime = timedelta(days=30)
+app.config['JSON_SORT_KEYS'] = False # Preserve order of JSON responses
+
+# Mood definitions
+MOODS = [
+    'Happy', 'Chill', 'Workout', 'Focus', 'Party', 
+    'Bollywood Party', 'Classical', 'Bhakti', 'Romantic', 'Punjabi'
+]
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -348,29 +356,83 @@ def dashboard():
     user_email = session['user_id']
     try:
         # Get user data from auth service
+        # NOTE: This call is still synchronous but usually fast (auth check)
         response = requests.get(f'{AUTH_SERVICE_URL}/api/check-session',
-                             headers={'X-User-Email': user_email})
-        data = response.json()
+                             headers={'X-User-Email': user_email}, timeout=5)
+        
+        try:
+            data = response.json()
+        except:
+             data = {'success': False}
         
         if not data.get('success'):
             session.pop('user_id', None)
             return redirect(url_for('login'))
         
         user_data = data
-        trending_songs = fetch_trending()
-        mood_playlists = fetch_mood_playlists()
         user_library_urls = [song['url'] for song in user_data.get('library', [])]
         
+        # Pass empty structures for trending and mood playlists to let client-side JS load them
         return render_template('dashboard.html',
                              user_email=user_email,
                              user_library=user_data.get('library', []),
                              user_library_urls=user_library_urls,
-                             trending=trending_songs,
-                             mood_playlists=mood_playlists)
+                             trending=[], # Empty initially
+                             mood_playlists={mood: [] for mood in MOODS}) # Empty initially
     except Exception as e:
         print(f"Error in dashboard: {str(e)}")
+        # If auth fails completely, logout
         session.pop('user_id', None)
         return redirect(url_for('login'))
+
+@app.route('/api/trending')
+def api_trending():
+    songs = fetch_trending()
+    return jsonify(songs)
+
+@app.route('/api/playlist')
+def api_playlist():
+    mood = request.args.get('mood')
+    if not mood:
+        return jsonify([])
+        
+    # We need to map the mood name to the query used in fetch_single_mood
+    # Re-using the dictionary from fetch_mood_playlists would be ideal but it was local.
+    # Let's redefine the mapping or refactor fetch_mood_playlists.
+    # For now, I will create a mapping here.
+    
+    mood_queries = {
+        'Happy': 'happy upbeat music playlist',
+        'Chill': 'chill lofi music playlist',
+        'Workout': 'workout motivation music playlist',
+        'Focus': 'focus study music playlist',
+        'Party': 'party hits music playlist',
+        'Bollywood Party': 'latest bollywood dance hits playlist',
+        'Classical': 'indian classical music playlist',
+        'Bhakti': 'popular bhakti songs playlist',
+        'Romantic': 'bollywood romantic songs playlist',
+        'Punjabi': 'latest punjabi hits playlist'
+    }
+    
+    query = mood_queries.get(mood)
+    if not query:
+        return jsonify([])
+
+    ydl_opts = {
+        'format': 'bestaudio',
+        'quiet': True,
+        'extract_flat': True,
+        'geo_bypass': True,
+        'nocheckcertificate': True,
+        'ignoreerrors': True,
+        'no_warnings': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
+    # Reuse fetch_single_mood but we need to import it or make it available.
+    # It is defined at top level, so we can call it.
+    _, songs = fetch_single_mood(mood, query, ydl_opts, playlist_size=7)
+    return jsonify(songs)
 
 @app.route('/settings')
 def settings():
