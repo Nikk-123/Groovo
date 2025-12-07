@@ -929,7 +929,7 @@ if __name__ == "__main__":
     else:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         
-    icon_path = os.path.join(base_dir, 'static', 'icon.png')
+    icon_path = os.path.join(base_dir, 'static', 'icon_new.png')
     
     # Note: 'icon' parameter removed as it causes TypeError in current environment
     window = webview.create_window("Groovo", "http://127.0.0.1:8000/")

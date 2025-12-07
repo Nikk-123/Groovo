@@ -29,7 +29,7 @@ jobs:
 
       - name: Create Icon
         run: |
-          python -c "from PIL import Image; Image.open('static/icon.png').save('static/icon.ico')"
+          python -c "from PIL import Image; Image.open('static/icon_new.png').save('static/icon.ico')"
         shell: cmd
 
       - name: Get Latest Release Tag and Increment
