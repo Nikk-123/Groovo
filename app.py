@@ -381,9 +381,15 @@ def dashboard():
                              mood_playlists={mood: [] for mood in MOODS}) # Empty initially
     except Exception as e:
         print(f"Error in dashboard: {str(e)}")
-        # If auth fails completely, logout
-        session.pop('user_id', None)
-        return redirect(url_for('login'))
+        # If it's a network error (timeout, connection), do NOT logout.
+        # Allow user to access dashboard in "offline" properties mode or just retry later.
+        flash("Could not connect to server. Some features may be unavailable.", "error")
+        return render_template('dashboard.html',
+                             user_email=user_email,
+                             user_library=[],
+                             user_library_urls=[],
+                             trending=[],
+                             mood_playlists={mood: [] for mood in MOODS})
 
 @app.route('/api/trending')
 def api_trending():
@@ -959,5 +965,13 @@ if __name__ == "__main__":
     # Register cleanup function
     window.events.closed += cleanup
     
+    # Ensure storage path is writable and persistent
+    storage_path = os.path.join(os.path.expanduser('~'), '.groovo', 'webview')
+    try:
+        os.makedirs(storage_path, exist_ok=True)
+    except Exception as e:
+        print(f"Failed to create storage directory: {e}")
+        storage_path = None # Fallback to default (temp) if creation fails
+
     # Start webview
-    webview.start(private_mode=False)
+    webview.start(private_mode=False, storage_path=storage_path)
