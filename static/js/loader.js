@@ -1,6 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     loadTrending();
     loadMoodPlaylists();
+    if (window.Library) {
+        Library.load();
+    }
 });
 
 async function loadTrending() {

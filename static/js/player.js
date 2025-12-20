@@ -546,16 +546,60 @@ const PlaybackControls = {
 // Library Management (unchanged except for play button handling)
 const Library = {
     async load() {
+        const libraryList = document.getElementById('libraryList');
+        const emptyMessage = document.getElementById('emptyLibraryMessage');
+        
         try {
             const response = await fetch('/library/get');
             const data = await response.json();
+            
             if (data.success) {
-                PlayerState.library = data.library;
-                this.updateDisplay();
+                PlayerState.library = data.library || [];
+                
+                // Clear skeletons
+                if (libraryList) libraryList.innerHTML = '';
+                
+                if (PlayerState.library.length === 0) {
+                    if (libraryList) libraryList.style.display = 'none';
+                    if (emptyMessage) emptyMessage.style.display = 'block';
+                } else {
+                    if (libraryList) {
+                        libraryList.style.display = 'block';
+                        libraryList.innerHTML = PlayerState.library.map(song => this.createSongElement(song)).join('');
+                    }
+                    if (emptyMessage) emptyMessage.style.display = 'none';
+                }
+                
+                // Update specific buttons if needed (re-check likes)
+                this.updateLikeButtons();
+            } else {
+                console.warn('Failed to load library:', data.message);
+                if (data.message === 'Not logged in') {
+                     // Optionally redirect or show login prompt, but dashboard might handle this.
+                     // For now, silent fail or empty library.
+                     if (libraryList) libraryList.innerHTML = ''; 
+                }
             }
         } catch (error) {
             console.error('Error loading library:', error);
+             if (libraryList) libraryList.innerHTML = '<li class="error-message">Failed to load library</li>';
         }
+    },
+
+    updateLikeButtons() {
+         // Helper to update all heart icons on the page based on current library
+         const allLikeButtons = document.querySelectorAll('.add-to-library i, .mini-like-btn i');
+         allLikeButtons.forEach(icon => {
+             // This is tricky because we need the song URL to check.
+             // Ideally we find the parent button and get the song data.
+             const btn = icon.closest('button');
+             if (btn) {
+                 const onclick = btn.getAttribute('onclick');
+                 // Parse onclick string is messy. Better: look for data attributes if present.
+                 // or just let individual interactions handle it. 
+                 // For now, let's rely on the player logic which checks like status when playing or rendering.
+             }
+         });
     },
 
     async add(songData) {

@@ -289,33 +289,17 @@
         </button>
       </div>
 
-      <div id="emptyLibraryMessage" style="display: {% if user_library|length == 0 %}block{% else %}none{% endif %}">
+      <div id="emptyLibraryMessage" style="display: none;">
         Your library is empty. Add songs to get started!
       </div>
 
-      <ul class="library-list" id="libraryList"
-        style="display: {% if user_library|length > 0 %}block{% else %}none{% endif %};">
-        {% for song in user_library %}
-        <li class="library-item" data-url="{{ song.url }}" data-title="{{ song.title }}"
-          data-thumbnail="{{ song.thumbnail }}" data-artist="{{ song.artist }}">
-          <img class="song-thumbnail" src="{{ song.thumbnail }}" alt="{{ song.title }}" />
-          <div class="library-item-info">
-            <h3>{{ song.title }}</h3>
-            <p>{{ song.artist }}</p>
-          </div>
-          <div class="library-item-controls">
-            <button class="play-btn"
-              onclick="Player.togglePlayFromLibrary('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.artist }}')"
-              title="Play/Pause">
-              <i
-                class="fas {% if song.url == current_song_url and is_playing %}fa-pause{% else %}fa-play{% endif %}"></i>
-            </button>
-            <button class="remove-from-library"
-              onclick="Library.remove({url: '{{ song.url }}', title: '{{ song.title }}', thumbnail: '{{ song.thumbnail }}', artist: '{{ song.artist }}'})"
-              title="Remove from Library">
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>
+      <ul class="library-list" id="libraryList">
+        <!-- Skeleton Loading State for Library -->
+        {% for i in range(5) %}
+        <li class="song-item skeleton">
+          <div class="skeleton-img"></div>
+          <div class="skeleton-text skeleton-title"></div>
+          <div class="skeleton-text skeleton-artist"></div>
         </li>
         {% endfor %}
       </ul>

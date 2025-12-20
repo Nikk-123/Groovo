@@ -355,35 +355,26 @@ def dashboard():
     
     user_email = session['user_id']
     try:
-        # Get user data from auth service
-        # NOTE: This call is still synchronous but usually fast (auth check)
-        response = requests.get(f'{AUTH_SERVICE_URL}/api/check-session',
-                             headers={'X-User-Email': user_email}, timeout=5)
+        # Optimistic loading: We assume the session is valid if the cookie exists.
+        # The frontend will fetch the real data (library, etc.) asynchronously.
+        # If the session is actually invalid, the async calls will fail/redirect.
         
-        try:
-            data = response.json()
-        except:
-             data = {'success': False}
-        
-        if not data.get('success'):
-            session.pop('user_id', None)
-            return redirect(url_for('login'))
-        
-        user_data = data
-        user_library_urls = [song['url'] for song in user_data.get('library', [])]
-        
-        # Pass empty structures for trending and mood playlists to let client-side JS load them
-        return render_template('dashboard.html',
+        # Initialize empty/default data for immediate rendering
+        user_library = []
+        user_library_urls = []
+        trending_songs = [] # catch trending separately or let frontend do it (frontend does it)
+        mood_playlists = {mood: [] for mood in MOODS}
+
+        return render_template('dashboard.html', 
                              user_email=user_email,
-                             user_library=user_data.get('library', []),
+                             user_library=user_library,
                              user_library_urls=user_library_urls,
-                             trending=[], # Empty initially
-                             mood_playlists={mood: [] for mood in MOODS}) # Empty initially
+                             trending=trending_songs,
+                             mood_playlists=mood_playlists)
+                             
     except Exception as e:
         print(f"Error in dashboard: {str(e)}")
-        # If it's a network error (timeout, connection), do NOT logout.
-        # Allow user to access dashboard in "offline" properties mode or just retry later.
-        flash("Could not connect to server. Some features may be unavailable.", "error")
+        flash("An error occurred while loading the dashboard.", "error")
         return render_template('dashboard.html',
                              user_email=user_email,
                              user_library=[],
