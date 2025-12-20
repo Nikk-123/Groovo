@@ -258,6 +258,9 @@ const Player = {
                 playBtn.className = `fas fa-${isPlaying ? 'pause' : 'play'}`;
             }
         });
+        
+        // Update Liked Songs Header if needed
+        Library.updateHeaderState();
     },
 
     updateMetadata(title, artist, thumbnail) {
@@ -329,6 +332,11 @@ const Player = {
             PlayerState.currentIndex = songIndex;
             PlayerState.queue = PlayerState.libraryQueue; // Use library as the current queue
         }
+        
+        // Tag the queue to identify it as the library queue
+        if (PlayerState.queue) {
+            PlayerState.queue.type = 'library';
+        }
 
         // Play the selected song
         this.play(url, title, thumbnail, artist);
@@ -396,6 +404,7 @@ const PlaybackControls = {
             PlayerState.isPlaying = true;
         }
         Player.updateAllPlayButtons(PlayerState.currentSong.url);
+        Library.updateHeaderState();
     },
 
     toggleShuffle() {
@@ -671,6 +680,7 @@ const Library = {
             const firstSong = PlayerState.library[0];
             // Update queue to match library order
             PlayerState.queue = [...PlayerState.library];
+            PlayerState.queue.type = 'library';
             PlayerState.currentIndex = 0;
             Player.play(firstSong.url, firstSong.title, firstSong.thumbnail, firstSong.artist);
         }
@@ -752,6 +762,34 @@ const Library = {
     libraryList.style.display = 'block';
     emptyMessage.style.display = 'none';
     libraryList.innerHTML = PlayerState.library.map(song => this.createSongElement(song)).join('');
+    },
+
+    updateHeaderState() {
+        const headerImage = document.getElementById('likedSongsHeaderImage');
+        const headerTitle = document.getElementById('likedSongsHeaderTitle');
+        
+        if (!headerImage || !headerTitle) return;
+
+        // Check if playing from Library queue using the tag we added
+        const isLibraryQueue = PlayerState.queue && PlayerState.queue.type === 'library';
+        const isPlaying = PlayerState.isPlaying;
+
+        // Ensure the current song is actually relevant to the queue
+        // (This handles cases where queue is library but we played an external song that isn't in it - though typically queue should contain current)
+        let isInQueue = false;
+        if (isLibraryQueue && PlayerState.currentSong) {
+             isInQueue = PlayerState.queue.some(s => s.url === PlayerState.currentSong.url);
+        }
+
+        if (isLibraryQueue && isInQueue && isPlaying && PlayerState.currentSong) {
+            // Show current song info
+            headerImage.innerHTML = `<img src="${PlayerState.currentSong.thumbnail}" alt="${PlayerState.currentSong.title}" style="width: 100%; height: 100%; object-fit: cover;">`;
+            headerTitle.textContent = PlayerState.currentSong.title;
+        } else {
+            // Revert to default
+            headerImage.innerHTML = '<i class="fas fa-heart"></i>';
+            headerTitle.textContent = 'Liked Songs';
+        }
     },
 
     createSongElement(song) {
