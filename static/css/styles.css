@@ -1589,8 +1589,8 @@ body.library-open {
 /* Table Header */
 .songs-table-header {
     display: grid;
-    grid-template-columns: 48px 4fr 3fr 2fr 1fr;
-    /* Index, Title, Album, Date, Duration */
+    grid-template-columns: 48px 4fr 3fr 1fr;
+    /* Index, Title, Artist, Duration */
     padding: 8px 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     color: #b3b3b3;
@@ -1615,7 +1615,8 @@ body.library-open {
 /* Songs List */
 .expanded-song-row {
     display: grid;
-    grid-template-columns: 48px 4fr 3fr 2fr 1fr;
+    grid-template-columns: 48px 4fr 3fr 1fr;
+    /* Index, Title, Artist, Duration */
     padding: 8px 16px;
     align-items: center;
     border-radius: 4px;
