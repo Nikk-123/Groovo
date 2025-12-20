@@ -45,6 +45,11 @@ MOODS = [
     'Bollywood Party', 'Classical', 'Bhakti', 'Romantic', 'Punjabi'
 ]
 
+# Simple in-memory cache for library
+# Structure: { user_email: { 'data': [songs], 'timestamp': time.time() } }
+LIBRARY_CACHE = {}
+CACHE_DURATION = 300  # 5 minutes
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
@@ -70,11 +75,20 @@ def fetch_single_mood(mood, search_query, ydl_opts, playlist_size):
                         if not thumbnail_url and thumbnails:
                             thumbnail_url = thumbnails[0]['url']
 
+                    duration = entry.get('duration')
+                    if duration:
+                        minutes = int(duration) // 60
+                        seconds = int(duration) % 60
+                        duration_str = f"{minutes}:{seconds:02d}"
+                    else:
+                        duration_str = "Unknown"
+
                     song = {
                         'title': entry.get('title', 'Unknown Title'),
                         'url': f"https://www.youtube.com/watch?v={entry.get('id')}",
                         'thumbnail': thumbnail_url,
-                        'channel': entry.get('channel', entry.get('uploader', 'Unknown Artist'))
+                        'channel': entry.get('channel', entry.get('uploader', 'Unknown Artist')),
+                        'duration': duration_str
                     }
                     playlist_songs.append(song)
             return mood, playlist_songs
@@ -170,11 +184,20 @@ def fetch_trending():
                     if not thumbnail_url and thumbnails:
                         thumbnail_url = thumbnails[0]['url']
 
+                duration = entry.get('duration')
+                if duration:
+                    minutes = int(duration) // 60
+                    seconds = int(duration) % 60
+                    duration_str = f"{minutes}:{seconds:02d}"
+                else:
+                    duration_str = "Unknown"
+
                 trending_songs.append({
                     "title": title,
                     "url": f"https://www.youtube.com/watch?v={entry['id']}",
                     "artist": artist,
-                    "thumbnail": thumbnail_url
+                    "thumbnail": thumbnail_url,
+                    "duration": duration_str
                 })
             
             return trending_songs  
@@ -333,6 +356,13 @@ def check_session():
                                  headers={'X-User-Email': user_email})
             data = response.json()
             if data.get('success'):
+                # Populate cache since we have the data
+                import time
+                LIBRARY_CACHE[user_email] = {
+                    'data': data.get('library', []),
+                    'timestamp': time.time()
+                }
+                
                 return jsonify({
                     'success': True,
                     'user': data.get('user'),
@@ -701,6 +731,20 @@ def add_to_library():
                               json=song_data,
                               headers={'X-User-Email': user_email})
         
+        if response.status_code == 200 and response.json().get('success'):
+            # Update local cache if it exists
+            if user_email in LIBRARY_CACHE:
+                # Add timestamp if missing to ensure we have a valid song object
+                if 'dateAdded' not in song_data:
+                    from datetime import datetime
+                    song_data['dateAdded'] = datetime.now().isoformat()
+                
+                # Check for duplicates before appending (basic check by URL)
+                current_lib = LIBRARY_CACHE[user_email]['data']
+                if not any(s.get('url') == song_data.get('url') for s in current_lib):
+                    current_lib.append(song_data)
+                    print(f"Added to local cache for {user_email}")
+
         return jsonify(response.json()), response.status_code
             
     except Exception as e:
@@ -723,6 +767,16 @@ def remove_from_library():
                               json=song_data,
                               headers={'X-User-Email': user_email})
         
+        if response.status_code == 200 and response.json().get('success'):
+            # Update local cache if it exists
+            if user_email in LIBRARY_CACHE:
+                target_url = song_data.get('url')
+                LIBRARY_CACHE[user_email]['data'] = [
+                    s for s in LIBRARY_CACHE[user_email]['data'] 
+                    if s.get('url') != target_url
+                ]
+                print(f"Removed from local cache for {user_email}")
+
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({
@@ -737,14 +791,31 @@ def get_library():
     
     try:
         user_email = session['user_id']
+        
+        # Check cache first
+        import time
+        cached = LIBRARY_CACHE.get(user_email)
+        if cached and (time.time() - cached['timestamp'] < CACHE_DURATION):
+            print(f"Serving library from cache for {user_email}")
+            return jsonify({
+                'success': True,
+                'library': cached['data']
+            })
+
         response = requests.get(f'{AUTH_SERVICE_URL}/api/check-session',
                              headers={'X-User-Email': user_email})
         data = response.json()
         
         if data.get('success'):
+            library_data = data.get('library', [])
+            # Update cache
+            LIBRARY_CACHE[user_email] = {
+                'data': library_data,
+                'timestamp': time.time()
+            }
             return jsonify({
                 'success': True,
-                'library': data.get('library', [])
+                'library': library_data
             })
         return jsonify({
             'success': False,
