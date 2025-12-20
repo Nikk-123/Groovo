@@ -598,14 +598,17 @@ const Library = {
 
     toggleExtendedView() {
         const expandedView = document.getElementById('likedSongsExpanded');
+        const librarySection = document.getElementById('librarySection');
         if (!expandedView) return;
         
         expandedView.classList.toggle('show');
         if (expandedView.classList.contains('show')) {
             this.renderExtendedView();
             document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            if (librarySection) librarySection.style.display = 'none';
         } else {
             document.body.style.overflow = '';
+            if (librarySection) librarySection.style.display = '';
         }
     },
 
