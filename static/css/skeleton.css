@@ -30,7 +30,9 @@
 
 /* Inner Elements - Shimmer Effect */
 .song-item.skeleton .skeleton-img,
-.song-item.skeleton .skeleton-text {
+.song-item.skeleton .skeleton-text,
+.library-item.skeleton .skeleton-img,
+.library-item.skeleton .skeleton-text {
     background-color: #2a2a2a;
     background-image: linear-gradient(90deg,
             #2a2a2a 0px,
@@ -70,4 +72,46 @@
     width: 50%;
     margin-bottom: 12px;
     /* Match p margin-bottom */
+}
+
+/* Library List Skeleton */
+.library-item.skeleton {
+    pointer-events: none;
+    background: transparent;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 8px;
+    gap: 12px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+.library-item.skeleton .skeleton-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-bottom: 0;
+}
+
+.library-item.skeleton .skeleton-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.library-item.skeleton .skeleton-text {
+    border-radius: 4px;
+}
+
+.library-item.skeleton .skeleton-title {
+    width: 70%;
+    height: 14px;
+}
+
+.library-item.skeleton .skeleton-artist {
+    width: 40%;
+    height: 12px;
 }

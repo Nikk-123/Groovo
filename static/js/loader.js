@@ -64,6 +64,8 @@ function createSongCard(song) {
     // The API should standardize this. Let's assume the API returns 'artist' or we fallback.
     const artist = song.artist || song.channel || 'Unknown Artist';
     li.setAttribute('data-artist', artist);
+    const duration = song.duration || '';
+    li.setAttribute('data-duration', duration);
 
     li.innerHTML = `
         <img class="song-thumbnail" src="${song.thumbnail}" alt="${song.title}" loading="lazy" />
@@ -77,7 +79,7 @@ function createSongCard(song) {
                 <i class="fas fa-play"></i>
               </button>
               <button class="add-to-library"
-                onclick="Library.toggleLike({url: '${escapeHtml(song.url)}', title: '${escapeHtml(song.title)}', thumbnail: '${escapeHtml(song.thumbnail)}', artist: '${escapeHtml(artist)}'})"
+                onclick="Library.toggleLike({url: '${escapeHtml(song.url)}', title: '${escapeHtml(song.title)}', thumbnail: '${escapeHtml(song.thumbnail)}', artist: '${escapeHtml(artist)}', duration: '${escapeHtml(duration)}'})"
                 title="Save to Library">
                 <i class="far fa-heart"></i>
               </button>

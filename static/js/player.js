@@ -368,7 +368,7 @@ const Player = {
         }
 
         // Fallback to individual data attributes
-        const { url, title, thumbnail, artist } = element.dataset;
+        const { url, title, thumbnail, artist, duration } = element.dataset;
         if (!url) {
             return null;
         }
@@ -377,7 +377,8 @@ const Player = {
             url,
             title: title || 'Unknown Title',
             thumbnail: thumbnail || '',
-            artist: artist || 'Unknown Artist'
+            artist: artist || 'Unknown Artist',
+            duration: duration || ''
         };
     }
 };
@@ -590,23 +591,100 @@ const Library = {
          // Helper to update all heart icons on the page based on current library
          const allLikeButtons = document.querySelectorAll('.add-to-library i, .mini-like-btn i');
          allLikeButtons.forEach(icon => {
-             // This is tricky because we need the song URL to check.
-             // Ideally we find the parent button and get the song data.
              const btn = icon.closest('button');
-             if (btn) {
-                 const onclick = btn.getAttribute('onclick');
-                 // Parse onclick string is messy. Better: look for data attributes if present.
-                 // or just let individual interactions handle it. 
-                 // For now, let's rely on the player logic which checks like status when playing or rendering.
-             }
+             // We can check the onclick attribute or data attributes if available
          });
+    },
+
+    toggleExtendedView() {
+        const expandedView = document.getElementById('likedSongsExpanded');
+        if (!expandedView) return;
+        
+        expandedView.classList.toggle('show');
+        if (expandedView.classList.contains('show')) {
+            this.renderExtendedView();
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        } else {
+            document.body.style.overflow = '';
+        }
+    },
+
+    renderExtendedView() {
+        const listContainer = document.getElementById('expandedSongsList');
+        const songCount = document.getElementById('expandedSongCount');
+        
+        if (!listContainer) return;
+        
+        if (songCount) {
+             songCount.textContent = `${PlayerState.library.length} songs`;
+        }
+
+        if (PlayerState.library.length === 0) {
+            listContainer.innerHTML = '<div style="padding: 32px; text-align: center; color: #b3b3b3;">Your library is empty.</div>';
+            return;
+        }
+
+        const sanitizeAttr = (value = '') => String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        listContainer.innerHTML = PlayerState.library.map((song, index) => {
+             const sanitizedUrl = sanitizeAttr(song.url);
+            const sanitizedTitle = sanitizeAttr(song.title);
+            const sanitizedThumbnail = sanitizeAttr(song.thumbnail);
+            const sanitizedArtist = sanitizeAttr(song.artist);
+            
+            // Generate random date/album if missing for demo/fallback 
+            // (In real app, backend should provide this)
+            const dateAdded = song.dateAdded ? new Date(song.dateAdded).toLocaleDateString() : 'Just now';
+            const duration = song.duration || '3:45'; // Fallback
+            const album = song.channel || 'Single'; // Use channel as album fallback
+
+             return `
+                <div class="expanded-song-row ${PlayerState.currentSong && PlayerState.currentSong.url === song.url ? 'playing' : ''}" 
+                     onclick="Player.playFromLibrary('${sanitizedUrl}', '${sanitizedTitle}', '${sanitizedThumbnail}', '${sanitizedArtist}')">
+                    <div class="row-index">
+                        <span>${index + 1}</span>
+                    </div>
+                    <div class="row-title-container">
+                        <img src="${sanitizedThumbnail}" class="row-thumbnail" alt="">
+                        <div class="row-text">
+                            <span class="row-title">${sanitizedTitle}</span>
+                            <span class="row-artist">${sanitizedArtist}</span>
+                        </div>
+                    </div>
+                    <div class="row-album">${album}</div>
+                    <div class="row-date">${dateAdded}</div>
+                    <div class="row-duration">${duration}</div>
+                </div>
+            `;
+        }).join('');
+    },
+    
+    playAll() {
+        if (PlayerState.library.length > 0) {
+            const firstSong = PlayerState.library[0];
+            // Update queue to match library order
+            PlayerState.queue = [...PlayerState.library];
+            PlayerState.currentIndex = 0;
+            Player.play(firstSong.url, firstSong.title, firstSong.thumbnail, firstSong.artist);
+        }
     },
 
     async add(songData) {
         // Optimistic update: Add to library and update UI immediately
-        PlayerState.library.push(songData);
+        const songWithMeta = {
+            ...songData,
+            dateAdded: new Date().toISOString()
+        };
+        PlayerState.library.push(songWithMeta);
         this.updateDisplay();
         this.updateLikeButton(songData.url);
+        // Also update extended view if open
+        this.renderExtendedView();
 
         try {
             const response = await fetch('/library/add', {
@@ -633,6 +711,7 @@ const Library = {
         const originalLibrary = [...PlayerState.library]; // Backup for revert
         PlayerState.library = PlayerState.library.filter(song => song.url !== songData.url);
         this.updateDisplay();
+        this.renderExtendedView(); // Update extended view
         this.updateLikeButton(songData.url);
 
         try {
@@ -689,7 +768,8 @@ const Library = {
             url: song.url,
             title: song.title,
             thumbnail: song.thumbnail,
-            artist: song.artist
+            artist: song.artist,
+            duration: song.duration
         }));
         const sanitizedEncodedSong = sanitizeAttr(encodedSong);
 

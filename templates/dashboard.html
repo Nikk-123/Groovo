@@ -76,7 +76,7 @@
         {% if trending %}
         {% for song in trending %}
         <li class="song-item" data-url="{{ song.url }}" data-title="{{ song.title }}"
-          data-thumbnail="{{ song.thumbnail }}" data-artist="{{ song.artist }}">
+          data-thumbnail="{{ song.thumbnail }}" data-artist="{{ song.artist }}" data-duration="{{ song.duration }}">
           <img class="song-thumbnail" src="{{ song.thumbnail }}" alt="{{ song.title }}" />
           <div class="song-info">
             <h3>{{ song.title }}</h3>
@@ -88,7 +88,7 @@
                 <i class="fas fa-play"></i>
               </button>
               <button class="add-to-library"
-                onclick="Library.toggleLike({url: '{{ song.url }}', title: '{{ song.title }}', thumbnail: '{{ song.thumbnail }}', artist: '{{ song.artist }}'})"
+                onclick="Library.toggleLike({url: '{{ song.url }}', title: '{{ song.title }}', thumbnail: '{{ song.thumbnail }}', artist: '{{ song.artist }}', duration: '{{ song.duration }}'})"
                 title="Save to Library">
                 <i class="fa-heart {% if song.url in user_library_urls %}fas{% else %}far{% endif %}"></i>
               </button>
@@ -284,9 +284,14 @@
     <div class="library-section" id="librarySection">
       <div class="library-header">
         <h2>Liked Songs</h2>
-        <button type="button" class="library-toggle" onclick="toggleLibrary()" title="Toggle Library">
-          <i class="fas fa-times"></i>
-        </button>
+        <div class="library-header-controls">
+          <button type="button" class="library-toggle" onclick="Library.toggleExtendedView()" title="Expand View">
+            <i class="fas fa-expand-alt"></i>
+          </button>
+          <button type="button" class="library-toggle" onclick="toggleLibrary()" title="Close Library">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
       </div>
 
       <div id="emptyLibraryMessage" style="display: none;">
@@ -296,13 +301,55 @@
       <ul class="library-list" id="libraryList">
         <!-- Skeleton Loading State for Library -->
         {% for i in range(5) %}
-        <li class="song-item skeleton">
+        <li class="library-item skeleton">
           <div class="skeleton-img"></div>
-          <div class="skeleton-text skeleton-title"></div>
-          <div class="skeleton-text skeleton-artist"></div>
+          <div class="skeleton-info">
+            <div class="skeleton-text skeleton-title"></div>
+            <div class="skeleton-text skeleton-artist"></div>
+          </div>
         </li>
         {% endfor %}
       </ul>
+    </div>
+
+    <!-- Extended Liked Songs View -->
+    <div id="likedSongsExpanded" class="liked-songs-expanded">
+      <div class="expanded-view-header">
+        <div class="header-content">
+          <div class="header-image">
+            <i class="fas fa-heart"></i>
+          </div>
+          <div class="header-info">
+            <span class="header-type">Playlist</span>
+            <h1 class="header-title">Liked Songs</h1>
+            <div class="header-meta">
+              <span class="header-user">{{ user_email }}</span>
+              <span class="header-count" id="expandedSongCount">0 songs</span>
+            </div>
+          </div>
+        </div>
+        <button class="close-expanded-btn" onclick="Library.toggleExtendedView()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="expanded-view-controls">
+        <button class="play-all-btn" onclick="Library.playAll()">
+          <i class="fas fa-play"></i>
+        </button>
+      </div>
+
+      <div class="songs-table-header">
+        <div class="col-index">#</div>
+        <div class="col-title">Title</div>
+        <div class="col-album">Album</div>
+        <div class="col-date">Date added</div>
+        <div class="col-duration"><i class="far fa-clock"></i></div>
+      </div>
+
+      <div class="expanded-songs-list" id="expandedSongsList">
+        <!-- Songs will be populated here by JS -->
+      </div>
     </div>
   </div>
 
