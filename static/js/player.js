@@ -659,8 +659,7 @@ const Library = {
                             <span class="row-artist">${sanitizedArtist}</span>
                         </div>
                     </div>
-                    <div class="row-album">${album}</div>
-                    <div class="row-date">${dateAdded}</div>
+                    <div class="row-artist">${sanitizedArtist}</div>
                     <div class="row-duration">${duration}</div>
                 </div>
             `;
