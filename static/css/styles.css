@@ -1447,17 +1447,21 @@ body.library-open {
 /* Extended Liked Songs View */
 .liked-songs-expanded {
     position: fixed;
-    top: 70px;
-    /* Below top nav */
+    top: 0;
+    /* Cover top nav as well? User said 'whole screen' */
+    /* top: 70px; */
     left: 0;
     right: 0;
-    bottom: 90px;
-    /* Above player */
+    bottom: 0;
+    /* Cover player area */
+    /* bottom: 90px; */
     background: linear-gradient(180deg, #5038a0 0%, #121212 400px);
     /* Purple gradient like reference */
-    z-index: 900;
-    /* Above main content, below library sidebar (1000) */
-    padding: 24px 32px;
+    z-index: 2000;
+    /* Increase z-index to cover everything including nav and player if needed */
+    padding: 94px 32px 24px;
+    /* Add top padding to account for content if we cover top nav, or just to look good. 
+       If top is 0, we need padding-top ~70px + 24px */
     overflow-y: auto;
     display: none;
     /* Hidden by default */
