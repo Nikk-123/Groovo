@@ -1481,6 +1481,13 @@ body.library-open {
     position: relative;
 }
 
+.header-content {
+    display: flex;
+    align-items: flex-end;
+    gap: 24px;
+    width: 100%;
+}
+
 .header-image {
     width: 232px;
     height: 232px;
