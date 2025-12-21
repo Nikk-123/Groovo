@@ -724,6 +724,19 @@ const Library = {
             const duration = song.duration || '3:45'; // Fallback
             const album = song.channel || 'Single'; // Use channel as album fallback
 
+            // Determine if title needs marquee
+            const isLongTitle = sanitizedTitle.length > 25;
+            const titleHtml = isLongTitle
+                ? `<div class="marquee-wrapper">
+                     <div class="marquee-content">
+                       <span class="row-title">${sanitizedTitle}</span>
+                       <span style="display:inline-block; width: 40px;"></span>
+                       <span class="row-title">${sanitizedTitle}</span>
+                       <span style="display:inline-block; width: 40px;"></span>
+                     </div>
+                   </div>`
+                : `<span class="row-title">${sanitizedTitle}</span>`;
+
             return `
                 <div class="expanded-song-row ${PlayerState.currentSong && PlayerState.currentSong.url === song.url ? 'playing' : ''}" 
                      data-url="${sanitizedUrl}"
@@ -740,7 +753,7 @@ const Library = {
                     <div class="row-title-container">
                         <img src="${sanitizedThumbnail}" class="row-thumbnail" alt="">
                         <div class="row-text">
-                            <span class="row-title">${sanitizedTitle}</span>
+                            ${titleHtml}
                             <span class="row-artist">${sanitizedArtist}</span>
                         </div>
                     </div>
