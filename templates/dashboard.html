@@ -347,7 +347,20 @@
       </div>
 
       <div class="expanded-songs-list" id="expandedSongsList">
-        <!-- Songs will be populated here by JS -->
+        {% for i in range(10) %}
+        <div class="expanded-song-row skeleton">
+          <div class="skeleton-index"></div>
+          <div class="row-title-container">
+            <div class="skeleton-thumbnail"></div>
+            <div class="skeleton-row-text">
+              <div class="skeleton-title"></div>
+              <div class="skeleton-subtitle"></div>
+            </div>
+          </div>
+          <div class="skeleton-artist"></div>
+          <div class="skeleton-duration"></div>
+        </div>
+        {% endfor %}
       </div>
     </div>
   </div>

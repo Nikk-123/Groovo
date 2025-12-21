@@ -115,3 +115,84 @@
     width: 40%;
     height: 12px;
 }
+
+/* Expanded Song Row Skeleton */
+.expanded-song-row.skeleton {
+    pointer-events: none;
+    display: grid;
+    grid-template-columns: 48px 4fr 3fr 1fr;
+    /* Index, Title, Artist, Duration */
+    padding: 8px 16px;
+    align-items: center;
+    border-radius: 4px;
+    background: transparent;
+}
+
+.expanded-song-row.skeleton .skeleton-index {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    margin: 0 auto;
+}
+
+.expanded-song-row.skeleton .row-title-container {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.expanded-song-row.skeleton .skeleton-thumbnail {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.expanded-song-row.skeleton .skeleton-row-text {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.expanded-song-row.skeleton .skeleton-title {
+    width: 60%;
+    height: 16px;
+    border-radius: 4px;
+}
+
+.expanded-song-row.skeleton .skeleton-subtitle {
+    width: 40%;
+    height: 12px;
+    border-radius: 4px;
+}
+
+.expanded-song-row.skeleton .skeleton-artist {
+    width: 50%;
+    height: 14px;
+    border-radius: 4px;
+}
+
+.expanded-song-row.skeleton .skeleton-duration {
+    width: 32px;
+    height: 14px;
+    border-radius: 4px;
+    justify-self: end;
+    margin-right: 16px;
+}
+
+/* Shimmer animation for these elements */
+.expanded-song-row.skeleton .skeleton-index,
+.expanded-song-row.skeleton .skeleton-thumbnail,
+.expanded-song-row.skeleton .skeleton-title,
+.expanded-song-row.skeleton .skeleton-subtitle,
+.expanded-song-row.skeleton .skeleton-artist,
+.expanded-song-row.skeleton .skeleton-duration {
+    background-color: #2a2a2a;
+    background-image: linear-gradient(90deg,
+            #2a2a2a 0px,
+            #3a3a3a 40px,
+            #2a2a2a 80px);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
+}

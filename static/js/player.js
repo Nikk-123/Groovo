@@ -133,6 +133,9 @@ const Player = {
             this.updateUIState(cleanUrl);
             this.updateMetadata(title, artist, thumbnail);
 
+            // Save state
+            this.saveState();
+
             PlayerState.isPlaying = true;
             this.updateAllPlayButtons(cleanUrl);
 
@@ -150,7 +153,7 @@ const Player = {
             PlaybackControls.togglePlayPause();
             return;
         }
-        
+
         // If it's a different song, start playing it
         await this.play(url, title, thumbnail, artist);
     },
@@ -181,7 +184,7 @@ const Player = {
             PlayerState.audio.pause();
             PlayerState.audio.src = audioUrl;
             PlayerState.audio.volume = PlayerState.volume;
-            
+
             // Setup event handlers
             PlayerState.audio.onended = () => PlaybackControls.playNext(true);
             PlayerState.audio.onerror = (error) => {
@@ -201,7 +204,7 @@ const Player = {
                 // Update progress bars
                 const miniProgress = document.querySelector('.mini-player .progress');
                 const mainProgress = document.querySelector('.expanded-player .progress');
-                
+
                 if (miniProgress) miniProgress.style.width = `${progressPercentage}%`;
                 if (mainProgress) mainProgress.style.width = `${progressPercentage}%`;
 
@@ -252,13 +255,13 @@ const Player = {
             const isCurrentSong = item.dataset.url === url;
             const isPlaying = isCurrentSong && PlayerState.isPlaying;
             item.classList.toggle('playing', isPlaying);
-            
+
             const playBtn = item.querySelector('.play-btn i');
             if (playBtn) {
                 playBtn.className = `fas fa-${isPlaying ? 'pause' : 'play'}`;
             }
         });
-        
+
         // Update Liked Songs Header if needed
         Library.updateHeaderState();
     },
@@ -288,7 +291,7 @@ const Player = {
             PlayerState.retryCount++;
             console.log(`Retrying playback (attempt ${PlayerState.retryCount}/${PlayerState.maxRetries})...`);
             await new Promise(resolve => setTimeout(resolve, 1000));
-            
+
             if (PlayerState.currentSong) {
                 await this.play(
                     PlayerState.currentSong.url,
@@ -315,7 +318,7 @@ const Player = {
         if (Elements.controls.play.main) {
             Elements.controls.play.main.innerHTML = `<i class="fas ${icon}"></i>`;
         }
-        
+
         // Update Liked Songs Header Play Button
         const likedSongsPlayBtn = document.getElementById('likedSongsPlayBtn');
         if (likedSongsPlayBtn) {
@@ -328,7 +331,7 @@ const Player = {
             // Actually, if I show "Play" and clicking it Pauses... that's confusing. 
             // BUT if I show "Pause" when playing Trending... that implies "Trending is part of Liked Songs".
             // Let's implement: Show Pause ONLY if queue.type === 'library'.
-            
+
             const isLibraryQueue = PlayerState.queue && PlayerState.queue.type === 'library';
             const libIcon = (PlayerState.isPlaying && isLibraryQueue) ? 'fa-pause' : 'fa-play';
             likedSongsPlayBtn.innerHTML = `<i class="fas ${libIcon}"></i>`;
@@ -350,7 +353,7 @@ const Player = {
             PlayerState.currentIndex = songIndex;
             PlayerState.queue = PlayerState.libraryQueue; // Use library as the current queue
         }
-        
+
         // Tag the queue to identify it as the library queue
         if (PlayerState.queue) {
             PlayerState.queue.type = 'library';
@@ -406,6 +409,34 @@ const Player = {
             artist: artist || 'Unknown Artist',
             duration: duration || ''
         };
+    },
+
+    saveState() {
+        if (PlayerState.currentSong) {
+            const state = {
+                song: PlayerState.currentSong,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('groovo_last_played', JSON.stringify(state));
+        }
+    },
+
+    loadState() {
+        try {
+            const saved = localStorage.getItem('groovo_last_played');
+            if (saved) {
+                const state = JSON.parse(saved);
+                if (state.song) {
+                    PlayerState.currentSong = state.song;
+                    this.updateDisplay(state.song.title, state.song.artist, state.song.thumbnail);
+                    this.showControls(true);
+                    this.updateAllPlayButtons(state.song.url);
+                    // Don't auto-play, just show it ready
+                }
+            }
+        } catch (error) {
+            console.error('Error loading saved state:', error);
+        }
     }
 };
 
@@ -413,6 +444,17 @@ const Player = {
 const PlaybackControls = {
     togglePlayPause() {
         if (!PlayerState.currentSong) return;
+
+        // Check if we have audio source loaded (handling restored state)
+        if (!PlayerState.audio.src && PlayerState.currentSong) {
+            Player.play(
+                PlayerState.currentSong.url,
+                PlayerState.currentSong.title,
+                PlayerState.currentSong.thumbnail,
+                PlayerState.currentSong.artist
+            );
+            return;
+        }
 
         if (PlayerState.isPlaying) {
             PlayerState.audio.pause();
@@ -427,13 +469,13 @@ const PlaybackControls = {
 
     toggleShuffle() {
         PlayerState.isShuffleOn = !PlayerState.isShuffleOn;
-        
+
         // Update button states
         const shuffleButtons = [
             document.getElementById('miniShuffleBtn'),
             document.getElementById('shuffleBtn')
         ];
-        
+
         shuffleButtons.forEach(btn => {
             if (btn) {
                 btn.classList.toggle('active', PlayerState.isShuffleOn);
@@ -445,8 +487,8 @@ const PlaybackControls = {
             PlayerState.shuffledQueue = [...PlayerState.queue];
             for (let i = PlayerState.shuffledQueue.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                [PlayerState.shuffledQueue[i], PlayerState.shuffledQueue[j]] = 
-                [PlayerState.shuffledQueue[j], PlayerState.shuffledQueue[i]];
+                [PlayerState.shuffledQueue[i], PlayerState.shuffledQueue[j]] =
+                    [PlayerState.shuffledQueue[j], PlayerState.shuffledQueue[i]];
             }
         } else {
             // Clear shuffled queue
@@ -473,19 +515,19 @@ const PlaybackControls = {
             document.getElementById('miniRepeatBtn'),
             document.getElementById('repeatBtn')
         ];
-        
+
         repeatButtons.forEach(btn => {
             if (btn) {
                 // Remove all states first
                 btn.classList.remove('active', 'once');
-                
+
                 // Apply new states
                 if (PlayerState.repeatMode === 'all') {
                     btn.classList.add('active');
                 } else if (PlayerState.repeatMode === 'once') {
                     btn.classList.add('active', 'once');
                 }
-                
+
                 // Update tooltip
                 btn.title = `Repeat (${PlayerState.repeatMode})`;
             }
@@ -498,10 +540,10 @@ const PlaybackControls = {
             if (PlayerState.customRepeat.count > 0) {
                 PlayerState.customRepeat.count--;
                 updateCustomRepeatDisplay();
-                
+
                 // If counts remain (after decrement), replay current song
                 if (PlayerState.customRepeat.count > 0) {
-                     if (PlayerState.currentSong) {
+                    if (PlayerState.currentSong) {
                         Player.play(
                             PlayerState.currentSong.url,
                             PlayerState.currentSong.title,
@@ -517,7 +559,7 @@ const PlaybackControls = {
                     cancelCustomRepeat();
                 }
             } else {
-                 cancelCustomRepeat();
+                cancelCustomRepeat();
             }
         }
 
@@ -573,20 +615,22 @@ const PlaybackControls = {
 
 // Library Management (unchanged except for play button handling)
 const Library = {
+    isLoading: true, // Add loading state
     async load() {
         const libraryList = document.getElementById('libraryList');
         const emptyMessage = document.getElementById('emptyLibraryMessage');
-        
+
         try {
             const response = await fetch('/library/get');
             const data = await response.json();
-            
+
             if (data.success) {
                 PlayerState.library = data.library || [];
-                
+                this.isLoading = false; // Data loaded
+
                 // Clear skeletons
                 if (libraryList) libraryList.innerHTML = '';
-                
+
                 if (PlayerState.library.length === 0) {
                     if (libraryList) libraryList.style.display = 'none';
                     if (emptyMessage) emptyMessage.style.display = 'block';
@@ -597,37 +641,37 @@ const Library = {
                     }
                     if (emptyMessage) emptyMessage.style.display = 'none';
                 }
-                
+
                 // Update specific buttons if needed (re-check likes)
                 this.updateLikeButtons();
             } else {
                 console.warn('Failed to load library:', data.message);
                 if (data.message === 'Not logged in') {
-                     // Optionally redirect or show login prompt, but dashboard might handle this.
-                     // For now, silent fail or empty library.
-                     if (libraryList) libraryList.innerHTML = ''; 
+                    // Optionally redirect or show login prompt, but dashboard might handle this.
+                    // For now, silent fail or empty library.
+                    if (libraryList) libraryList.innerHTML = '';
                 }
             }
         } catch (error) {
             console.error('Error loading library:', error);
-             if (libraryList) libraryList.innerHTML = '<li class="error-message">Failed to load library</li>';
+            if (libraryList) libraryList.innerHTML = '<li class="error-message">Failed to load library</li>';
         }
     },
 
     updateLikeButtons() {
-         // Helper to update all heart icons on the page based on current library
-         const allLikeButtons = document.querySelectorAll('.add-to-library i, .mini-like-btn i');
-         allLikeButtons.forEach(icon => {
-             const btn = icon.closest('button');
-             // We can check the onclick attribute or data attributes if available
-         });
+        // Helper to update all heart icons on the page based on current library
+        const allLikeButtons = document.querySelectorAll('.add-to-library i, .mini-like-btn i');
+        allLikeButtons.forEach(icon => {
+            const btn = icon.closest('button');
+            // We can check the onclick attribute or data attributes if available
+        });
     },
 
     toggleExtendedView() {
         const expandedView = document.getElementById('likedSongsExpanded');
         const librarySection = document.getElementById('librarySection');
         if (!expandedView) return;
-        
+
         expandedView.classList.toggle('show');
         if (expandedView.classList.contains('show')) {
             this.renderExtendedView();
@@ -642,11 +686,18 @@ const Library = {
     renderExtendedView() {
         const listContainer = document.getElementById('expandedSongsList');
         const songCount = document.getElementById('expandedSongCount');
-        
+
         if (!listContainer) return;
-        
+
+        // If loading, don't clear skeletons (which are default info in HTML)
+        if (this.isLoading) {
+            // Keep skeletons, maybe show count as 'Loading...'
+            if (songCount) songCount.textContent = 'Loading...';
+            return;
+        }
+
         if (songCount) {
-             songCount.textContent = `${PlayerState.library.length} songs`;
+            songCount.textContent = `${PlayerState.library.length} songs`;
         }
 
         if (PlayerState.library.length === 0) {
@@ -662,18 +713,18 @@ const Library = {
             .replace(/>/g, '&gt;');
 
         listContainer.innerHTML = PlayerState.library.map((song, index) => {
-             const sanitizedUrl = sanitizeAttr(song.url);
+            const sanitizedUrl = sanitizeAttr(song.url);
             const sanitizedTitle = sanitizeAttr(song.title);
             const sanitizedThumbnail = sanitizeAttr(song.thumbnail);
             const sanitizedArtist = sanitizeAttr(song.artist);
-            
+
             // Generate random date/album if missing for demo/fallback 
             // (In real app, backend should provide this)
             const dateAdded = song.dateAdded ? new Date(song.dateAdded).toLocaleDateString() : 'Just now';
             const duration = song.duration || '3:45'; // Fallback
             const album = song.channel || 'Single'; // Use channel as album fallback
 
-             return `
+            return `
                 <div class="expanded-song-row ${PlayerState.currentSong && PlayerState.currentSong.url === song.url ? 'playing' : ''}" 
                      data-url="${sanitizedUrl}"
                      onclick="Player.playFromLibrary('${sanitizedUrl}', '${sanitizedTitle}', '${sanitizedThumbnail}', '${sanitizedArtist}')">
@@ -699,7 +750,7 @@ const Library = {
             `;
         }).join('');
     },
-    
+
     playAll() {
         if (PlayerState.isPlaying) {
             // If any song is playing, pause it
@@ -709,8 +760,8 @@ const Library = {
 
         // If paused on library queue, resume
         if (PlayerState.queue && PlayerState.queue.type === 'library' && PlayerState.currentSong) {
-             PlaybackControls.togglePlayPause();
-             return;
+            PlaybackControls.togglePlayPause();
+            return;
         }
 
         // Otherwise start from 1st
@@ -785,11 +836,11 @@ const Library = {
     },
 
     updateDisplay() {
-    const libraryList = document.getElementById('libraryList');
-    const emptyMessage = document.getElementById('emptyLibraryMessage');
+        const libraryList = document.getElementById('libraryList');
+        const emptyMessage = document.getElementById('emptyLibraryMessage');
 
-    // If the page doesn't have a library UI, skip rendering to avoid errors
-    if (!libraryList || !emptyMessage) return;
+        // If the page doesn't have a library UI, skip rendering to avoid errors
+        if (!libraryList || !emptyMessage) return;
 
         if (PlayerState.library.length === 0) {
             libraryList.style.display = 'none';
@@ -797,15 +848,15 @@ const Library = {
             return;
         }
 
-    libraryList.style.display = 'block';
-    emptyMessage.style.display = 'none';
-    libraryList.innerHTML = PlayerState.library.map(song => this.createSongElement(song)).join('');
+        libraryList.style.display = 'block';
+        emptyMessage.style.display = 'none';
+        libraryList.innerHTML = PlayerState.library.map(song => this.createSongElement(song)).join('');
     },
 
     updateHeaderState() {
         const headerImage = document.getElementById('likedSongsHeaderImage');
         const headerTitle = document.getElementById('likedSongsHeaderTitle');
-        
+
         if (!headerImage || !headerTitle) return;
 
         // Check if playing from Library queue using the tag we added
@@ -816,35 +867,35 @@ const Library = {
         // (This handles cases where queue is library but we played an external song that isn't in it - though typically queue should contain current)
         let isInQueue = false;
         if (isLibraryQueue && PlayerState.currentSong) {
-             isInQueue = PlayerState.queue.some(s => s.url === PlayerState.currentSong.url);
+            isInQueue = PlayerState.queue.some(s => s.url === PlayerState.currentSong.url);
         }
 
         if (isLibraryQueue && isInQueue && isPlaying && PlayerState.currentSong) {
             // Show current song info
             headerImage.innerHTML = `<img src="${PlayerState.currentSong.thumbnail}" alt="${PlayerState.currentSong.title}" style="width: 100%; height: 100%; object-fit: cover;">`;
-            
+
             // Truncate title to first 2 words
             const words = PlayerState.currentSong.title.split(' ');
             const shortTitle = words.length > 2 ? words.slice(0, 2).join(' ') : PlayerState.currentSong.title;
             headerTitle.textContent = shortTitle;
-            
+
             // Update User to Artist and Count to Duration
             const headerUser = document.getElementById('likedSongsHeaderUser');
             const headerCount = document.getElementById('expandedSongCount');
-            
+
             if (headerUser) headerUser.textContent = PlayerState.currentSong.artist || 'Unknown Artist';
             if (headerCount) headerCount.textContent = PlayerState.currentSong.duration || '3:45';
-            
+
         } else {
             // Revert to default
             headerImage.innerHTML = '<i class="fas fa-heart"></i>';
             headerTitle.textContent = 'Liked Songs';
-            
+
             // Revert User and Count
             const headerUser = document.getElementById('likedSongsHeaderUser');
             const headerCount = document.getElementById('expandedSongCount');
             const userEmail = document.querySelector('.dropdown-header span')?.textContent || 'User';
-            
+
             if (headerUser) headerUser.textContent = userEmail;
             if (headerCount) headerCount.textContent = `${PlayerState.library.length} songs`;
         }
@@ -944,7 +995,7 @@ const Search = {
 
     async handleSearch() {
         const query = Elements.search.input.value.trim();
-        
+
         if (!query) {
             Elements.search.results.style.display = 'none';
             Elements.search.trending.style.display = 'block';
@@ -956,7 +1007,7 @@ const Search = {
         document.getElementById('moodPlaylistsContainer').style.display = 'none';
         Elements.search.loader.style.display = 'block';
         Elements.search.results.style.display = 'block';
-        
+
         try {
             const response = await fetch(`/search?query=${encodeURIComponent(query)}`);
             const data = await response.json();
@@ -1007,7 +1058,7 @@ const Search = {
 // Utility Functions
 function debounce(func, wait) {
     let timeout;
-    return function(...args) {
+    return function (...args) {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), wait);
     };
@@ -1017,11 +1068,11 @@ function debounce(func, wait) {
 function updateVolumeControls(volume) {
     // Clamp volume between 0 and 1 for HTML5 Audio
     const clampedVolume = Math.min(Math.max(volume, 0), 1);
-    
+
     // Update audio volume
     PlayerState.volume = volume; // Keep original volume value for display
     PlayerState.audio.volume = clampedVolume; // Use clamped volume for audio
-    
+
     // Update volume sliders - sync both controls
     const volumeControls = document.querySelectorAll('#miniVolumeControl, #volumeControl');
     volumeControls.forEach(control => {
@@ -1050,7 +1101,7 @@ function updateVolumeIcons(volume) {
     const icon = getVolumeIcon(volume);
     const miniVolumeBtn = document.getElementById('miniVolumeBtn');
     const volumeBtn = document.getElementById('volumeBtn');
-    
+
     // Update both buttons
     const iconHtml = `<i class="fas ${icon}"></i>`;
     if (volumeBtn) volumeBtn.innerHTML = iconHtml;
@@ -1062,11 +1113,11 @@ function toggleCustomRepeatUI() {
     const modal = document.getElementById('customRepeatModal');
     if (modal) {
         modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
-        
+
         // Reset input to 2 when opening
         if (modal.style.display === 'flex') {
-             const input = document.getElementById('playCountInput');
-             if(input) input.value = 2;
+            const input = document.getElementById('playCountInput');
+            if (input) input.value = 2;
         }
     }
 }
@@ -1089,17 +1140,17 @@ function confirmCustomRepeat() {
         if (count >= 2 && count <= 100) {
             PlayerState.customRepeat.active = true;
             PlayerState.customRepeat.count = count;
-            
+
             // Update UI
             toggleCustomRepeatUI();
             updateCustomRepeatDisplay();
-            
+
             // Disable standard repeat if active to avoid confusion
             if (PlayerState.repeatMode !== 'off') {
                 PlaybackControls.toggleRepeat(); // Cycle until off? No, just set to off
                 PlayerState.repeatMode = 'off';
                 // Force update UI for repeat button
-                 const repeatButtons = [
+                const repeatButtons = [
                     document.getElementById('miniRepeatBtn'),
                     document.getElementById('repeatBtn')
                 ];
@@ -1124,15 +1175,15 @@ function updateCustomRepeatDisplay() {
     const display = document.getElementById('repeatStatusDisplay');
     const countSpan = document.getElementById('repeatsLeftCount');
     const customBtn = document.getElementById('customRepeatBtn');
-    
+
     if (display && countSpan) {
         if (PlayerState.customRepeat.active && PlayerState.customRepeat.count > 0) {
             display.style.display = 'flex';
             countSpan.textContent = PlayerState.customRepeat.count;
-            if(customBtn) customBtn.classList.add('active'); // Style this if needed
+            if (customBtn) customBtn.classList.add('active'); // Style this if needed
         } else {
             display.style.display = 'none';
-            if(customBtn) customBtn.classList.remove('active');
+            if (customBtn) customBtn.classList.remove('active');
         }
     }
 }
@@ -1145,25 +1196,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // Setup event listeners for play controls
     ['mini', 'main'].forEach(type => {
         if (Elements.controls.play[type]) {
-            Elements.controls.play[type].addEventListener('click', (e)=>{ e.stopPropagation(); PlaybackControls.togglePlayPause(); });
+            Elements.controls.play[type].addEventListener('click', (e) => { e.stopPropagation(); PlaybackControls.togglePlayPause(); });
         }
         if (Elements.controls.prev[type]) {
-            Elements.controls.prev[type].addEventListener('click', (e)=>{ e.stopPropagation(); PlaybackControls.playPrevious(); });
+            Elements.controls.prev[type].addEventListener('click', (e) => { e.stopPropagation(); PlaybackControls.playPrevious(); });
         }
         if (Elements.controls.next[type]) {
-            Elements.controls.next[type].addEventListener('click', (e)=>{ e.stopPropagation(); PlaybackControls.playNext(); });
+            Elements.controls.next[type].addEventListener('click', (e) => { e.stopPropagation(); PlaybackControls.playNext(); });
         }
-        
+
         // Add shuffle and repeat handlers
         const shuffleBtn = Elements.controls.shuffle[type];
         if (shuffleBtn) {
-            shuffleBtn.addEventListener('click', (e)=>{ e.stopPropagation(); PlaybackControls.toggleShuffle(); });
+            shuffleBtn.addEventListener('click', (e) => { e.stopPropagation(); PlaybackControls.toggleShuffle(); });
             shuffleBtn.classList.toggle('active', PlayerState.isShuffleOn);
         }
 
         const repeatBtn = Elements.controls.repeat[type];
         if (repeatBtn) {
-            repeatBtn.addEventListener('click', (e)=>{ e.stopPropagation(); PlaybackControls.toggleRepeat(); });
+            repeatBtn.addEventListener('click', (e) => { e.stopPropagation(); PlaybackControls.toggleRepeat(); });
             repeatBtn.classList.toggle('active', PlayerState.repeatMode !== 'off');
             repeatBtn.classList.toggle('once', PlayerState.repeatMode === 'once');
         }
@@ -1183,7 +1234,7 @@ document.addEventListener('DOMContentLoaded', () => {
             control.step = "0.01";
             control.value = PlayerState.volume;
             control.addEventListener('input', handleVolumeChange);
-            control.addEventListener('click', (e)=> e.stopPropagation());
+            control.addEventListener('click', (e) => e.stopPropagation());
         }
     });
 
@@ -1195,7 +1246,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('#miniVolumeBtn, #volumeBtn').forEach(button => {
         if (button) {
-            button.addEventListener('click', (e)=>{ e.stopPropagation(); handleVolumeButtonClick(); });
+            button.addEventListener('click', (e) => { e.stopPropagation(); handleVolumeButtonClick(); });
         }
     });
 
@@ -1272,25 +1323,25 @@ function showHome() {
     if (searchResults) {
         searchResults.style.display = 'none';
     }
-    
+
     // Show trending and mood playlists
     const trendingContainer = document.getElementById('trendingContainer');
     const moodPlaylistsContainer = document.getElementById('moodPlaylistsContainer');
-    
+
     if (trendingContainer) {
         trendingContainer.style.display = 'block';
     }
-    
+
     if (moodPlaylistsContainer) {
         moodPlaylistsContainer.style.display = 'block';
     }
-    
+
     // Clear search input
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
         searchInput.value = '';
     }
-    
+
     // Briefly highlight the home button so it remains responsive on repeated clicks
     const homeBtn = document.querySelector('.home-btn');
     if (homeBtn) {
@@ -1305,7 +1356,7 @@ function showHome() {
 //     const registerSection = document.getElementById('registerSection');
 //     const enableFaceAuth = document.getElementById('enableFaceAuth');
 //     const statusText = document.getElementById('statusText');
-  
+
 //     if (enableFaceAuth && registerSection && statusText) {
 //       const isEnabled = enableFaceAuth.checked;
 //       registerSection.classList.toggle('hidden', !isEnabled);
@@ -1315,3 +1366,8 @@ function showHome() {
 //       console.error('Toggle elements not found');
 //     }
 //   }
+// }
+
+document.addEventListener('DOMContentLoaded', () => {
+    Player.loadState();
+});
