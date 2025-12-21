@@ -248,7 +248,7 @@ const Player = {
     },
 
     updateUIState(url) {
-        document.querySelectorAll('.library-item, .song-item').forEach(item => {
+        document.querySelectorAll('.library-item, .song-item, .expanded-song-row').forEach(item => {
             const isCurrentSong = item.dataset.url === url;
             const isPlaying = isCurrentSong && PlayerState.isPlaying;
             item.classList.toggle('playing', isPlaying);
@@ -675,9 +675,16 @@ const Library = {
 
              return `
                 <div class="expanded-song-row ${PlayerState.currentSong && PlayerState.currentSong.url === song.url ? 'playing' : ''}" 
+                     data-url="${sanitizedUrl}"
                      onclick="Player.playFromLibrary('${sanitizedUrl}', '${sanitizedTitle}', '${sanitizedThumbnail}', '${sanitizedArtist}')">
                     <div class="row-index">
-                        <span>${index + 1}</span>
+                        <span class="index-number">${index + 1}</span>
+                        <div class="playing-indicator">
+                            <span class="bar"></span>
+                            <span class="bar"></span>
+                            <span class="bar"></span>
+                            <span class="bar"></span>
+                        </div>
                     </div>
                     <div class="row-title-container">
                         <img src="${sanitizedThumbnail}" class="row-thumbnail" alt="">
