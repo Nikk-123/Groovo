@@ -1744,7 +1744,7 @@ body.library-open {
 .marquee-content {
     display: inline-block;
     padding-left: 0;
-    animation: marquee 15s linear infinite;
+    animation: marquee 35s linear infinite;
     white-space: nowrap;
 }
 
