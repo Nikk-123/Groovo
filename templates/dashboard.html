@@ -323,7 +323,7 @@
             <span class="header-type">Playlist</span>
             <h1 class="header-title" id="likedSongsHeaderTitle">Liked Songs</h1>
             <div class="header-meta">
-              <span class="header-user">{{ user_email }}</span>
+              <span class="header-user" id="likedSongsHeaderUser">{{ user_email }}</span>
               <span class="header-count" id="expandedSongCount">0 songs</span>
             </div>
           </div>
@@ -334,7 +334,7 @@
       </div>
 
       <div class="expanded-view-controls">
-        <button class="play-all-btn" onclick="Library.playAll()">
+        <button class="play-all-btn" id="likedSongsPlayBtn" onclick="Library.playAll()">
           <i class="fas fa-play"></i>
         </button>
       </div>
