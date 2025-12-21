@@ -644,6 +644,12 @@ const Library = {
 
                 // Update specific buttons if needed (re-check likes)
                 this.updateLikeButtons();
+
+                // If we have a current song (restored from state), update its like button specifically
+                // because previous updateDisplay call might have happened before library was loaded
+                if (PlayerState.currentSong) {
+                    this.updateLikeButton(PlayerState.currentSong.url);
+                }
             } else {
                 console.warn('Failed to load library:', data.message);
                 if (data.message === 'Not logged in') {
@@ -775,6 +781,21 @@ const Library = {
         if (PlayerState.queue && PlayerState.queue.type === 'library' && PlayerState.currentSong) {
             PlaybackControls.togglePlayPause();
             return;
+        }
+
+        // Restore State Logic: If we have a current song (restored) that is in the library
+        // but the queue hasn't been initialized as 'library' yet
+        if (PlayerState.currentSong && PlayerState.library.length > 0) {
+            const matchIndex = PlayerState.library.findIndex(s => s.url === PlayerState.currentSong.url);
+            if (matchIndex !== -1) {
+                // Found it! Re-intialize the queue
+                PlayerState.queue = [...PlayerState.library];
+                PlayerState.queue.type = 'library';
+                PlayerState.currentIndex = matchIndex;
+
+                PlaybackControls.togglePlayPause();
+                return;
+            }
         }
 
         // Otherwise start from 1st
