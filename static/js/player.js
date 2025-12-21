@@ -315,6 +315,24 @@ const Player = {
         if (Elements.controls.play.main) {
             Elements.controls.play.main.innerHTML = `<i class="fas ${icon}"></i>`;
         }
+        
+        // Update Liked Songs Header Play Button
+        const likedSongsPlayBtn = document.getElementById('likedSongsPlayBtn');
+        if (likedSongsPlayBtn) {
+            // Only show pause if we are actually playing from the library (or if we want 'Global Pause' logic visually?)
+            // User said "IF ANY SONG IS PLAYING... PAUSE". So if ANY song is playing, button should probably show Pause (or remain Play but act as Pause).
+            // Standard UI: If I am playing Trending, the Liked Songs button usually stays "Play".
+            // If I click it, it pauses Trending.
+            // But if I want to reflect the "Active" state of the button...
+            // Let's stick to: If playing from Library, show Pause. If playing elsewhere, show Play (but it will pause).
+            // Actually, if I show "Play" and clicking it Pauses... that's confusing. 
+            // BUT if I show "Pause" when playing Trending... that implies "Trending is part of Liked Songs".
+            // Let's implement: Show Pause ONLY if queue.type === 'library'.
+            
+            const isLibraryQueue = PlayerState.queue && PlayerState.queue.type === 'library';
+            const libIcon = (PlayerState.isPlaying && isLibraryQueue) ? 'fa-pause' : 'fa-play';
+            likedSongsPlayBtn.innerHTML = `<i class="fas ${libIcon}"></i>`;
+        }
     },
 
     playFromLibrary(url, title, thumbnail, artist) {
@@ -676,6 +694,19 @@ const Library = {
     },
     
     playAll() {
+        if (PlayerState.isPlaying) {
+            // If any song is playing, pause it
+            PlaybackControls.togglePlayPause();
+            return;
+        }
+
+        // If paused on library queue, resume
+        if (PlayerState.queue && PlayerState.queue.type === 'library' && PlayerState.currentSong) {
+             PlaybackControls.togglePlayPause();
+             return;
+        }
+
+        // Otherwise start from 1st
         if (PlayerState.library.length > 0) {
             const firstSong = PlayerState.library[0];
             // Update queue to match library order
@@ -784,11 +815,31 @@ const Library = {
         if (isLibraryQueue && isInQueue && isPlaying && PlayerState.currentSong) {
             // Show current song info
             headerImage.innerHTML = `<img src="${PlayerState.currentSong.thumbnail}" alt="${PlayerState.currentSong.title}" style="width: 100%; height: 100%; object-fit: cover;">`;
-            headerTitle.textContent = PlayerState.currentSong.title;
+            
+            // Truncate title to first 2 words
+            const words = PlayerState.currentSong.title.split(' ');
+            const shortTitle = words.length > 2 ? words.slice(0, 2).join(' ') : PlayerState.currentSong.title;
+            headerTitle.textContent = shortTitle;
+            
+            // Update User to Artist and Count to Duration
+            const headerUser = document.getElementById('likedSongsHeaderUser');
+            const headerCount = document.getElementById('expandedSongCount');
+            
+            if (headerUser) headerUser.textContent = PlayerState.currentSong.artist || 'Unknown Artist';
+            if (headerCount) headerCount.textContent = PlayerState.currentSong.duration || '3:45';
+            
         } else {
             // Revert to default
             headerImage.innerHTML = '<i class="fas fa-heart"></i>';
             headerTitle.textContent = 'Liked Songs';
+            
+            // Revert User and Count
+            const headerUser = document.getElementById('likedSongsHeaderUser');
+            const headerCount = document.getElementById('expandedSongCount');
+            const userEmail = document.querySelector('.dropdown-header span')?.textContent || 'User';
+            
+            if (headerUser) headerUser.textContent = userEmail;
+            if (headerCount) headerCount.textContent = `${PlayerState.library.length} songs`;
         }
     },
 
