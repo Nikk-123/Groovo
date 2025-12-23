@@ -332,7 +332,14 @@ const Player = {
             // BUT if I show "Pause" when playing Trending... that implies "Trending is part of Liked Songs".
             // Let's implement: Show Pause ONLY if queue.type === 'library'.
 
-            const isLibraryQueue = PlayerState.queue && PlayerState.queue.type === 'library';
+            // Start with queue check
+            let isLibraryQueue = PlayerState.queue && PlayerState.queue.type === 'library';
+
+            // Fallback: If queue info is missing (e.g. restored state), check if current song is in library
+            if (!isLibraryQueue && PlayerState.currentSong && PlayerState.library.length > 0) {
+                isLibraryQueue = PlayerState.library.some(s => s.url === PlayerState.currentSong.url);
+            }
+
             const libIcon = (PlayerState.isPlaying && isLibraryQueue) ? 'fa-pause' : 'fa-play';
             likedSongsPlayBtn.innerHTML = `<i class="fas ${libIcon}"></i>`;
         }
@@ -649,6 +656,7 @@ const Library = {
                 // because previous updateDisplay call might have happened before library was loaded
                 if (PlayerState.currentSong) {
                     this.updateLikeButton(PlayerState.currentSong.url);
+                    this.updateHeaderState();
                 }
             } else {
                 console.warn('Failed to load library:', data.message);
@@ -886,32 +894,38 @@ const Library = {
 
         if (!headerImage || !headerTitle) return;
 
-        // Check if playing from Library queue using the tag we added
-        const isLibraryQueue = PlayerState.queue && PlayerState.queue.type === 'library';
-        const isPlaying = PlayerState.isPlaying;
+        const currentSong = PlayerState.currentSong;
 
-        // Ensure the current song is actually relevant to the queue
-        // (This handles cases where queue is library but we played an external song that isn't in it - though typically queue should contain current)
-        let isInQueue = false;
-        if (isLibraryQueue && PlayerState.currentSong) {
-            isInQueue = PlayerState.queue.some(s => s.url === PlayerState.currentSong.url);
+        // Determine if we should show the current song in the header
+        // Show if:
+        // 1. We have a current song
+        // 2. That song exists in the Liked Songs library
+        // 3. (Optional) We might want to ensure it's not effectively "stopped", but even paused is fine.
+        let shouldShowSong = false;
+
+        if (currentSong) {
+            const isInLibrary = PlayerState.library.some(s => s.url === currentSong.url);
+            // Only show if in library AND currently playing
+            if (isInLibrary && PlayerState.isPlaying) {
+                shouldShowSong = true;
+            }
         }
 
-        if (isLibraryQueue && isInQueue && isPlaying && PlayerState.currentSong) {
+        if (shouldShowSong && currentSong) {
             // Show current song info
-            headerImage.innerHTML = `<img src="${PlayerState.currentSong.thumbnail}" alt="${PlayerState.currentSong.title}" style="width: 100%; height: 100%; object-fit: cover;">`;
+            headerImage.innerHTML = `<img src="${currentSong.thumbnail}" alt="${currentSong.title}" style="width: 100%; height: 100%; object-fit: cover;">`;
 
             // Truncate title to first 2 words
-            const words = PlayerState.currentSong.title.split(' ');
-            const shortTitle = words.length > 2 ? words.slice(0, 2).join(' ') : PlayerState.currentSong.title;
+            const words = currentSong.title.split(' ');
+            const shortTitle = words.length > 2 ? words.slice(0, 2).join(' ') : currentSong.title;
             headerTitle.textContent = shortTitle;
 
             // Update User to Artist and Count to Duration
             const headerUser = document.getElementById('likedSongsHeaderUser');
             const headerCount = document.getElementById('expandedSongCount');
 
-            if (headerUser) headerUser.textContent = PlayerState.currentSong.artist || 'Unknown Artist';
-            if (headerCount) headerCount.textContent = PlayerState.currentSong.duration || '3:45';
+            if (headerUser) headerUser.textContent = currentSong.artist || 'Unknown Artist';
+            if (headerCount) headerCount.textContent = currentSong.duration || '3:45';
 
         } else {
             // Revert to default
