@@ -1788,3 +1788,20 @@ body.library-open {
 .liked-songs-expanded::-webkit-scrollbar-thumb:hover {
     background-color: rgba(255, 255, 255, 0.5);
 }
+
+.remove-from-library-btn {
+    background: none;
+    border: none;
+    color: #1db954;
+    /* Green for liked */
+    cursor: pointer;
+    padding: 8px;
+    font-size: 16px;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.remove-from-library-btn:hover {
+    color: #ff5555;
+    /* Red to indicate removal */
+    transform: scale(1.1);
+}
