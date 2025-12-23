@@ -31,7 +31,7 @@
       <input type="text" id="searchInput" placeholder="What do you want to listen to?" />
     </div>
     <button type="button" class="library-toggle" id="libraryToggleMain" title="Toggle Library"
-      onclick="toggleLibrary()">
+      onclick="Library.toggleExtendedView()">
       <i class="fas fa-list"></i>
     </button>
     <div class="profile-menu">
@@ -232,7 +232,7 @@
 
             <div class="additional-controls">
               <button type="button" class="library-toggle" id="libraryToggle" title="Toggle Library"
-                onclick="toggleLibrary()">
+                onclick="Library.toggleExtendedView()">
                 <i class="fas fa-list"></i>
               </button>
               <div class="volume-control">
@@ -280,37 +280,7 @@
       <audio id="audioPlayer" preload="auto" style="display: none;"></audio>
     </div>
 
-    <!-- Library Section -->
-    <div class="library-section" id="librarySection">
-      <div class="library-header">
-        <h2>Liked Songs</h2>
-        <div class="library-header-controls">
-          <button type="button" class="library-toggle" onclick="Library.toggleExtendedView()" title="Expand View">
-            <i class="fas fa-expand-alt"></i>
-          </button>
-          <button type="button" class="library-toggle" onclick="toggleLibrary()" title="Close Library">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-      </div>
 
-      <div id="emptyLibraryMessage" style="display: none;">
-        Your library is empty. Add songs to get started!
-      </div>
-
-      <ul class="library-list" id="libraryList">
-        <!-- Skeleton Loading State for Library -->
-        {% for i in range(10) %}
-        <li class="library-item skeleton">
-          <div class="skeleton-img"></div>
-          <div class="skeleton-info">
-            <div class="skeleton-text skeleton-title"></div>
-            <div class="skeleton-text skeleton-artist"></div>
-          </div>
-        </li>
-        {% endfor %}
-      </ul>
-    </div>
 
     <!-- Extended Liked Songs View -->
     <div id="likedSongsExpanded" class="liked-songs-expanded">

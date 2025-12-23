@@ -347,11 +347,11 @@ const Player = {
 
     playFromLibrary(url, title, thumbnail, artist) {
         // Create library queue if not already playing from library
+        // Create library queue from PlayerState.library
         if (!PlayerState.libraryQueue.length) {
-            const libraryItems = document.querySelectorAll('.library-item');
-            PlayerState.libraryQueue = Array.from(libraryItems)
-                .map(item => this.getSongDataFromElement(item))
-                .filter(Boolean);
+            if (PlayerState.library && PlayerState.library.length > 0) {
+                PlayerState.libraryQueue = [...PlayerState.library];
+            }
         }
 
         // Find the index of the clicked song in the library queue
@@ -381,42 +381,7 @@ const Player = {
         }
     },
 
-    togglePlayFromLibraryElement(button) {
-        if (!button) return;
 
-        const item = button.closest('.library-item');
-        const song = item ? this.getSongDataFromElement(item) : this.getSongDataFromElement(button);
-        if (!song) return;
-
-        this.togglePlayFromLibrary(song.url, song.title, song.thumbnail, song.artist);
-    },
-
-    getSongDataFromElement(element) {
-        if (!element) return null;
-
-        const encoded = element.dataset.song;
-        if (encoded) {
-            try {
-                return JSON.parse(decodeURIComponent(encoded));
-            } catch (error) {
-                console.error('Unable to parse encoded song data:', error);
-            }
-        }
-
-        // Fallback to individual data attributes
-        const { url, title, thumbnail, artist, duration } = element.dataset;
-        if (!url) {
-            return null;
-        }
-
-        return {
-            url,
-            title: title || 'Unknown Title',
-            thumbnail: thumbnail || '',
-            artist: artist || 'Unknown Artist',
-            duration: duration || ''
-        };
-    },
 
     saveState() {
         if (PlayerState.currentSong) {
@@ -877,21 +842,7 @@ const Library = {
     },
 
     updateDisplay() {
-        const libraryList = document.getElementById('libraryList');
-        const emptyMessage = document.getElementById('emptyLibraryMessage');
-
-        // If the page doesn't have a library UI, skip rendering to avoid errors
-        if (!libraryList || !emptyMessage) return;
-
-        if (PlayerState.library.length === 0) {
-            libraryList.style.display = 'none';
-            emptyMessage.style.display = 'block';
-            return;
-        }
-
-        libraryList.style.display = 'block';
-        emptyMessage.style.display = 'none';
-        libraryList.innerHTML = PlayerState.library.map(song => this.createSongElement(song)).join('');
+        this.renderExtendedView();
     },
 
     updateHeaderState() {
@@ -948,69 +899,9 @@ const Library = {
         }
     },
 
-    createSongElement(song) {
-        const sanitizeAttr = (value = '') => String(value)
-            .replace(/&/g, '&amp;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
 
-        const sanitizedUrl = sanitizeAttr(song.url);
-        const sanitizedTitle = sanitizeAttr(song.title);
-        const sanitizedThumbnail = sanitizeAttr(song.thumbnail);
-        const sanitizedArtist = sanitizeAttr(song.artist);
-        const encodedSong = encodeURIComponent(JSON.stringify({
-            url: song.url,
-            title: song.title,
-            thumbnail: song.thumbnail,
-            artist: song.artist,
-            duration: song.duration
-        }));
-        const sanitizedEncodedSong = sanitizeAttr(encodedSong);
 
-        return `
-            <li class="library-item" 
-                data-url="${sanitizedUrl}"
-                data-title="${sanitizedTitle}"
-                data-thumbnail="${sanitizedThumbnail}"
-                data-artist="${sanitizedArtist}"
-                data-song="${sanitizedEncodedSong}">
-                <img class="song-thumbnail" src="${sanitizedThumbnail}" alt="${sanitizedTitle}">
-                <div class="library-item-info">
-                    <h3>${sanitizedTitle}</h3>
-                    <p>${sanitizedArtist}</p>
-                </div>
-                <div class="library-item-controls">
-                    <button
-                        class="play-btn"
-                        data-song="${sanitizedEncodedSong}"
-                        onclick="Player.togglePlayFromLibraryElement(this)"
-                        title="Play/Pause"
-                    >
-                        <i class="fas fa-play"></i>
-                    </button>
-                    <button class="remove-from-library" 
-                        data-song="${sanitizedEncodedSong}"
-                        onclick="Library.removeFromElement(this)">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </li>
-        `;
-    },
 
-    async removeFromElement(button) {
-        if (!button || !button.dataset.song) return;
-
-        try {
-            const songData = JSON.parse(decodeURIComponent(button.dataset.song));
-            await this.remove(songData);
-        } catch (error) {
-            console.error('Failed to parse song data for removal:', error);
-            alert('Something went wrong while removing this song. Please try again.');
-        }
-    },
 
     async toggleLike(song) {
         if (!song) return;
@@ -1402,13 +1293,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Add this function at the end of the file, just before the DOMContentLoaded event listener
-function toggleLibrary() {
-    const librarySection = document.getElementById('librarySection');
-    if (librarySection) {
-        librarySection.classList.toggle('show');
-        document.body.classList.toggle('library-open');
-    }
-}
+
 
 // Add the showHome function
 function showHome() {
