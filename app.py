@@ -11,6 +11,7 @@ from yt_dlp.utils import DownloadError
 import logging
 import requests
 import ctypes
+import json
 
 
 # Set App User Model ID (AUMID) for Windows
@@ -47,7 +48,27 @@ MOODS = [
 
 # Simple in-memory cache for library
 # Structure: { user_email: { 'data': [songs], 'timestamp': time.time() } }
-LIBRARY_CACHE = {}
+CACHE_DIR = os.path.join(os.path.expanduser('~'), '.groovo')
+CACHE_FILE = os.path.join(CACHE_DIR, 'library_cache.json')
+
+def load_cache():
+    try:
+        if os.path.exists(CACHE_FILE):
+            with open(CACHE_FILE, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        logging.error(f"Failed to load cache: {e}")
+    return {}
+
+def save_cache():
+    try:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with open(CACHE_FILE, 'w') as f:
+            json.dump(LIBRARY_CACHE, f)
+    except Exception as e:
+        logging.error(f"Failed to save cache: {e}")
+
+LIBRARY_CACHE = load_cache()
 CACHE_DURATION = 300  # 5 minutes
 
 # Configure logging
@@ -362,6 +383,7 @@ def check_session():
                     'data': data.get('library', []),
                     'timestamp': time.time()
                 }
+                save_cache()
                 
                 return jsonify({
                     'success': True,
@@ -744,6 +766,7 @@ def add_to_library():
                 if not any(s.get('url') == song_data.get('url') for s in current_lib):
                     current_lib.append(song_data)
                     print(f"Added to local cache for {user_email}")
+                    save_cache()
 
         return jsonify(response.json()), response.status_code
             
@@ -776,6 +799,7 @@ def remove_from_library():
                     if s.get('url') != target_url
                 ]
                 print(f"Removed from local cache for {user_email}")
+                save_cache()
 
         return jsonify(response.json()), response.status_code
     except Exception as e:
@@ -813,6 +837,7 @@ def get_library():
                 'data': library_data,
                 'timestamp': time.time()
             }
+            save_cache()
             return jsonify({
                 'success': True,
                 'library': library_data
