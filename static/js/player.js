@@ -1034,13 +1034,29 @@ const Search = {
             Elements.search.results.style.display = 'none';
             Elements.search.trending.style.display = 'block';
             document.getElementById('moodPlaylistsContainer').style.display = 'block';
+            // Hide specific loader if it was open
+            if (Elements.search.loader) Elements.search.loader.style.display = 'none';
             return;
         }
 
         Elements.search.trending.style.display = 'none';
         document.getElementById('moodPlaylistsContainer').style.display = 'none';
-        Elements.search.loader.style.display = 'block';
+
+        // Show results container
         Elements.search.results.style.display = 'block';
+
+        // Inject Skeleton Loader
+        const skeletonHTML = Array(10).fill(`
+            <li class="song-item skeleton">
+                <div class="skeleton-img"></div>
+                <div class="skeleton-text skeleton-title"></div>
+                <div class="skeleton-text skeleton-artist"></div>
+            </li>
+        `).join('');
+        Elements.search.list.innerHTML = skeletonHTML;
+
+        // Hide circular loader if it exists
+        if (Elements.search.loader) Elements.search.loader.style.display = 'none';
 
         try {
             const response = await fetch(`/search?query=${encodeURIComponent(query)}`);
@@ -1050,9 +1066,8 @@ const Search = {
         } catch (error) {
             console.error('Search error:', error);
             Elements.search.list.innerHTML = '<li class="error-message">An error occurred while searching</li>';
-        } finally {
-            Elements.search.loader.style.display = 'none';
         }
+        // No finally block needed as displayResults or error handling will overwrite the skeleton
     },
 
     displayResults(results) {
