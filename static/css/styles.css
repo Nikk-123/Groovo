@@ -827,7 +827,8 @@ body.library-open {
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 1000;
+    z-index: 2001;
+    /* Ensure it stays above liked-songs-expanded (z-2000) */
 }
 
 /* Mini Player */
@@ -1459,7 +1460,7 @@ body.library-open {
     /* Purple gradient like reference */
     z-index: 2000;
     /* Increase z-index to cover everything including nav and player if needed */
-    padding: 94px 32px 24px;
+    padding: 94px 32px 120px;
     /* Add top padding to account for content if we cover top nav, or just to look good. 
        If top is 0, we need padding-top ~70px + 24px */
     overflow-y: auto;
