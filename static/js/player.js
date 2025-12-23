@@ -765,7 +765,13 @@ const Library = {
                         </div>
                     </div>
                     <div class="row-artist">${sanitizedArtist}</div>
-                    <div class="row-duration">${duration}</div>
+                    <div class="row-duration">
+                        <button class="remove-from-library-btn" 
+                                onclick="event.stopPropagation(); Library.toggleLike({url: '${sanitizedUrl}', title: '${sanitizedTitle}', thumbnail: '${sanitizedThumbnail}', artist: '${sanitizedArtist}'})"
+                                title="Remove from Liked Songs">
+                            <i class="fas fa-heart"></i>
+                        </button>
+                    </div>
                 </div>
             `;
         }).join('');
