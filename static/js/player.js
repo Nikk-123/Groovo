@@ -643,7 +643,7 @@ const Library = {
                 }
 
                 // Update specific buttons if needed (re-check likes)
-                this.updateLikeButtons();
+                this.updateLikeButton();
 
                 // If we have a current song (restored from state), update its like button specifically
                 // because previous updateDisplay call might have happened before library was loaded
@@ -664,14 +664,7 @@ const Library = {
         }
     },
 
-    updateLikeButtons() {
-        // Helper to update all heart icons on the page based on current library
-        const allLikeButtons = document.querySelectorAll('.add-to-library i, .mini-like-btn i');
-        allLikeButtons.forEach(icon => {
-            const btn = icon.closest('button');
-            // We can check the onclick attribute or data attributes if available
-        });
-    },
+
 
     toggleExtendedView() {
         const expandedView = document.getElementById('likedSongsExpanded');
@@ -1011,12 +1004,44 @@ const Library = {
         this.updateLikeButton(song.url);
     },
 
-    updateLikeButton(songUrl) {
-        const likeButton = document.getElementById('likeButtonIcon');
-        if (!likeButton) return;
+    updateLikeButton(targetUrl = null) {
+        // Helper to check library status
+        const isLiked = (url) => PlayerState.library.some(s => s.url === url);
 
-        const isInLibrary = PlayerState.library.some(song => song.url === songUrl);
-        likeButton.className = `fa-heart ${isInLibrary ? 'fas' : 'far'}`;
+        // 1. Update Main/Mini Player Heart
+        const playerHeart = document.getElementById('likeButtonIcon');
+        if (playerHeart && PlayerState.currentSong) {
+            // If targetUrl is provided, only update if it matches current song
+            if (!targetUrl || targetUrl === PlayerState.currentSong.url) {
+                const liked = isLiked(PlayerState.currentSong.url);
+                playerHeart.className = `fa-heart ${liked ? 'fas' : 'far'}`;
+            }
+        }
+
+        // 2. Update List Buttons (Search, Trending, Moods)
+        const songItems = document.querySelectorAll('.song-item, .expanded-song-row, .library-item');
+        songItems.forEach(item => {
+            const url = item.dataset.url;
+            if (!url) return;
+
+            // If specific target, skip others
+            if (targetUrl && url !== targetUrl) return;
+
+            // Handle different button locations/structures
+            // Standard song-item or library-item might have .add-to-library or .remove-from-library
+            const heartIcon = item.querySelector('.add-to-library i, .remove-from-library i, .mini-like-btn i');
+            if (heartIcon) {
+                const liked = isLiked(url);
+                heartIcon.className = `fa-heart ${liked ? 'fas' : 'far'}`;
+
+                // Also update the button title if needed
+                const btn = heartIcon.closest('button');
+                if (btn && btn.classList.contains('add-to-library')) {
+                    // Start animation if it was just liked (optional, but nice)
+                    // if (targetUrl && liked) { ... } 
+                }
+            }
+        });
     }
 };
 
