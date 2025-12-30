@@ -589,9 +589,6 @@ const PlaybackControls = {
 const Library = {
     isLoading: true, // Add loading state
     async load() {
-        const libraryList = document.getElementById('libraryList');
-        const emptyMessage = document.getElementById('emptyLibraryMessage');
-
         try {
             const response = await fetch('/library/get');
             const data = await response.json();
@@ -599,20 +596,6 @@ const Library = {
             if (data.success) {
                 PlayerState.library = data.library || [];
                 this.isLoading = false; // Data loaded
-
-                // Clear skeletons
-                if (libraryList) libraryList.innerHTML = '';
-
-                if (PlayerState.library.length === 0) {
-                    if (libraryList) libraryList.style.display = 'none';
-                    if (emptyMessage) emptyMessage.style.display = 'block';
-                } else {
-                    if (libraryList) {
-                        libraryList.style.display = 'block';
-                        libraryList.innerHTML = PlayerState.library.map(song => this.createSongElement(song)).join('');
-                    }
-                    if (emptyMessage) emptyMessage.style.display = 'none';
-                }
 
                 // Update specific buttons if needed (re-check likes)
                 this.updateLikeButton();
@@ -623,17 +606,17 @@ const Library = {
                     this.updateLikeButton(PlayerState.currentSong.url);
                     this.updateHeaderState();
                 }
+
+                // Re-render expanded view if it's already open
+                const expandedView = document.getElementById('likedSongsExpanded');
+                if (expandedView && expandedView.classList.contains('show')) {
+                    this.renderExtendedView();
+                }
             } else {
                 console.warn('Failed to load library:', data.message);
-                if (data.message === 'Not logged in') {
-                    // Optionally redirect or show login prompt, but dashboard might handle this.
-                    // For now, silent fail or empty library.
-                    if (libraryList) libraryList.innerHTML = '';
-                }
             }
         } catch (error) {
             console.error('Error loading library:', error);
-            if (libraryList) libraryList.innerHTML = '<li class="error-message">Failed to load library</li>';
         }
     },
 
@@ -677,6 +660,9 @@ const Library = {
             return;
         }
 
+        // Reverse the library array to show last added songs first
+        const reversedLibrary = [...PlayerState.library].reverse();
+
         const sanitizeAttr = (value = '') => String(value)
             .replace(/&/g, '&amp;')
             .replace(/"/g, '&quot;')
@@ -684,7 +670,7 @@ const Library = {
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
 
-        listContainer.innerHTML = PlayerState.library.map((song, index) => {
+        listContainer.innerHTML = reversedLibrary.map((song, index) => {
             const sanitizedUrl = sanitizeAttr(song.url);
             const sanitizedTitle = sanitizeAttr(song.title);
             const sanitizedThumbnail = sanitizeAttr(song.thumbnail);
@@ -726,7 +712,6 @@ const Library = {
                         <img src="${sanitizedThumbnail}" class="row-thumbnail" alt="">
                         <div class="row-text">
                             ${titleHtml}
-                            <span class="row-artist">${sanitizedArtist}</span>
                         </div>
                     </div>
                     <div class="row-artist">${sanitizedArtist}</div>

@@ -69,7 +69,7 @@ def save_cache():
         logging.error(f"Failed to save cache: {e}")
 
 LIBRARY_CACHE = load_cache()
-CACHE_DURATION = 300  # 5 minutes
+CACHE_DURATION = 1800  # 30 minutes (increased to reduce slow external API calls)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -286,7 +286,8 @@ def login():
         
         try:
             response = requests.post(f'{AUTH_SERVICE_URL}/api/login', 
-                                     json={'email': email, 'password': password})
+                                     json={'email': email, 'password': password},
+                                     timeout=10)
             data = response.json()
             
             if data.get('success'):
@@ -341,7 +342,8 @@ def signup():
 
         try:
             response = requests.post(f'{AUTH_SERVICE_URL}/api/signup', 
-                                     json={'email': email, 'password': password})
+                                     json={'email': email, 'password': password},
+                                     timeout=10)
             data = response.json()
             
             if data.get('success'):
@@ -362,7 +364,8 @@ def logout():
         user_email = session.get('user_id')
         if user_email:
             requests.post(f'{AUTH_SERVICE_URL}/api/logout', 
-                        headers={'X-User-Email': user_email})
+                        headers={'X-User-Email': user_email},
+                        timeout=5)
         session.pop('user_id', None)
     except Exception as e:
         print(f"Error during logout: {str(e)}")
@@ -374,7 +377,8 @@ def check_session():
         user_email = session.get('user_id')
         if user_email:
             response = requests.get(f'{AUTH_SERVICE_URL}/api/check-session',
-                                 headers={'X-User-Email': user_email})
+                                 headers={'X-User-Email': user_email},
+                                 timeout=10)
             data = response.json()
             if data.get('success'):
                 # Populate cache since we have the data
@@ -507,7 +511,8 @@ def edit_profile():
                 'email': email,
                 'current_email': user_email
             },
-            headers={'X-User-Email': user_email}
+            headers={'X-User-Email': user_email},
+            timeout=10
         )
         
         if response.status_code == 200:
@@ -751,7 +756,8 @@ def add_to_library():
         
         response = requests.post(f'{AUTH_SERVICE_URL}/library/add',
                               json=song_data,
-                              headers={'X-User-Email': user_email})
+                              headers={'X-User-Email': user_email},
+                              timeout=10)
         
         if response.status_code == 200 and response.json().get('success'):
             # Update local cache if it exists
@@ -788,7 +794,8 @@ def remove_from_library():
         
         response = requests.post(f'{AUTH_SERVICE_URL}/library/remove',
                               json=song_data,
-                              headers={'X-User-Email': user_email})
+                              headers={'X-User-Email': user_email},
+                              timeout=10)
         
         if response.status_code == 200 and response.json().get('success'):
             # Update local cache if it exists
@@ -815,38 +822,84 @@ def get_library():
     
     try:
         user_email = session['user_id']
-        
-        # Check cache first
         import time
+        
+        # Reload cache from disk to handle Flask debug mode reloads
+        global LIBRARY_CACHE
+        disk_cache = load_cache()
+        if disk_cache:
+            LIBRARY_CACHE = disk_cache
+        
+        # Check if cache is valid
         cached = LIBRARY_CACHE.get(user_email)
         if cached and (time.time() - cached['timestamp'] < CACHE_DURATION):
-            print(f"Serving library from cache for {user_email}")
+            logging.info(f"Serving library from cache for {user_email}")
             return jsonify({
                 'success': True,
                 'library': cached['data']
             })
-
-        response = requests.get(f'{AUTH_SERVICE_URL}/api/check-session',
-                             headers={'X-User-Email': user_email})
-        data = response.json()
         
-        if data.get('success'):
-            library_data = data.get('library', [])
-            # Update cache
-            LIBRARY_CACHE[user_email] = {
-                'data': library_data,
-                'timestamp': time.time()
-            }
-            save_cache()
+        # Cache miss or expired - fetch from external service
+        logging.info(f"Cache miss/expired for {user_email}, fetching from auth service...")
+        try:
+            response = requests.get(
+                f'{AUTH_SERVICE_URL}/api/check-session',
+                headers={'X-User-Email': user_email},
+                timeout=10  # 10 second timeout to prevent indefinite waits
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get('success'):
+                library_data = data.get('library', [])
+                # Update cache
+                LIBRARY_CACHE[user_email] = {
+                    'data': library_data,
+                    'timestamp': time.time()
+                }
+                save_cache()
+                logging.info(f"Successfully fetched and cached library for {user_email}")
+                return jsonify({
+                    'success': True,
+                    'library': library_data
+                })
+        except requests.Timeout:
+            logging.warning(f"Timeout fetching library for {user_email}")
+            # If we have stale cache, serve it anyway
+            if cached:
+                logging.info(f"Serving stale cache for {user_email} due to timeout")
+                return jsonify({
+                    'success': True,
+                    'library': cached['data'],
+                    'cached': True,
+                    'stale': True
+                })
             return jsonify({
-                'success': True,
-                'library': library_data
-            })
+                'success': False,
+                'message': 'Service timeout - please try again'
+            }), 504
+        except requests.RequestException as e:
+            logging.error(f"Request error fetching library for {user_email}: {str(e)}")
+            # If we have stale cache, serve it anyway
+            if cached:
+                logging.info(f"Serving stale cache for {user_email} due to error")
+                return jsonify({
+                    'success': True,
+                    'library': cached['data'],
+                    'cached': True,
+                    'stale': True
+                })
+            return jsonify({
+                'success': False,
+                'message': 'Failed to fetch library'
+            }), 500
+            
         return jsonify({
             'success': False,
             'message': 'Failed to fetch library'
         }), 500
     except Exception as e:
+        logging.error(f"Unexpected error in get_library: {str(e)}")
         return jsonify({
             'success': False,
             'message': str(e)
