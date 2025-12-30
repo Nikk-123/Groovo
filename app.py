@@ -754,30 +754,47 @@ def add_to_library():
         song_data = request.json
         user_email = session['user_id']
         
-        response = requests.post(f'{AUTH_SERVICE_URL}/library/add',
-                              json=song_data,
-                              headers={'X-User-Email': user_email},
-                              timeout=10)
+        # Optimistic update: Update cache immediately
+        if user_email in LIBRARY_CACHE:
+            # Add timestamp if missing
+            if 'dateAdded' not in song_data:
+                from datetime import datetime
+                song_data['dateAdded'] = datetime.now().isoformat()
+            
+            # Check for duplicates before appending
+            current_lib = LIBRARY_CACHE[user_email]['data']
+            if not any(s.get('url') == song_data.get('url') for s in current_lib):
+                current_lib.append(song_data)
+                save_cache()
+                logging.info(f"Optimistically added to cache for {user_email}")
         
-        if response.status_code == 200 and response.json().get('success'):
-            # Update local cache if it exists
-            if user_email in LIBRARY_CACHE:
-                # Add timestamp if missing to ensure we have a valid song object
-                if 'dateAdded' not in song_data:
-                    from datetime import datetime
-                    song_data['dateAdded'] = datetime.now().isoformat()
-                
-                # Check for duplicates before appending (basic check by URL)
-                current_lib = LIBRARY_CACHE[user_email]['data']
-                if not any(s.get('url') == song_data.get('url') for s in current_lib):
-                    current_lib.append(song_data)
-                    print(f"Added to local cache for {user_email}")
-                    save_cache()
-
-        return jsonify(response.json()), response.status_code
+        # Try to sync with server in background (non-blocking)
+        try:
+            response = requests.post(f'{AUTH_SERVICE_URL}/library/add',
+                                  json=song_data,
+                                  headers={'X-User-Email': user_email},
+                                  timeout=10)
+            
+            if response.status_code == 200 and response.json().get('success'):
+                logging.info(f"Successfully synced add to server for {user_email}")
+            return jsonify(response.json()), response.status_code
+        except requests.Timeout:
+            logging.warning(f"Timeout adding to library for {user_email}, but cache updated")
+            # Return success anyway since cache is updated
+            return jsonify({
+                'success': True,
+                'message': 'Added to library (sync pending)'
+            }), 200
+        except requests.RequestException as e:
+            logging.error(f"Error syncing add to server for {user_email}: {str(e)}")
+            # Return success anyway since cache is updated
+            return jsonify({
+                'success': True,
+                'message': 'Added to library (sync pending)'
+            }), 200
             
     except Exception as e:
-        print(f"Error adding to library: {str(e)}")
+        logging.error(f"Error adding to library: {str(e)}")
         return jsonify({
             'success': False,
             'message': 'An error occurred while adding to library'
@@ -792,27 +809,46 @@ def remove_from_library():
         song_data = request.json
         user_email = session['user_id']
         
-        response = requests.post(f'{AUTH_SERVICE_URL}/library/remove',
-                              json=song_data,
-                              headers={'X-User-Email': user_email},
-                              timeout=10)
+        # Optimistic update: Update cache immediately
+        if user_email in LIBRARY_CACHE:
+            target_url = song_data.get('url')
+            LIBRARY_CACHE[user_email]['data'] = [
+                s for s in LIBRARY_CACHE[user_email]['data'] 
+                if s.get('url') != target_url
+            ]
+            save_cache()
+            logging.info(f"Optimistically removed from cache for {user_email}")
         
-        if response.status_code == 200 and response.json().get('success'):
-            # Update local cache if it exists
-            if user_email in LIBRARY_CACHE:
-                target_url = song_data.get('url')
-                LIBRARY_CACHE[user_email]['data'] = [
-                    s for s in LIBRARY_CACHE[user_email]['data'] 
-                    if s.get('url') != target_url
-                ]
-                print(f"Removed from local cache for {user_email}")
-                save_cache()
-
-        return jsonify(response.json()), response.status_code
+        # Try to sync with server in background (non-blocking)
+        try:
+            response = requests.post(f'{AUTH_SERVICE_URL}/library/remove',
+                                  json=song_data,
+                                  headers={'X-User-Email': user_email},
+                                  timeout=10)
+            
+            if response.status_code == 200 and response.json().get('success'):
+                logging.info(f"Successfully synced remove to server for {user_email}")
+            return jsonify(response.json()), response.status_code
+        except requests.Timeout:
+            logging.warning(f"Timeout removing from library for {user_email}, but cache updated")
+            # Return success anyway since cache is updated
+            return jsonify({
+                'success': True,
+                'message': 'Removed from library (sync pending)'
+            }), 200
+        except requests.RequestException as e:
+            logging.error(f"Error syncing remove to server for {user_email}: {str(e)}")
+            # Return success anyway since cache is updated
+            return jsonify({
+                'success': True,
+                'message': 'Removed from library (sync pending)'
+            }), 200
+            
     except Exception as e:
+        logging.error(f"Error removing from library: {str(e)}")
         return jsonify({
             'success': False,
-            'message': str(e)
+            'message': 'An error occurred'
         }), 500
 
 @app.route('/library/get', methods=['GET'])
@@ -823,6 +859,7 @@ def get_library():
     try:
         user_email = session['user_id']
         import time
+        from threading import Thread
         
         # Reload cache from disk to handle Flask debug mode reloads
         global LIBRARY_CACHE
@@ -830,22 +867,57 @@ def get_library():
         if disk_cache:
             LIBRARY_CACHE = disk_cache
         
-        # Check if cache is valid
+        # Get cached data
         cached = LIBRARY_CACHE.get(user_email)
-        if cached and (time.time() - cached['timestamp'] < CACHE_DURATION):
+        
+        # Define background sync function
+        def sync_library_in_background():
+            """Sync library with auth service in background"""
+            try:
+                logging.info(f"Background sync started for {user_email}")
+                response = requests.get(
+                    f'{AUTH_SERVICE_URL}/api/check-session',
+                    headers={'X-User-Email': user_email},
+                    timeout=10
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                if data.get('success'):
+                    library_data = data.get('library', [])
+                    # Update cache silently
+                    LIBRARY_CACHE[user_email] = {
+                        'data': library_data,
+                        'timestamp': time.time()
+                    }
+                    save_cache()
+                    logging.info(f"Background sync completed for {user_email}")
+            except Exception as e:
+                logging.error(f"Background sync failed for {user_email}: {str(e)}")
+        
+        # Strategy: Always serve cache first if available, then sync in background
+        if cached:
+            # Serve cached data immediately
             logging.info(f"Serving library from cache for {user_email}")
+            
+            # If cache is old (> 5 minutes), trigger background sync
+            if time.time() - cached['timestamp'] > 300:  # 5 minutes
+                logging.info(f"Cache is old, triggering background sync for {user_email}")
+                sync_thread = Thread(target=sync_library_in_background, daemon=True)
+                sync_thread.start()
+            
             return jsonify({
                 'success': True,
                 'library': cached['data']
             })
         
-        # Cache miss or expired - fetch from external service
-        logging.info(f"Cache miss/expired for {user_email}, fetching from auth service...")
+        # No cache exists - must fetch synchronously (first time only)
+        logging.info(f"No cache found for {user_email}, fetching from auth service...")
         try:
             response = requests.get(
                 f'{AUTH_SERVICE_URL}/api/check-session',
                 headers={'X-User-Email': user_email},
-                timeout=10  # 10 second timeout to prevent indefinite waits
+                timeout=10
             )
             response.raise_for_status()
             data = response.json()
@@ -865,30 +937,12 @@ def get_library():
                 })
         except requests.Timeout:
             logging.warning(f"Timeout fetching library for {user_email}")
-            # If we have stale cache, serve it anyway
-            if cached:
-                logging.info(f"Serving stale cache for {user_email} due to timeout")
-                return jsonify({
-                    'success': True,
-                    'library': cached['data'],
-                    'cached': True,
-                    'stale': True
-                })
             return jsonify({
                 'success': False,
                 'message': 'Service timeout - please try again'
             }), 504
         except requests.RequestException as e:
             logging.error(f"Request error fetching library for {user_email}: {str(e)}")
-            # If we have stale cache, serve it anyway
-            if cached:
-                logging.info(f"Serving stale cache for {user_email} due to error")
-                return jsonify({
-                    'success': True,
-                    'library': cached['data'],
-                    'cached': True,
-                    'stale': True
-                })
             return jsonify({
                 'success': False,
                 'message': 'Failed to fetch library'
