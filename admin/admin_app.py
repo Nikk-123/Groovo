@@ -38,21 +38,30 @@ ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'admin123')
 MONGO_URI = os.getenv('MONGO_URI')
 if not MONGO_URI:
     logging.error("Error: MONGO_URI not found in environment variables")
-    sys.exit(1)
+    # In serverless environment, we can't exit - just log the error
+    if not os.getenv('VERCEL'):
+        sys.exit(1)
+
+# Initialize MongoDB connection
+client = None
+db = None
+users_collection = None
 
 try:
     client = MongoClient(
         MONGO_URI,
         serverSelectionTimeoutMS=5000,
         connectTimeoutMS=20000,
-        connect=True
+        connect=False  # Lazy connection for serverless
     )
     db = client.get_database('music_app')
     users_collection = db.users
-    logging.info("Successfully connected to MongoDB")
+    logging.info("MongoDB client initialized")
 except Exception as e:
-    logging.error(f"Failed to connect to MongoDB: {e}")
-    sys.exit(1)
+    logging.error(f"Failed to initialize MongoDB: {e}")
+    # In serverless environment, we can't exit - connection will be attempted on first request
+    if not os.getenv('VERCEL'):
+        sys.exit(1)
 
 # Admin authentication decorator
 def admin_required(f):
