@@ -9,6 +9,7 @@ from functools import wraps
 from datetime import timedelta
 import bcrypt
 import socket
+from urllib.parse import unquote
 
 # Load environment variables
 if getattr(sys, 'frozen', False):
@@ -314,6 +315,7 @@ def analytics_currently_listening():
 @admin_required
 def analytics_user_activity(email):
     """Get activity for a specific user"""
+    email = unquote(email)  # Decode URL-encoded email
     try:
         from datetime import datetime, timedelta
         listening_history = db.listening_history
@@ -451,6 +453,7 @@ def get_all_users():
 @admin_required
 def get_user_details(email):
     """Get detailed information for a specific user"""
+    email = unquote(email)  # Decode URL-encoded email
     try:
         user = users_collection.find_one({'email': email}, {'password': 0, '_id': 0})
         
@@ -474,6 +477,7 @@ def get_user_details(email):
 @admin_required
 def get_user_library(email):
     """Get user's complete library"""
+    email = unquote(email)  # Decode URL-encoded email
     try:
         user = users_collection.find_one({'email': email}, {'library': 1, '_id': 0})
         
