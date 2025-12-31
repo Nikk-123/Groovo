@@ -293,6 +293,145 @@ def edit_profile():
         return "An error occurred while updating your profile. Please try again later."
 
 
+# Analytics Collections
+listening_history = db.listening_history
+current_sessions = db.current_sessions
+
+# ===== TRACKING ENDPOINTS =====
+
+@app.route('/api/track/play', methods=['POST'])
+def track_play():
+    """Record when a song starts playing"""
+    user_email = session.get('user_id') or request.headers.get('X-User-Email')
+    if not user_email:
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+    
+    try:
+        from datetime import datetime
+        data = request.json
+        
+        # Create listening history entry
+        history_entry = {
+            'user_email': user_email,
+            'song': data.get('song', {}),
+            'event_type': 'play',
+            'timestamp': datetime.utcnow(),
+            'listen_duration': 0
+        }
+        listening_history.insert_one(history_entry)
+        
+        # Update or create current session
+        current_sessions.update_one(
+            {'user_email': user_email},
+            {'$set': {
+                'user_email': user_email,
+                'song': data.get('song', {}),
+                'started_at': datetime.utcnow(),
+                'last_updated': datetime.utcnow(),
+                'status': 'playing'
+            }},
+            upsert=True
+        )
+        
+        return jsonify({'success': True, 'message': 'Play event tracked'}), 200
+    except Exception as e:
+        logging.error(f"Error tracking play: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/track/pause', methods=['POST'])
+def track_pause():
+    """Record when a song is paused"""
+    user_email = session.get('user_id') or request.headers.get('X-User-Email')
+    if not user_email:
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+    
+    try:
+        from datetime import datetime
+        data = request.json
+        
+        # Create history entry
+        history_entry = {
+            'user_email': user_email,
+            'song_url': data.get('song_url'),
+            'event_type': 'pause',
+            'timestamp': datetime.utcnow(),
+            'listen_duration': data.get('listen_duration', 0)
+        }
+        listening_history.insert_one(history_entry)
+        
+        # Update current session
+        current_sessions.update_one(
+            {'user_email': user_email},
+            {'$set': {
+                'status': 'paused',
+                'last_updated': datetime.utcnow()
+            }}
+        )
+        
+        return jsonify({'success': True, 'message': 'Pause event tracked'}), 200
+    except Exception as e:
+        logging.error(f"Error tracking pause: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/track/complete', methods=['POST'])
+def track_complete():
+    """Record when a song completes"""
+    user_email = session.get('user_id') or request.headers.get('X-User-Email')
+    if not user_email:
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+    
+    try:
+        from datetime import datetime
+        data = request.json
+        
+        # Create history entry
+        history_entry = {
+            'user_email': user_email,
+            'song_url': data.get('song_url'),
+            'event_type': 'complete',
+            'timestamp': datetime.utcnow(),
+            'listen_duration': data.get('listen_duration', 0)
+        }
+        listening_history.insert_one(history_entry)
+        
+        # Remove from current sessions
+        current_sessions.delete_one({'user_email': user_email})
+        
+        return jsonify({'success': True, 'message': 'Complete event tracked'}), 200
+    except Exception as e:
+        logging.error(f"Error tracking complete: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/track/skip', methods=['POST'])
+def track_skip():
+    """Record when a song is skipped"""
+    user_email = session.get('user_id') or request.headers.get('X-User-Email')
+    if not user_email:
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+    
+    try:
+        from datetime import datetime
+        data = request.json
+        
+        # Create history entry
+        history_entry = {
+            'user_email': user_email,
+            'song_url': data.get('song_url'),
+            'event_type': 'skip',
+            'timestamp': datetime.utcnow(),
+            'listen_duration': data.get('listen_duration', 0)
+        }
+        listening_history.insert_one(history_entry)
+        
+        # Remove from current sessions
+        current_sessions.delete_one({'user_email': user_email})
+        
+        return jsonify({'success': True, 'message': 'Skip event tracked'}), 200
+    except Exception as e:
+        logging.error(f"Error tracking skip: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({
