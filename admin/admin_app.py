@@ -107,7 +107,257 @@ def admin_dashboard():
     """Main admin dashboard"""
     return render_template('admin_dashboard.html')
 
+@app.route('/analytics')
+@admin_required
+def analytics_page():
+    """Analytics dashboard page"""
+    return render_template('analytics.html')
+
 # API Endpoints
+
+# ===== ANALYTICS API ENDPOINTS =====
+
+@app.route('/api/analytics/overview')
+@admin_required
+def analytics_overview():
+    """Get overall analytics overview"""
+    try:
+        from datetime import datetime, timedelta
+        
+        # Access analytics collections
+        listening_history = db.listening_history
+        current_sessions = db.current_sessions
+        
+        # Total plays
+        total_plays = listening_history.count_documents({'event_type': 'play'})
+        
+        # Unique listeners (all time)
+        unique_listeners = len(listening_history.distinct('user_email'))
+        
+        # Active users (last 24h)
+        yesterday = datetime.utcnow() - timedelta(days=1)
+        active_24h = len(listening_history.distinct('user_email', {'timestamp': {'$gte': yesterday}}))
+        
+        # Active users (last 7 days)
+        week_ago = datetime.utcnow() - timedelta(days=7)
+        active_7d = len(listening_history.distinct('user_email', {'timestamp': {'$gte': week_ago}}))
+        
+        # Currently listening
+        currently_listening = current_sessions.count_documents({'status': 'playing'})
+        
+        # Average listen time
+        pipeline = [
+            {'$match': {'event_type': {'$in': ['complete', 'skip']}}},
+            {'$group': {'_id': None, 'avg_duration': {'$avg': '$listen_duration'}}}
+        ]
+        avg_result = list(listening_history.aggregate(pipeline))
+        avg_listen_time = round(avg_result[0]['avg_duration'], 2) if avg_result else 0
+        
+        return jsonify({
+            'success': True,
+            'overview': {
+                'total_plays': total_plays,
+                'unique_listeners': unique_listeners,
+                'active_24h': active_24h,
+                'active_7d': active_7d,
+                'currently_listening': currently_listening,
+                'avg_listen_time': avg_listen_time
+            }
+        })
+    except Exception as e:
+        logging.error(f"Error getting analytics overview: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/analytics/top-songs')
+@admin_required
+def analytics_top_songs():
+    """Get most played songs"""
+    try:
+        listening_history = db.listening_history
+        limit = int(request.args.get('limit', 10))
+        
+        pipeline = [
+            {'$match': {'event_type': 'play'}},
+            {'$group': {
+                '_id': '$song.url',
+                'title': {'$first': '$song.title'},
+                'artist': {'$first': '$song.artist'},
+                'thumbnail': {'$first': '$song.thumbnail'},
+                'play_count': {'$sum': 1},
+                'unique_listeners': {'$addToSet': '$user_email'}
+            }},
+            {'$project': {
+                '_id': 0,
+                'url': '$_id',
+                'title': 1,
+                'artist': 1,
+                'thumbnail': 1,
+                'play_count': 1,
+                'unique_listeners': {'$size': '$unique_listeners'}
+            }},
+            {'$sort': {'play_count': -1}},
+            {'$limit': limit}
+        ]
+        
+        top_songs = list(listening_history.aggregate(pipeline))
+        
+        return jsonify({
+            'success': True,
+            'top_songs': top_songs
+        })
+    except Exception as e:
+        logging.error(f"Error getting top songs: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/analytics/listening-patterns')
+@admin_required
+def analytics_listening_patterns():
+    """Get listening patterns by hour and day"""
+    try:
+        from datetime import datetime, timedelta
+        listening_history = db.listening_history
+        
+        # Last 7 days of data
+        week_ago = datetime.utcnow() - timedelta(days=7)
+        
+        # Hourly breakdown
+        pipeline_hourly = [
+            {'$match': {'event_type': 'play', 'timestamp': {'$gte': week_ago}}},
+            {'$project': {
+                'hour': {'$hour': '$timestamp'}
+            }},
+            {'$group': {
+                '_id': '$hour',
+                'count': {'$sum': 1}
+            }},
+            {'$sort': {'_id': 1}}
+        ]
+        
+        hourly_data = list(listening_history.aggregate(pipeline_hourly))
+        
+        # Initialize all hours with 0
+        hourly_breakdown = {str(h): 0 for h in range(24)}
+        for item in hourly_data:
+            hourly_breakdown[str(item['_id'])] = item['count']
+        
+        # Daily breakdown (day of week)
+        pipeline_daily = [
+            {'$match': {'event_type': 'play', 'timestamp': {'$gte': week_ago}}},
+            {'$project': {
+                'dayOfWeek': {'$dayOfWeek': '$timestamp'}
+            }},
+            {'$group': {
+                '_id': '$dayOfWeek',
+                'count': {'$sum': 1}
+            }},
+            {'$sort': {'_id': 1}}
+        ]
+        
+        daily_data = list(listening_history.aggregate(pipeline_daily))
+        
+        # Map day numbers to names
+        day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        daily_breakdown = {day: 0 for day in day_names}
+        for item in daily_data:
+            day_index = item['_id'] - 1  # MongoDB dayOfWeek is 1-indexed (1=Sunday)
+            daily_breakdown[day_names[day_index]] = item['count']
+        
+        return jsonify({
+            'success': True,
+            'patterns': {
+                'hourly': hourly_breakdown,
+                'daily': daily_breakdown
+            }
+        })
+    except Exception as e:
+        logging.error(f"Error getting listening patterns: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/analytics/currently-listening')
+@admin_required
+def analytics_currently_listening():
+    """Get users currently listening to music"""
+    try:
+        current_sessions = db.current_sessions
+        
+        sessions = list(current_sessions.find(
+            {'status': 'playing'},
+            {'_id': 0}
+        ))
+        
+        # Convert datetime to string for JSON
+        for session in sessions:
+            if 'started_at' in session:
+                session['started_at'] = session['started_at'].isoformat()
+            if 'last_updated' in session:
+                session['last_updated'] = session['last_updated'].isoformat()
+        
+        return jsonify({
+            'success': True,
+            'sessions': sessions,
+            'count': len(sessions)
+        })
+    except Exception as e:
+        logging.error(f"Error getting currently listening: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/analytics/user-activity/<email>')
+@admin_required
+def analytics_user_activity(email):
+    """Get activity for a specific user"""
+    try:
+        from datetime import datetime, timedelta
+        listening_history = db.listening_history
+        
+        # Last 30 days
+        month_ago = datetime.utcnow() - timedelta(days=30)
+        
+        # User's top songs
+        pipeline_top = [
+            {'$match': {'user_email': email, 'event_type': 'play', 'timestamp': {'$gte': month_ago}}},
+            {'$group': {
+                '_id': '$song.url',
+                'title': {'$first': '$song.title'},
+                'artist': {'$first': '$song.artist'},
+                'play_count': {'$sum': 1}
+            }},
+            {'$sort': {'play_count': -1}},
+            {'$limit': 10}
+        ]
+        
+        top_songs = list(listening_history.aggregate(pipeline_top))
+        
+        # Total plays
+        total_plays = listening_history.count_documents({
+            'user_email': email,
+            'event_type': 'play',
+            'timestamp': {'$gte': month_ago}
+        })
+        
+        # Recent activity
+        recent = list(listening_history.find(
+            {'user_email': email, 'event_type': 'play'},
+            {'_id': 0, 'song': 1, 'timestamp': 1}
+        ).sort('timestamp', -1).limit(20))
+        
+        # Convert timestamps
+        for item in recent:
+            if 'timestamp' in item:
+                item['timestamp'] = item['timestamp'].isoformat()
+        
+        return jsonify({
+            'success': True,
+            'activity': {
+                'email': email,
+                'total_plays_30d': total_plays,
+                'top_songs': top_songs,
+                'recent_plays': recent
+            }
+        })
+    except Exception as e:
+        logging.error(f"Error getting user activity: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/stats')
 @admin_required
 def get_stats():
