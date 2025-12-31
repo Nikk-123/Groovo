@@ -307,15 +307,19 @@ def track_play():
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
     
     try:
-        from datetime import datetime
+        from datetime import datetime, timezone, timedelta
         data = request.json
+        
+        # IST timezone (UTC+5:30)
+        ist = timezone(timedelta(hours=5, minutes=30))
+        now_ist = datetime.now(ist)
         
         # Create listening history entry
         history_entry = {
             'user_email': user_email,
             'song': data.get('song', {}),
             'event_type': 'play',
-            'timestamp': datetime.utcnow(),
+            'timestamp': now_ist,
             'listen_duration': 0
         }
         listening_history.insert_one(history_entry)
@@ -326,8 +330,8 @@ def track_play():
             {'$set': {
                 'user_email': user_email,
                 'song': data.get('song', {}),
-                'started_at': datetime.utcnow(),
-                'last_updated': datetime.utcnow(),
+                'started_at': now_ist,
+                'last_updated': now_ist,
                 'status': 'playing'
             }},
             upsert=True
@@ -346,15 +350,19 @@ def track_pause():
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
     
     try:
-        from datetime import datetime
+        from datetime import datetime, timezone, timedelta
         data = request.json
+        
+        # IST timezone (UTC+5:30)
+        ist = timezone(timedelta(hours=5, minutes=30))
+        now_ist = datetime.now(ist)
         
         # Create history entry
         history_entry = {
             'user_email': user_email,
             'song_url': data.get('song_url'),
             'event_type': 'pause',
-            'timestamp': datetime.utcnow(),
+            'timestamp': now_ist,
             'listen_duration': data.get('listen_duration', 0)
         }
         listening_history.insert_one(history_entry)
@@ -364,7 +372,7 @@ def track_pause():
             {'user_email': user_email},
             {'$set': {
                 'status': 'paused',
-                'last_updated': datetime.utcnow()
+                'last_updated': now_ist
             }}
         )
         
@@ -381,15 +389,19 @@ def track_complete():
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
     
     try:
-        from datetime import datetime
+        from datetime import datetime, timezone, timedelta
         data = request.json
+        
+        # IST timezone (UTC+5:30)
+        ist = timezone(timedelta(hours=5, minutes=30))
+        now_ist = datetime.now(ist)
         
         # Create history entry
         history_entry = {
             'user_email': user_email,
             'song_url': data.get('song_url'),
             'event_type': 'complete',
-            'timestamp': datetime.utcnow(),
+            'timestamp': now_ist,
             'listen_duration': data.get('listen_duration', 0)
         }
         listening_history.insert_one(history_entry)
@@ -410,15 +422,19 @@ def track_skip():
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
     
     try:
-        from datetime import datetime
+        from datetime import datetime, timezone, timedelta
         data = request.json
+        
+        # IST timezone (UTC+5:30)
+        ist = timezone(timedelta(hours=5, minutes=30))
+        now_ist = datetime.now(ist)
         
         # Create history entry
         history_entry = {
             'user_email': user_email,
             'song_url': data.get('song_url'),
             'event_type': 'skip',
-            'timestamp': datetime.utcnow(),
+            'timestamp': now_ist,
             'listen_duration': data.get('listen_duration', 0)
         }
         listening_history.insert_one(history_entry)

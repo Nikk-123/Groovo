@@ -1,19 +1,26 @@
 // Analytics Tracking Module
 const Analytics = {
-    AUTH_SERVICE_URL: 'https://login-auth-jgxb.onrender.com',
+    AUTH_SERVICE_URL: '', // Send to local app which will proxy to auth service
 
     async trackEvent(endpoint, data) {
         try {
-            await fetch(`${this.AUTH_SERVICE_URL}${endpoint}`, {
+            const response = await fetch(`${this.AUTH_SERVICE_URL}${endpoint}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                credentials: 'include', // ← ADD THIS LINE
                 body: JSON.stringify(data)
             });
+
+            // ← ADD THIS CHECK
+            if (!response.ok) {
+                console.warn(`Analytics tracking failed for ${endpoint}: ${response.status} ${response.statusText}`);
+                return;
+            }
+
             console.log(`Analytics: ${endpoint} tracked successfully`);
         } catch (error) {
-            // Silently fail - don't interrupt playback for analytics errors
             console.warn(`Analytics tracking failed for ${endpoint}:`, error);
         }
     },

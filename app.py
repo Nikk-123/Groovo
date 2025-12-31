@@ -959,151 +959,92 @@ def get_library():
             'message': str(e)
         }), 500
 
-# ===== ANALYTICS & TRACKING ENDPOINTS =====
+# ===== ANALYTICS TRACKING PROXY ENDPOINTS =====
+# These endpoints proxy analytics tracking to the auth service
+
 
 @app.route('/api/track/play', methods=['POST'])
 def track_play():
-    """Track when a song starts playing"""
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
     
     try:
-        data = request.json
         user_email = session['user_id']
+        data = request.json
         
-        tracking_data = {
-            'user_email': user_email,
-            'song': {
-                'url': data.get('url'),
-                'title': data.get('title'),
-                'artist': data.get('artist'),
-                'thumbnail': data.get('thumbnail'),
-                'duration': data.get('duration')
-            },
-            'event_type': 'play',
-            'timestamp': data.get('timestamp')
-        }
-        
-        # Send to auth service for storage
-        try:
-            response = requests.post(
-                f'{AUTH_SERVICE_URL}/api/track/play',
-                json=tracking_data,
-                headers={'X-User-Email': user_email},
-                timeout=5
-            )
-            return jsonify(response.json()), response.status_code
-        except requests.Timeout:
-            # Log locally but don't fail the request
-            logging.warning(f"Timeout tracking play for {user_email}")
-            return jsonify({'success': True, 'message': 'Tracked locally'}), 200
-        except requests.RequestException as e:
-            logging.error(f"Error tracking play: {str(e)}")
-            return jsonify({'success': True, 'message': 'Tracked locally'}), 200
-            
+        response = requests.post(
+            f'{AUTH_SERVICE_URL}/api/track/play',
+            json=data,
+            headers={'X-User-Email': user_email},
+            timeout=5
+        )
+        return jsonify(response.json()), response.status_code
     except Exception as e:
-        logging.error(f"Error in track_play: {str(e)}")
+        logging.error(f"Error tracking play: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/track/pause', methods=['POST'])
 def track_pause():
-    """Track when a song is paused"""
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
     
     try:
-        data = request.json
         user_email = session['user_id']
+        data = request.json
         
-        tracking_data = {
-            'user_email': user_email,
-            'song_url': data.get('url'),
-            'event_type': 'pause',
-            'listen_duration': data.get('listen_duration', 0),
-            'timestamp': data.get('timestamp')
-        }
-        
-        try:
-            response = requests.post(
-                f'{AUTH_SERVICE_URL}/api/track/pause',
-                json=tracking_data,
-                headers={'X-User-Email': user_email},
-                timeout=5
-            )
-            return jsonify(response.json()), response.status_code
-        except:
-            return jsonify({'success': True}), 200
-            
+        response = requests.post(
+            f'{AUTH_SERVICE_URL}/api/track/pause',
+            json=data,
+            headers={'X-User-Email': user_email},
+            timeout=5
+        )
+        return jsonify(response.json()), response.status_code
     except Exception as e:
-        logging.error(f"Error in track_pause: {str(e)}")
+        logging.error(f"Error tracking pause: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/track/complete', methods=['POST'])
 def track_complete():
-    """Track when a song completes playing"""
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
     
     try:
-        data = request.json
         user_email = session['user_id']
+        data = request.json
         
-        tracking_data = {
-            'user_email': user_email,
-            'song_url': data.get('url'),
-            'event_type': 'complete',
-            'listen_duration': data.get('listen_duration', 0),
-            'timestamp': data.get('timestamp')
-        }
-        
-        try:
-            response = requests.post(
-                f'{AUTH_SERVICE_URL}/api/track/complete',
-                json=tracking_data,
-                headers={'X-User-Email': user_email},
-                timeout=5
-            )
-            return jsonify(response.json()), response.status_code
-        except:
-            return jsonify({'success': True}), 200
-            
+        response = requests.post(
+            f'{AUTH_SERVICE_URL}/api/track/complete',
+            json=data,
+            headers={'X-User-Email': user_email},
+            timeout=5
+        )
+        return jsonify(response.json()), response.status_code
     except Exception as e:
-        logging.error(f"Error in track_complete: {str(e)}")
+        logging.error(f"Error tracking complete: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/track/skip', methods=['POST'])
 def track_skip():
-    """Track when a song is skipped"""
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
     
     try:
-        data = request.json
         user_email = session['user_id']
+        data = request.json
         
-        tracking_data = {
-            'user_email': user_email,
-            'song_url': data.get('url'),
-            'event_type': 'skip',
-            'listen_duration': data.get('listen_duration', 0),
-            'timestamp': data.get('timestamp')
-        }
-        
-        try:
-            response = requests.post(
-                f'{AUTH_SERVICE_URL}/api/track/skip',
-                json=tracking_data,
-                headers={'X-User-Email': user_email},
-                timeout=5
-            )
-            return jsonify(response.json()), response.status_code
-        except:
-            return jsonify({'success': True}), 200
-            
+        response = requests.post(
+            f'{AUTH_SERVICE_URL}/api/track/skip',
+            json=data,
+            headers={'X-User-Email': user_email},
+            timeout=5
+        )
+        return jsonify(response.json()), response.status_code
     except Exception as e:
-        logging.error(f"Error in track_skip: {str(e)}")
+        logging.error(f"Error tracking skip: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+
+# ===== FACE AUTHENTICATION ROUTES =====
 
 @app.errorhandler(500)
 def internal_error(error):
