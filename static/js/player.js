@@ -1320,21 +1320,62 @@ function showHome() {
     }
 }
 
-// function toggleRegisterSection() {
-//     const registerSection = document.getElementById('registerSection');
-//     const enableFaceAuth = document.getElementById('enableFaceAuth');
-//     const statusText = document.getElementById('statusText');
+// Settings Overlay Management
+const Settings = {
+    show() {
+        const overlay = document.getElementById('settingsOverlay');
+        if (overlay) {
+            overlay.classList.add('show');
+            document.body.style.overflow = 'hidden';
 
-//     if (enableFaceAuth && registerSection && statusText) {
-//       const isEnabled = enableFaceAuth.checked;
-//       registerSection.classList.toggle('hidden', !isEnabled);
-//       statusText.textContent = isEnabled ? 'Enabled' : 'Disabled';
-//       statusText.className = `ml-4 font-semibold ${isEnabled ? 'text-green-500' : 'text-gray-500'}`;
-//     } else {
-//       console.error('Toggle elements not found');
-//     }
-//   }
-// }
+            // Close profile dropdown if open
+            const profileDropdown = document.getElementById('profileDropdown');
+            if (profileDropdown) {
+                profileDropdown.style.display = 'none';
+            }
+        }
+    },
+
+    hide() {
+        const overlay = document.getElementById('settingsOverlay');
+        if (overlay) {
+            overlay.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+    },
+
+    scrollToSection(sectionId) {
+        const section = document.getElementById(sectionId);
+        if (!section) return;
+
+        // Update active nav item
+        document.querySelectorAll('.settings-nav-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        event.target.closest('.settings-nav-item')?.classList.add('active');
+
+        // Scroll to section
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+};
+
+// Handle Escape key to close settings
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const overlay = document.getElementById('settingsOverlay');
+        if (overlay && overlay.classList.contains('show')) {
+            Settings.hide();
+        }
+    }
+});
+
+// Close settings when clicking outside the container
+document.addEventListener('click', (e) => {
+    const overlay = document.getElementById('settingsOverlay');
+    if (overlay && e.target === overlay) {
+        Settings.hide();
+    }
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     Player.loadState();
