@@ -346,19 +346,19 @@ const Player = {
     },
 
     playFromLibrary(url, title, thumbnail, artist) {
-        // Create library queue if not already playing from library
-        // Create library queue from PlayerState.library
+        // Create library queue in REVERSED order to match display
         if (!PlayerState.libraryQueue.length) {
             if (PlayerState.library && PlayerState.library.length > 0) {
-                PlayerState.libraryQueue = [...PlayerState.library];
+                // Reverse the library to match the display order
+                PlayerState.libraryQueue = [...PlayerState.library].reverse();
             }
         }
 
-        // Find the index of the clicked song in the library queue
+        // Find the index of the clicked song in the REVERSED library queue
         const songIndex = PlayerState.libraryQueue.findIndex(song => song.url === url);
         if (songIndex !== -1) {
             PlayerState.currentIndex = songIndex;
-            PlayerState.queue = PlayerState.libraryQueue; // Use library as the current queue
+            PlayerState.queue = PlayerState.libraryQueue; // Use reversed library as the current queue
         }
 
         // Tag the queue to identify it as the library queue
@@ -743,10 +743,12 @@ const Library = {
         // Restore State Logic: If we have a current song (restored) that is in the library
         // but the queue hasn't been initialized as 'library' yet
         if (PlayerState.currentSong && PlayerState.library.length > 0) {
-            const matchIndex = PlayerState.library.findIndex(s => s.url === PlayerState.currentSong.url);
+            // Reverse library to match display order
+            const reversedLibrary = [...PlayerState.library].reverse();
+            const matchIndex = reversedLibrary.findIndex(s => s.url === PlayerState.currentSong.url);
             if (matchIndex !== -1) {
-                // Found it! Re-intialize the queue
-                PlayerState.queue = [...PlayerState.library];
+                // Found it! Re-initialize the queue with reversed order
+                PlayerState.queue = reversedLibrary;
                 PlayerState.queue.type = 'library';
                 PlayerState.currentIndex = matchIndex;
 
@@ -755,11 +757,13 @@ const Library = {
             }
         }
 
-        // Otherwise start from 1st
+        // Otherwise start from 1st (which is the last song in original order)
         if (PlayerState.library.length > 0) {
-            const firstSong = PlayerState.library[0];
-            // Update queue to match library order
-            PlayerState.queue = [...PlayerState.library];
+            // Reverse library to match display order
+            const reversedLibrary = [...PlayerState.library].reverse();
+            const firstSong = reversedLibrary[0];
+            // Update queue to match reversed library order
+            PlayerState.queue = reversedLibrary;
             PlayerState.queue.type = 'library';
             PlayerState.currentIndex = 0;
             Player.play(firstSong.url, firstSong.title, firstSong.thumbnail, firstSong.artist);
