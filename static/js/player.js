@@ -1,3 +1,49 @@
+// Analytics Tracking Module
+const Analytics = {
+    AUTH_SERVICE_URL: 'https://login-auth-jgxb.onrender.com',
+
+    async trackEvent(endpoint, data) {
+        try {
+            await fetch(`${this.AUTH_SERVICE_URL}${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            console.log(`Analytics: ${endpoint} tracked successfully`);
+        } catch (error) {
+            // Silently fail - don't interrupt playback for analytics errors
+            console.warn(`Analytics tracking failed for ${endpoint}:`, error);
+        }
+    },
+
+    trackPlay(song) {
+        this.trackEvent('/api/track/play', { song });
+    },
+
+    trackPause(songUrl, listenDuration) {
+        this.trackEvent('/api/track/pause', {
+            song_url: songUrl,
+            listen_duration: listenDuration
+        });
+    },
+
+    trackComplete(songUrl, listenDuration) {
+        this.trackEvent('/api/track/complete', {
+            song_url: songUrl,
+            listen_duration: listenDuration
+        });
+    },
+
+    trackSkip(songUrl, listenDuration) {
+        this.trackEvent('/api/track/skip', {
+            song_url: songUrl,
+            listen_duration: listenDuration
+        });
+    }
+};
+
 // Core State Management
 const PlayerState = {
     queue: [],
@@ -19,7 +65,8 @@ const PlayerState = {
     customRepeat: {
         active: false,
         count: 0
-    }
+    },
+    playStartTime: 0 // Track when current song started playing
 };
 
 // DOM Elements (unchanged)
@@ -133,6 +180,15 @@ const Player = {
             this.updateUIState(cleanUrl);
             this.updateMetadata(title, artist, thumbnail);
 
+            // Track play event for analytics
+            PlayerState.playStartTime = Date.now();
+            Analytics.trackPlay({
+                url: cleanUrl,
+                title: title,
+                thumbnail: thumbnail,
+                artist: artist
+            });
+
             // Save state
             this.saveState();
 
@@ -186,7 +242,14 @@ const Player = {
             PlayerState.audio.volume = PlayerState.volume;
 
             // Setup event handlers
-            PlayerState.audio.onended = () => PlaybackControls.playNext(true);
+            PlayerState.audio.onended = () => {
+                // Track completion before auto-advancing
+                if (PlayerState.currentSong && PlayerState.playStartTime) {
+                    const listenDuration = Math.floor((Date.now() - PlayerState.playStartTime) / 1000);
+                    Analytics.trackComplete(PlayerState.currentSong.url, listenDuration);
+                }
+                PlaybackControls.playNext(true);
+            };
             PlayerState.audio.onerror = (error) => {
                 console.error('Audio playback error:', error);
                 this.handlePlaybackError();
@@ -431,9 +494,17 @@ const PlaybackControls = {
         if (PlayerState.isPlaying) {
             PlayerState.audio.pause();
             PlayerState.isPlaying = false;
+
+            // Track pause event
+            if (PlayerState.currentSong && PlayerState.playStartTime) {
+                const listenDuration = Math.floor((Date.now() - PlayerState.playStartTime) / 1000);
+                Analytics.trackPause(PlayerState.currentSong.url, listenDuration);
+            }
         } else {
             PlayerState.audio.play();
             PlayerState.isPlaying = true;
+            // Reset play start time when resuming
+            PlayerState.playStartTime = Date.now();
         }
         Player.updateAllPlayButtons(PlayerState.currentSong.url);
         Library.updateHeaderState();
@@ -507,6 +578,12 @@ const PlaybackControls = {
     },
 
     playNext(isAuto = false) {
+        // Track skip event if manually advancing (not auto-complete)
+        if (!isAuto && PlayerState.currentSong && PlayerState.playStartTime) {
+            const listenDuration = Math.floor((Date.now() - PlayerState.playStartTime) / 1000);
+            Analytics.trackSkip(PlayerState.currentSong.url, listenDuration);
+        }
+
         // Handle Custom Repeat
         if (isAuto && PlayerState.customRepeat.active) {
             if (PlayerState.customRepeat.count > 0) {
