@@ -68,7 +68,7 @@ jobs:
 
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --noconsole --clean --add-data "templates;templates" --add-data "static;static" --add-data ".env;." --icon "static/icon.ico" --name "groovo-${{ env.NEW_TAG }}" app.py
+          pyinstaller --onefile --noconsole --clean --add-data "templates;templates" --add-data "static;static" --add-data "modules;modules" --add-data ".env;." --icon "static/icon.ico" --name "groovo-${{ env.NEW_TAG }}" app.py
         shell: cmd
 
       - name: Verify EXE Creation
