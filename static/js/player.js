@@ -1,3 +1,79 @@
+// Keep-Alive Manager for Render Cold Start Prevention
+class KeepAliveManager {
+    constructor() {
+        this.intervalId = null;
+        this.baseInterval = 600000; // 10 minutes
+        this.jitterRange = 120000; // ±2 minutes randomization
+        this.endpoint = '/api/health-check';
+        this.lastServiceActivity = Date.now(); // Track last successful service interaction
+        this.skipThreshold = 300000; // Skip ping if service was active within 5 minutes
+    }
+
+    // Call this when any successful request is made to the auth service
+    recordServiceActivity() {
+        this.lastServiceActivity = Date.now();
+        console.log('[KeepAlive] Service activity recorded');
+    }
+
+    shouldSkipPing() {
+        const timeSinceActivity = Date.now() - this.lastServiceActivity;
+        return timeSinceActivity < this.skipThreshold;
+    }
+
+    async ping() {
+        // Skip if service was recently active (optimization to reduce load)
+        if (this.shouldSkipPing()) {
+            console.log('[KeepAlive] Skipping ping - service recently active');
+            return;
+        }
+
+        try {
+            const response = await fetch(this.endpoint);
+            if (response.ok) {
+                console.log('[KeepAlive] Render service is active');
+                this.recordServiceActivity();
+            }
+        } catch (error) {
+            console.warn('[KeepAlive] Ping failed:', error.message);
+        }
+    }
+
+    getRandomizedInterval() {
+        // Add random jitter: ±2 minutes to prevent synchronized pings
+        const jitter = Math.random() * this.jitterRange * 2 - this.jitterRange;
+        return this.baseInterval + jitter;
+    }
+
+    start() {
+        if (this.intervalId) return; // Already running
+
+        // Immediate ping on start (with small random delay to spread out initial pings)
+        setTimeout(() => this.ping(), Math.random() * 5000);
+
+        // Set up periodic pings with randomized intervals
+        const scheduleNextPing = () => {
+            this.intervalId = setTimeout(() => {
+                this.ping();
+                scheduleNextPing(); // Schedule next ping
+            }, this.getRandomizedInterval());
+        };
+
+        scheduleNextPing();
+        console.log('[KeepAlive] Started with 10-min interval (±2 min jitter)');
+    }
+
+    stop() {
+        if (this.intervalId) {
+            clearTimeout(this.intervalId);
+            this.intervalId = null;
+            console.log('[KeepAlive] Stopped');
+        }
+    }
+}
+
+// Initialize keep-alive manager
+const keepAliveManager = new KeepAliveManager();
+
 // Analytics Tracking Module
 const Analytics = {
     AUTH_SERVICE_URL: '', // Send to local app which will proxy to auth service
@@ -20,6 +96,9 @@ const Analytics = {
             }
 
             console.log(`Analytics: ${endpoint} tracked successfully`);
+
+            // Record service activity to prevent redundant keep-alive pings
+            keepAliveManager.recordServiceActivity();
         } catch (error) {
             console.warn(`Analytics tracking failed for ${endpoint}:`, error);
         }
@@ -876,6 +955,8 @@ const Library = {
             if (!data.success) {
                 throw new Error(data.message || 'Failed to add');
             }
+            // Record service activity to prevent redundant keep-alive pings
+            keepAliveManager.recordServiceActivity();
         } catch (error) {
             console.error('Error adding to library:', error);
             // Revert changes on failure
@@ -904,6 +985,8 @@ const Library = {
             if (!data.success) {
                 throw new Error(data.message || 'Failed to remove');
             }
+            // Record service activity to prevent redundant keep-alive pings
+            keepAliveManager.recordServiceActivity();
         } catch (error) {
             console.error('Error removing from library:', error);
             // Revert changes on failure
@@ -1250,6 +1333,9 @@ function updateCustomRepeatDisplay() {
 document.addEventListener('DOMContentLoaded', () => {
     Library.load();
     Search.init();
+
+    // Start keep-alive manager to prevent Render cold starts
+    keepAliveManager.start();
 
     // Setup event listeners for play controls
     ['mini', 'main'].forEach(type => {

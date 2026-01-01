@@ -1,132 +1,103 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="msapplication-TileColor" content="#000000" />
-    <title>Settings</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome CDN -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
-    />
-    <!-- Custom CSS -->
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/settings.css') }}"
-    />
-  </head>
-  <body class="bg-black text-gray-100 font-sans">
-    <!-- Sidebar -->
-    <div class="fixed top-0 left-0 h-full w-64 bg-gray-900 shadow-lg overflow-y-auto sidebar">
-      <div class="p-6">
-        <h1 class="text-2xl font-bold text-white flex items-center">
-          <i class="fas fa-cog mr-2"></i> Settings
-        </h1>
-      </div>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="msapplication-TileColor" content="#000000" />
+  <title>Settings</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon_new.png') }}">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}" />
+</head>
+
+<body class="bg-black text-gray-100 font-sans">
+  <!-- Sidebar -->
+  <div class="fixed top-0 left-0 h-full w-64 bg-gray-900 shadow-lg overflow-y-auto sidebar">
+    <div class="p-6">
+      <h1 class="text-2xl font-bold text-white flex items-center">
+        <i class="fas fa-cog mr-2"></i> Settings
+      </h1>
+    </div>
     <nav class="mt-4">
-      <a
-        href="#profile"
-        class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition"
-        onclick="scrollToSection('profile')"
-      >
+      <a href="#profile" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition"
+        onclick="scrollToSection('profile')">
         <i class="fas fa-user mr-3"></i> Profile
       </a>
-      <a
-        href="#device"
-        class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition"
-        onclick="scrollToSection('device')"
-      >
+      <a href="#device" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition"
+        onclick="scrollToSection('device')">
         <i class="fas fa-laptop mr-3"></i> Device Information
       </a>
-      <a
-        href="#privacy"
-        class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition"
-        onclick="scrollToSection('privacy')"
-      >
+      <a href="#privacy" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition"
+        onclick="scrollToSection('privacy')">
         <i class="fas fa-shield-alt mr-3"></i> Face Authentication
       </a>
-      
-      <a
-        href="{{ url_for('dashboard') }}"
-        class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition"
-      >
+
+      <a href="{{ url_for('dashboard') }}"
+        class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition">
         <i class="fas fa-arrow-left mr-3"></i> Back to Dashboard
       </a>
-      
+
     </nav>
     <script>
       function scrollToSection(sectionId) {
         const section = document.getElementById(sectionId);
         if (section) {
-        section.scrollIntoView({ behavior: 'smooth' });
+          section.scrollIntoView({ behavior: 'smooth' });
         }
       }
     </script>
-    </div>
+  </div>
 
-    <!-- Main Content -->
-    <div class="ml-64 p-8 min-h-screen">
-      <div class="max-w-2xl mx-auto">
-        <!-- Profile Section -->
-        <div id="profile" class="settings-section mb-12">
-          <h2 class="text-3xl font-semibold text-white mb-4">Profile</h2>
-          <p class="text-gray-400 mb-6">Manage your profile information.</p>
-          <form action="{{ url_for('edit_profile') }}" method="POST" class="space-y-4">
-            <div>
-              <label for="username" class="block text-sm font-medium text-gray-300">Username</label>
-              <input
-                type="text"
-                id="username"
-                name="username"
-                placeholder="Enter new username"
-                required
-                class="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            <div>
-              <label for="email" class="block text-sm font-medium text-gray-300">Email</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                placeholder="Enter new email"
-                required
-                class="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            <button
-              type="submit"
-              class="px-6 py-3 bg-green-500 text-black font-semibold rounded-full hover:bg-green-600 transition"
-            >
-              Save Changes
-            </button>
-          </form>
-        </div>
-
-        <!-- Device Information Section -->
-        <div id="device" class="settings-section mb-12">
-          <h2 class="text-3xl font-semibold text-white mb-4">Device Information</h2>
-          <p class="text-gray-400">Your current device IP: {{ request.remote_addr }}</p>
-        </div>
-
-        <!-- Privacy Section -->
-        <div id="privacy" class="settings-section mb-12">
-          <h2 class="text-3xl font-semibold text-white mb-4">Face Authentication</h2>
-          <p class="text-gray-400 mb-6">Control your face authentication settings and data preferences.</p>
-          <button
-            onclick="window.location.href='{{ url_for('face_auth') }}';"
-            class="px-6 py-3 bg-green-500 text-black font-semibold rounded-full hover:bg-green-600 transition"
-          >
-            Manage Face Authentication Settings
+  <!-- Main Content -->
+  <div class="ml-64 p-8 min-h-screen">
+    <div class="max-w-2xl mx-auto">
+      <!-- Profile Section -->
+      <div id="profile" class="settings-section mb-12">
+        <h2 class="text-3xl font-semibold text-white mb-4">Profile</h2>
+        <p class="text-gray-400 mb-6">Manage your profile information.</p>
+        <form action="{{ url_for('edit_profile') }}" method="POST" class="space-y-4">
+          <div>
+            <label for="username" class="block text-sm font-medium text-gray-300">Username</label>
+            <input type="text" id="username" name="username" placeholder="Enter new username" required
+              class="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+          <div>
+            <label for="email" class="block text-sm font-medium text-gray-300">Email</label>
+            <input type="email" id="email" name="email" placeholder="Enter new email" required
+              class="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+          <button type="submit"
+            class="px-6 py-3 bg-green-500 text-black font-semibold rounded-full hover:bg-green-600 transition">
+            Save Changes
           </button>
-        </div>
-
-        
+        </form>
       </div>
+
+      <!-- Device Information Section -->
+      <div id="device" class="settings-section mb-12">
+        <h2 class="text-3xl font-semibold text-white mb-4">Device Information</h2>
+        <p class="text-gray-400">Your current device IP: {{ request.remote_addr }}</p>
+      </div>
+
+      <!-- Privacy Section -->
+      <div id="privacy" class="settings-section mb-12">
+        <h2 class="text-3xl font-semibold text-white mb-4">Face Authentication</h2>
+        <p class="text-gray-400 mb-6">Control your face authentication settings and data preferences.</p>
+        <button onclick="window.location.href='{{ url_for('face_auth') }}';"
+          class="px-6 py-3 bg-green-500 text-black font-semibold rounded-full hover:bg-green-600 transition">
+          Manage Face Authentication Settings
+        </button>
+      </div>
+
+
     </div>
-  </body>
+  </div>
+</body>
+
 </html>
