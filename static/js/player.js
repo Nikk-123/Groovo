@@ -1,12 +1,24 @@
-// Keep-Alive Manager for Render Cold Start Prevention
+// Keep-Alive Manager for Render Cold Start Prevention (Adaptive Version)
 class KeepAliveManager {
     constructor() {
         this.intervalId = null;
-        this.baseInterval = 600000; // 10 minutes
+        this.baseInterval = 600000; // 10 minutes (fallback)
+        this.currentInterval = 600000; // Will be updated dynamically from server
         this.jitterRange = 120000; // ±2 minutes randomization
-        this.endpoint = '/api/health-check';
-        this.lastServiceActivity = Date.now(); // Track last successful service interaction
-        this.skipThreshold = 300000; // Skip ping if service was active within 5 minutes
+        this.endpoint = '/api/keepalive/ping';
+        this.lastServiceActivity = Date.now();
+        this.skipThreshold = 300000; // 5 minutes
+        this.clientId = this.generateClientId();
+    }
+
+    generateClientId() {
+        // Generate a persistent client ID for tracking
+        let id = localStorage.getItem('groovo_client_id');
+        if (!id) {
+            id = 'client_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('groovo_client_id', id);
+        }
+        return id;
     }
 
     // Call this when any successful request is made to the auth service
@@ -24,42 +36,58 @@ class KeepAliveManager {
         // Skip if service was recently active (optimization to reduce load)
         if (this.shouldSkipPing()) {
             console.log('[KeepAlive] Skipping ping - service recently active');
+            // Still reschedule next ping
+            this.scheduleNextPing();
             return;
         }
 
         try {
-            const response = await fetch(this.endpoint);
+            const response = await fetch(this.endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ client_id: this.clientId })
+            });
+
             if (response.ok) {
-                console.log('[KeepAlive] Render service is active');
+                const data = await response.json();
+                console.log(`[KeepAlive] Active users: ${data.active_users} | Interval: ${data.recommended_interval_min}min | Total load: ~${data.target_pings_per_hour} pings/hour`);
+
+                // Update interval dynamically based on server recommendation
+                this.currentInterval = data.recommended_interval_ms;
                 this.recordServiceActivity();
+            } else {
+                console.warn('[KeepAlive] Server returned error, using fallback interval');
             }
         } catch (error) {
             console.warn('[KeepAlive] Ping failed:', error.message);
         }
+
+        // Schedule next ping with updated interval
+        this.scheduleNextPing();
     }
 
-    getRandomizedInterval() {
-        // Add random jitter: ±2 minutes to prevent synchronized pings
+    scheduleNextPing() {
+        // Clear any existing scheduled ping
+        if (this.intervalId) {
+            clearTimeout(this.intervalId);
+        }
+
+        // Add jitter to current interval to prevent synchronized pings
         const jitter = Math.random() * this.jitterRange * 2 - this.jitterRange;
-        return this.baseInterval + jitter;
+        const nextInterval = Math.max(0, this.currentInterval + jitter);
+
+        this.intervalId = setTimeout(() => {
+            this.ping();
+        }, nextInterval);
     }
 
     start() {
         if (this.intervalId) return; // Already running
 
-        // Immediate ping on start (with small random delay to spread out initial pings)
+        // Immediate ping to register and get initial interval
         setTimeout(() => this.ping(), Math.random() * 5000);
-
-        // Set up periodic pings with randomized intervals
-        const scheduleNextPing = () => {
-            this.intervalId = setTimeout(() => {
-                this.ping();
-                scheduleNextPing(); // Schedule next ping
-            }, this.getRandomizedInterval());
-        };
-
-        scheduleNextPing();
-        console.log('[KeepAlive] Started with 10-min interval (±2 min jitter)');
+        console.log('[KeepAlive] Started with adaptive intervals based on user count');
     }
 
     stop() {
