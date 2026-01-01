@@ -10,6 +10,7 @@ from datetime import timedelta
 import bcrypt
 import socket
 from urllib.parse import unquote
+import requests
 
 # Load environment variables
 if getattr(sys, 'frozen', False):
@@ -42,6 +43,10 @@ if not MONGO_URI:
     # In serverless environment, we can't exit - just log the error
     if not os.getenv('VERCEL'):
         sys.exit(1)
+
+# GitHub Configuration for releases
+GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', '')
+GITHUB_REPO = os.getenv('GITHUB_REPO', 'Nikk-123/GROOVO')  # Default to your repository
 
 # Initialize MongoDB connection
 client = None
@@ -495,6 +500,81 @@ def get_user_library(email):
     except Exception as e:
         logging.error(f"Error getting user library: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/releases/latest')
+@admin_required
+def get_latest_release():
+    """Get the latest GitHub release information"""
+    try:
+        headers = {}
+        if GITHUB_TOKEN:
+            headers['Authorization'] = f'token {GITHUB_TOKEN}'
+            headers['Accept'] = 'application/vnd.github.v3+json'
+        
+        # GitHub API endpoint for latest release
+        api_url = f'https://api.github.com/repos/{GITHUB_REPO}/releases/latest'
+        
+        logging.info(f"Fetching latest release from: {api_url}")
+        response = requests.get(api_url, headers=headers, timeout=10)
+        
+        if response.status_code == 404:
+            return jsonify({
+                'success': False,
+                'message': 'No releases found for this repository'
+            }), 404
+        
+        if response.status_code != 200:
+            logging.error(f"GitHub API error: {response.status_code} - {response.text}")
+            return jsonify({
+                'success': False,
+                'message': f'GitHub API error: {response.status_code}'
+            }), response.status_code
+        
+        release_data = response.json()
+        
+        # Extract relevant information
+        release_info = {
+            'version': release_data.get('tag_name', 'Unknown'),
+            'name': release_data.get('name', 'Unknown'),
+            'published_at': release_data.get('published_at', ''),
+            'body': release_data.get('body', ''),
+            'html_url': release_data.get('html_url', ''),
+            'assets': []
+        }
+        
+        # Extract EXE file information
+        for asset in release_data.get('assets', []):
+            if asset.get('name', '').endswith('.exe'):
+                release_info['assets'].append({
+                    'name': asset.get('name', ''),
+                    'size': asset.get('size', 0),
+                    'download_url': asset.get('browser_download_url', ''),
+                    'download_count': asset.get('download_count', 0)
+                })
+        
+        return jsonify({
+            'success': True,
+            'release': release_info
+        })
+        
+    except requests.exceptions.Timeout:
+        logging.error("GitHub API request timed out")
+        return jsonify({
+            'success': False,
+            'message': 'Request to GitHub API timed out'
+        }), 504
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error fetching GitHub release: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error connecting to GitHub: {str(e)}'
+        }), 500
+    except Exception as e:
+        logging.error(f"Unexpected error getting latest release: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
 
 # Error handlers
 @app.errorhandler(404)
