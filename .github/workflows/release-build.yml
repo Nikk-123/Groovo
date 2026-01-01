@@ -9,6 +9,8 @@ on:
       - main
     paths-ignore:
       - 'admin/**'
+      - 'README.md'
+      - '.github/**'
 
 jobs:
   build-and-release:
