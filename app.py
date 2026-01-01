@@ -12,6 +12,7 @@ import logging
 import requests
 import ctypes
 import json
+import time
 
 
 # Set App User Model ID (AUMID) for Windows
@@ -1042,6 +1043,19 @@ def track_skip():
     except Exception as e:
         logging.error(f"Error tracking skip: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ===== HEALTH CHECK ENDPOINT FOR KEEP-ALIVE =====
+# This endpoint is pinged periodically to keep Render service warm
+
+@app.route('/api/health-check', methods=['GET'])
+def health_check():
+    """Lightweight health check endpoint to prevent Render cold starts"""
+    return jsonify({
+        'status': 'ok',
+        'timestamp': time.time()
+    })
+
 
 
 # ===== FACE AUTHENTICATION ROUTES =====
