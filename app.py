@@ -31,7 +31,7 @@ register_face_auth_routes(app)
 if __name__ == "__main__":
     # Start Flask in a separate thread
     from threading import Thread
-    flask_thread = Thread(target=lambda: app.run(debug=True, use_reloader=False, port=8000))
+    flask_thread = Thread(target=lambda: app.run(debug=False, use_reloader=False, port=8000))
     flask_thread.daemon = True
     flask_thread.start()
     

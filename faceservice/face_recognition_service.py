@@ -1,13 +1,22 @@
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
 import os
-import cv2
-import numpy as np
-import face_recognition
+try:
+    import cv2
+    import numpy as np
+    import face_recognition
+    from scipy.spatial.distance import cosine
+    FACE_LIB_AVAILABLE = True
+except ImportError:
+    FACE_LIB_AVAILABLE = False
+    cv2 = None
+    np = None
+    face_recognition = None
+    cosine = None
+
 import pickle
 import base64
 import logging
-from scipy.spatial.distance import cosine
 from dotenv import load_dotenv
 
 # Flask app setup
@@ -34,6 +43,9 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def train_and_save_model(username, user_folder):
     """Load images, generate face encodings using face_recognition, save as .pkl file in MongoDB, and delete frames."""
+    if not FACE_LIB_AVAILABLE:
+        raise Exception("Face recognition libraries not available")
+
     encodings = []
     
     for i in range(100):
@@ -88,6 +100,9 @@ def train_and_save_model(username, user_folder):
 
 @app.route('/upload_frames', methods=['POST'])
 def upload_frames():
+    if not FACE_LIB_AVAILABLE:
+        return jsonify({'status': 'error', 'message': 'Face recognition libraries not available'}), 503
+
     data = request.get_json()
     frames = data.get('frames', [])
     username = data.get('username', 'unknown')
@@ -112,6 +127,9 @@ def upload_frames():
 
 @app.route('/match_face', methods=['POST'])
 def match_face():
+    if not FACE_LIB_AVAILABLE:
+        return jsonify({'status': 'error', 'message': 'Face recognition libraries not available'}), 503
+
     try:
         data = request.get_json()
         frame = data.get('frame')
@@ -180,6 +198,9 @@ def delete_model():
 @app.route('/check_model', methods=['POST'])
 def check_model():
     username = request.json.get('username')
+    if not FACE_LIB_AVAILABLE:
+        return jsonify({'has_model': False})
+
     if not username:
         return jsonify({'has_model': False, 'message': 'Username required'}), 400
     try:
@@ -196,6 +217,5 @@ def home():
          
 if __name__ == "__main__":
     # Only run the development server if not running under gunicorn
-    if os.environ.get("RUN_MAIN") == "true" or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        port = int(os.environ.get('PORT', 5001))
-        app.run(debug=True, host='0.0.0.0', port=port)
+    port = int(os.environ.get('PORT', 5001))
+    app.run(debug=False, use_reloader=False, host='0.0.0.0', port=port)
