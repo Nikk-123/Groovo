@@ -10,14 +10,15 @@ python-dotenv
 pywebview>=5.0
 
 # Media Processing
+requests
 yt-dlp
-opencv-python
-opencv-python-headless
+# opencv-python
+# opencv-python-headless
 
 # Machine Learning & Face Recognition
-numpy
-scipy
-tensorflow
-tf-keras
-deepface
-face-recognition
+# numpy
+# scipy
+# tensorflow
+# tf-keras
+# deepface
+# face-recognition
