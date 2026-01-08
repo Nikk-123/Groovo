@@ -21,6 +21,12 @@ jobs:
         with:
           fetch-depth: 0  # Ensure all tags are fetched
 
+      - name: Configure Git User
+        run: |
+          git config --global user.name "Chayan Das"
+          git config --global user.email "chayan.das@stu.adamasuniversity.ac.in"
+
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -31,10 +37,24 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller Pillow
 
+      - name: Checkpoint 1 - Dependencies
+        run: |
+          git add .
+          git commit --allow-empty -m "Workflow Progress: Dependencies installed [skip ci]"
+        shell: bash
+
+
       - name: Create Icon
         run: |
           python -c "from PIL import Image; Image.open('static/icon_new.png').save('static/icon.ico')"
         shell: cmd
+
+      - name: Checkpoint 2 - Icon Generated
+        run: |
+          git add static/icon.ico
+          git commit --allow-empty -m "Workflow Progress: Icon generated [skip ci]"
+        shell: bash
+
 
       - name: Get Latest Release Tag and Increment
         id: versioning
@@ -58,6 +78,13 @@ jobs:
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
         shell: bash
 
+      - name: Checkpoint 3 - Versioning
+        run: |
+          git add .
+          git commit --allow-empty -m "Workflow Progress: Version calculated [skip ci]"
+        shell: bash
+
+
       - name: Ensure .env is included
         run: |
           if [ ! -f ".env" ]; then
@@ -70,6 +97,13 @@ jobs:
         run: |
           pyinstaller --onefile --noconsole --clean --add-data "templates;templates" --add-data "static;static" --add-data "modules;modules" --add-data ".env;." --icon "static/icon.ico" --name "groovo-${{ env.NEW_TAG }}" app.py
         shell: cmd
+
+      - name: Checkpoint 4 - Build Complete
+        run: |
+          git add .
+          git commit --allow-empty -m "Workflow Progress: Build successfully completed [skip ci]"
+        shell: bash
+
 
       - name: Verify EXE Creation
         run: dir dist
@@ -86,19 +120,23 @@ jobs:
           name: env-file
           path: .env
 
-      - name: Push New Tag
+      - name: Checkpoint 5 - Ready to Release
         run: |
-          # Set up the git user details
-          git config --global user.name "github-actions"
-          git config --global user.email "actions@github.com"
-        
-          # Create the new tag (using the environment variable NEW_TAG)
+          git add .
+          git commit --allow-empty -m "Workflow Progress: Ready for release [skip ci]"
+        shell: bash
+
+      - name: Push New Tag and Commits
+        run: |
+          # Create the new tag (user is already globally configured as Chayan Das)
           git tag ${{ env.NEW_TAG }}
         
-          # Push the tag to the remote repository using the built-in GITHUB_TOKEN for authentication
+          # Push commits and tag
+          git push https://github.com/${{ github.repository }} HEAD:main
           git push https://github.com/${{ github.repository }} ${{ env.NEW_TAG }}
           
         shell: bash
+
 
       - name: Release on GitHub
         uses: softprops/action-gh-release@v1
