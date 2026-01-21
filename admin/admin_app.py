@@ -186,10 +186,12 @@ def analytics_overview():
 @app.route('/api/analytics/top-songs')
 @admin_required
 def analytics_top_songs():
-    """Get most played songs"""
+    """Get most played songs with pagination"""
     try:
         listening_history = db.listening_history
         limit = int(request.args.get('limit', 10))
+        page = int(request.args.get('page', 1))
+        skip = (page - 1) * limit
         
         pipeline = [
             {'$match': {
@@ -216,6 +218,7 @@ def analytics_top_songs():
                 'unique_listeners': {'$size': '$unique_listeners'}
             }},
             {'$sort': {'play_count': -1}},
+            {'$skip': skip},
             {'$limit': limit}
         ]
         
@@ -223,7 +226,10 @@ def analytics_top_songs():
         
         return jsonify({
             'success': True,
-            'top_songs': top_songs
+            'top_songs': top_songs,
+            'page': page,
+            'limit': limit
+        })
         })
     except Exception as e:
         logging.error(f"Error getting top songs: {str(e)}")

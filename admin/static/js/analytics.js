@@ -39,6 +39,16 @@ function changeWeek(offset) {
     loadListeningPatterns();
 }
 
+let currentSongsPage = 1;
+const SONGS_PER_PAGE = 10;
+
+function changeSongsPage(step) {
+    const newPage = currentSongsPage + step;
+    if (newPage < 1) return;
+    currentSongsPage = newPage;
+    loadTopSongs();
+}
+
 // Load analytics overview
 async function loadAnalyticsOverview() {
     try {
@@ -199,22 +209,33 @@ async function loadListeningPatterns() {
 async function loadTopSongs() {
     const loading = document.getElementById('topSongsLoading');
     const list = document.getElementById('topSongsList');
+    const pagination = document.getElementById('topSongsPagination');
 
     try {
-        const response = await fetch('/api/analytics/top-songs?limit=10');
+        const response = await fetch(`/api/analytics/top-songs?limit=${SONGS_PER_PAGE}&page=${currentSongsPage}`);
         const data = await response.json();
 
         loading.classList.add('hidden');
 
         if (data.success && data.top_songs.length > 0) {
             list.classList.remove('hidden');
+            pagination.classList.remove('hidden');
+
+            // Update pagination controls
+            document.getElementById('songsPageIndicator').textContent = `Page ${currentSongsPage}`;
+            document.getElementById('prevSongsBtn').disabled = currentSongsPage === 1;
+            // Disable next button if we got fewer results than limit (end of list)
+            document.getElementById('nextSongsBtn').disabled = data.top_songs.length < SONGS_PER_PAGE;
+
+            const startRank = (currentSongsPage - 1) * SONGS_PER_PAGE + 1;
+
             list.innerHTML = data.top_songs.map((song, index) => `
                 <div class="song-card p-4 rounded-lg border border-gray-700/50 flex items-center justify-between">
                     <div class="flex items-center space-x-4 flex-1">
-                        <div class="text-2xl font-bold text-gray-500">#${index + 1}</div>
+                        <div class="text-2xl font-bold text-gray-500">#${startRank + index}</div>
                         <img 
                             src="${song.thumbnail || 'https://via.placeholder.com/48'}" 
-                            alt="${escapeHtml(song.title)}"
+                            alt="${escapeHtml(song.title || 'Unknown Title')}"
                             class="song-thumbnail"
                             onerror="this.src='https://via.placeholder.com/48?text=No+Image'"
                         />
@@ -236,8 +257,14 @@ async function loadTopSongs() {
                 </div>
             `).join('');
         } else {
+            if (currentSongsPage > 1) {
+                // If we went too far, go back
+                changeSongsPage(-1);
+                return;
+            }
             list.innerHTML = '<p class="text-center text-gray-400 py-8">No data available yet</p>';
             list.classList.remove('hidden');
+            pagination.classList.add('hidden');
         }
     } catch (error) {
         console.error('Error loading top songs:', error);
