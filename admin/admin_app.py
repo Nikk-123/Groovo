@@ -230,7 +230,7 @@ def analytics_top_songs():
             'page': page,
             'limit': limit
         })
-        })
+
     except Exception as e:
         logging.error(f"Error getting top songs: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
