@@ -232,17 +232,31 @@ def analytics_top_songs():
 @app.route('/api/analytics/listening-patterns')
 @admin_required
 def analytics_listening_patterns():
-    """Get listening patterns by hour and day"""
+    """Get listening patterns by hour and day with week navigation"""
     try:
         from datetime import datetime, timedelta
         listening_history = db.listening_history
         
-        # Last 7 days of data
-        week_ago = datetime.utcnow() - timedelta(days=7)
+        # Get week offset (0 = current week, -1 = last week, etc.)
+        week_offset = int(request.args.get('week_offset', 0))
+        
+        # Calculate start and end of the target week (Monday to Sunday)
+        today = datetime.utcnow()
+        current_monday = today - timedelta(days=today.weekday())
+        current_monday = current_monday.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Target week start (Monday)
+        target_start = current_monday + timedelta(weeks=week_offset)
+        
+        # Target week end (Next Monday)
+        target_end = target_start + timedelta(weeks=1)
         
         # Hourly breakdown
         pipeline_hourly = [
-            {'$match': {'event_type': 'play', 'timestamp': {'$gte': week_ago}}},
+            {'$match': {
+                'event_type': 'play', 
+                'timestamp': {'$gte': target_start, '$lt': target_end}
+            }},
             {'$project': {
                 'hour': {'$hour': '$timestamp'}
             }},
@@ -262,7 +276,10 @@ def analytics_listening_patterns():
         
         # Daily breakdown (day of week)
         pipeline_daily = [
-            {'$match': {'event_type': 'play', 'timestamp': {'$gte': week_ago}}},
+            {'$match': {
+                'event_type': 'play', 
+                'timestamp': {'$gte': target_start, '$lt': target_end}
+            }},
             {'$project': {
                 'dayOfWeek': {'$dayOfWeek': '$timestamp'}
             }},
@@ -287,6 +304,11 @@ def analytics_listening_patterns():
             'patterns': {
                 'hourly': hourly_breakdown,
                 'daily': daily_breakdown
+            },
+            'period': {
+                'start': target_start.strftime('%Y-%m-%d'),
+                'end': (target_end - timedelta(seconds=1)).strftime('%Y-%m-%d'),
+                'is_current_week': week_offset == 0
             }
         })
     except Exception as e:
