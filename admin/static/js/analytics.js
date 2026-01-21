@@ -11,7 +11,33 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Refresh current sessions every 10 seconds
     setInterval(refreshCurrentSessions, 10000);
+    // Refresh charts every 30 seconds
+    setInterval(() => loadListeningPatterns(), 30000);
 });
+
+let currentWeekOffset = 0;
+
+function changeWeek(offset) {
+    currentWeekOffset += offset;
+    // Don't allow going to future weeks
+    if (currentWeekOffset > 0) currentWeekOffset = 0;
+
+    // Update button states
+    const nextBtn = document.getElementById('nextWeekBtn');
+    if (nextBtn) {
+        if (currentWeekOffset >= 0) {
+            nextBtn.classList.add('cursor-not-allowed', 'text-gray-600');
+            nextBtn.classList.remove('text-gray-400', 'hover:text-white');
+            nextBtn.disabled = true;
+        } else {
+            nextBtn.classList.remove('cursor-not-allowed', 'text-gray-600');
+            nextBtn.classList.add('text-gray-400', 'hover:text-white');
+            nextBtn.disabled = false;
+        }
+    }
+
+    loadListeningPatterns();
+}
 
 // Load analytics overview
 async function loadAnalyticsOverview() {
@@ -38,7 +64,7 @@ async function loadAnalyticsOverview() {
 // Load listening patterns and create charts
 async function loadListeningPatterns() {
     try {
-        const response = await fetch('/api/analytics/listening-patterns');
+        const response = await fetch(`/api/analytics/listening-patterns?week_offset=${currentWeekOffset}`);
         const data = await response.json();
 
         if (data.success) {
@@ -97,9 +123,21 @@ async function loadListeningPatterns() {
                 }
             });
 
+
+
+            // Update Date Range Display
+            if (data.period) {
+                const rangeDisplay = document.getElementById('currentWeekRange');
+                if (rangeDisplay) {
+                    const start = new Date(data.period.start).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                    const end = new Date(data.period.end).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                    rangeDisplay.textContent = currentWeekOffset === 0 ? 'Current Week' : `${start} - ${end}`;
+                }
+            }
+
             // Daily Chart
             const dailyCtx = document.getElementById('dailyChart').getContext('2d');
-            const dailyLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const dailyLabels = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
             const dailyData = dailyLabels.map(day => patterns.daily[day] || 0);
 
             if (dailyChart) dailyChart.destroy();
