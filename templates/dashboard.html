@@ -89,12 +89,12 @@
             <p>{{ song.artist }}</p>
             <div class="song-buttons">
               <button
-                onclick="Player.play('{{ song.url }}', '{{ song.title }}', '{{ song.thumbnail }}', '{{ song.artist }}')"
+                onclick="Player.play({{ song.url|tojson|forceescape }}, {{ song.title|tojson|forceescape }}, {{ song.thumbnail|tojson|forceescape }}, {{ song.artist|tojson|forceescape }})"
                 class="play-btn">
                 <i class="fas fa-play"></i>
               </button>
               <button class="add-to-library"
-                onclick="Library.toggleLike({url: '{{ song.url }}', title: '{{ song.title }}', thumbnail: '{{ song.thumbnail }}', artist: '{{ song.artist }}', duration: '{{ song.duration }}'})"
+                onclick="Library.toggleLike({url: {{ song.url|tojson|forceescape }}, title: {{ song.title|tojson|forceescape }}, thumbnail: {{ song.thumbnail|tojson|forceescape }}, artist: {{ song.artist|tojson|forceescape }}, duration: {{ song.duration|tojson|forceescape }}})"
                 title="Save to Library">
                 <i class="fa-heart {% if song.url in user_library_urls %}fas{% else %}far{% endif %}"></i>
               </button>
@@ -194,92 +194,109 @@
 
       <!-- Expanded Player -->
       <div class="expanded-player" id="expandedPlayer">
+        <!-- Dynamic Background Layer -->
+        <div class="expanded-bg" id="expandedBg"></div>
+        <div class="expanded-overlay"></div>
+
         <div class="expanded-header">
           <button type="button" class="minimize-btn" id="minimizeBtn" title="Minimize">
-            <i class="fas fa-angle-down"></i>
+            <i class="fas fa-chevron-down"></i>
           </button>
           <span class="now-playing-text">Now Playing</span>
-          <div style="width: 40px;"></div>
+          <div class="header-spacer"></div>
         </div>
-        <div class="expanded-content">
-          <div class="album-art-section">
-            <img id="currentThumbnail" class="album-art" src="" alt="Album Art" />
+
+        <div class="expanded-main-body">
+          <div class="album-art-container">
+            <img id="currentThumbnail" class="album-art-image" src="" alt="Album Art" />
+            <!-- Shadow/Glow effect -->
+            <div class="album-art-shadow"></div>
           </div>
-          <div class="song-details">
-            <h2 id="currentSongTitle" class="song-title"></h2>
-            <p id="currentArtist" class="song-artist"></p>
-          </div>
-          <div class="expanded-controls">
-            <div class="progress-section">
-              <span class="time current-time">0:00</span>
-              <div class="progress-bar" id="mainProgressBar">
-                <div class="progress" id="mainProgress"></div>
+
+          <div class="player-info-column">
+            <div class="track-info-section">
+              <div class="track-text-container">
+                <h2 id="currentSongTitle" class="track-title"></h2>
+                <p id="currentArtist" class="track-artist"></p>
               </div>
-              <span class="time total-time">0:00</span>
-            </div>
-
-            <div class="main-controls">
-              <button id="shuffleBtn" class="control-btn" type="button" title="Shuffle">
-                <i class="fas fa-random"></i>
-              </button>
-              <button id="prevBtn" class="control-btn" type="button" title="Previous">
-                <i class="fas fa-step-backward"></i>
-              </button>
-              <button id="playBtn" class="control-btn play-pause" type="button" title="Play/Pause">
-                <i class="fas fa-play"></i>
-              </button>
-              <button id="nextBtn" class="control-btn" type="button" title="Next">
-                <i class="fas fa-step-forward"></i>
-              </button>
-              <button id="repeatBtn" class="control-btn repeat" type="button" title="Repeat">
-                <i class="fas fa-redo"></i>
+              <button type="button" class="like-btn-expanded" onclick="Library.toggleLike(PlayerState.currentSong)">
+                <i class="far fa-heart" id="expandedLikeIcon"></i>
               </button>
             </div>
 
-            <div class="additional-controls">
-              <button type="button" class="library-toggle" id="libraryToggle" title="Toggle Library"
-                onclick="Library.toggleExtendedView()">
-                <i class="fas fa-list"></i>
-              </button>
-              <div class="volume-control">
-                <button type="button" class="control-btn" id="volumeBtn" title="Volume Booster">
-                  <i class="fas fa-volume-up"></i>
+            <div class="player-controls-section">
+              <div class="progress-container">
+                <span class="time current-time">0:00</span>
+                <div class="progress-bar-wrapper" id="mainProgressBar">
+                  <div class="progress-fill" id="mainProgress"></div>
+                  <!-- Glow effect point at end of bar -->
+                  <div class="progress-glow"></div>
+                </div>
+                <span class="time total-time">0:00</span>
+              </div>
+
+              <div class="main-transport-controls">
+                <button id="shuffleBtn" class="control-btn-icon" type="button" title="Shuffle">
+                  <i class="fas fa-random"></i>
                 </button>
-                <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1" title="Volume" />
+                <button id="prevBtn" class="control-btn-icon" type="button" title="Previous">
+                  <i class="fas fa-step-backward"></i>
+                </button>
+                <button id="playBtn" class="control-btn-large play-pause" type="button" title="Play/Pause">
+                  <i class="fas fa-play"></i>
+                </button>
+                <button id="nextBtn" class="control-btn-icon" type="button" title="Next">
+                  <i class="fas fa-step-forward"></i>
+                </button>
+                <button id="repeatBtn" class="control-btn-icon repeat" type="button" title="Repeat">
+                  <i class="fas fa-redo"></i>
+                </button>
               </div>
-              <button type="button" class="control-btn" id="customRepeatBtn" title="Custom Repeat"
-                onclick="toggleCustomRepeatUI()">
-                <i class="fas fa-layer-group"></i>
-              </button>
-            </div>
 
-            <!-- Custom Repeat Modal -->
-            <div id="customRepeatModal" class="custom-repeat-modal" style="display: none;">
-              <div class="custom-repeat-content">
-                <h3>Repeat Song</h3>
-                <p>Enter number of repeats (2-100)</p>
-                <div class="repeat-input-group">
-                  <button type="button" onclick="adjustRepeatCount(-1)">-</button>
-                  <input type="number" id="playCountInput" min="2" max="100" value="2">
-                  <button type="button" onclick="adjustRepeatCount(1)">+</button>
+              <div class="secondary-controls">
+                <button type="button" class="control-btn-small" id="libraryToggle"
+                  onclick="Library.toggleExtendedView()" title="Queue">
+                  <i class="fas fa-list"></i>
+                </button>
+
+                <div class="volume-slider-container">
+                  <button type="button" class="control-btn-no-bg" id="volumeBtn">
+                    <i class="fas fa-volume-up"></i>
+                  </button>
+                  <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1" />
                 </div>
-                <div class="repeat-actions">
-                  <button type="button" class="cancel-btn" onclick="toggleCustomRepeatUI()">Cancel</button>
-                  <button type="button" class="confirm-btn" onclick="confirmCustomRepeat()">Start</button>
-                </div>
+
+                <button type="button" class="control-btn-small" id="customRepeatBtn" onclick="toggleCustomRepeatUI()"
+                  title="Custom Repeat">
+                  <i class="fas fa-layer-group"></i>
+                </button>
               </div>
-            </div>
 
-            <div id="repeatStatusDisplay" class="repeat-status" style="display: none;">
-              <span class="repeat-count">Repeats left: <span id="repeatsLeftCount">0</span></span>
-              <button onclick="cancelCustomRepeat()" class="cancel-repeat-btn" title="Cancel Repeat"><i
-                  class="fas fa-times"></i></button>
+              <!-- Repeat Status Indicator (moved here for visibility) -->
+              <div id="repeatStatusDisplay" class="repeat-status" style="display: none;">
+                <span class="repeat-count">Repeats left: <span id="repeatsLeftCount">0</span></span>
+                <button onclick="cancelCustomRepeat()" class="cancel-repeat-btn" title="Cancel Repeat"><i
+                    class="fas fa-times"></i></button>
+              </div>
+
             </div>
           </div>
+        </div>
 
-          <div class="expanded-device-info">
-            <i class="fas fa-desktop"></i>
-            <span id="expandedDeviceName">This Device</span>
+        <!-- Custom Repeat Modal (Overlay) -->
+        <div id="customRepeatModal" class="custom-repeat-modal" style="display: none;">
+          <div class="custom-repeat-content">
+            <h3>Repeat Song</h3>
+            <p>Enter number of repeats (2-100)</p>
+            <div class="repeat-input-group">
+              <button type="button" onclick="adjustRepeatCount(-1)">-</button>
+              <input type="number" id="playCountInput" min="2" max="100" value="2">
+              <button type="button" onclick="adjustRepeatCount(1)">+</button>
+            </div>
+            <div class="repeat-actions">
+              <button type="button" class="cancel-btn" onclick="toggleCustomRepeatUI()">Cancel</button>
+              <button type="button" class="confirm-btn" onclick="confirmCustomRepeat()">Start</button>
+            </div>
           </div>
         </div>
       </div>

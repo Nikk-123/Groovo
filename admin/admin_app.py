@@ -192,7 +192,12 @@ def analytics_top_songs():
         limit = int(request.args.get('limit', 10))
         
         pipeline = [
-            {'$match': {'event_type': 'play'}},
+            {'$match': {
+                'event_type': 'play',
+                'song': {'$exists': True},
+                'song.url': {'$exists': True, '$ne': None},
+                'song.title': {'$exists': True, '$ne': None}
+            }},
             {'$group': {
                 '_id': '$song.url',
                 'title': {'$first': '$song.title'},
@@ -296,7 +301,7 @@ def analytics_currently_listening():
         current_sessions = db.current_sessions
         
         sessions = list(current_sessions.find(
-            {'status': 'playing'},
+            {'status': 'playing', 'song': {'$exists': True}},
             {'_id': 0}
         ))
         

@@ -90,13 +90,28 @@ def register_library_routes(flask_app):
             
             # Try to sync with server in background (non-blocking)
             try:
+                # Sanitize data: WHITELIST only essential fields 
+                # The backend likely stores a subset of fields. Sending extra fields (like 'views', 'dateAdded')
+                # causes strict matching to fail (404 Song not found).
+                allowed_keys = {'url', 'title', 'artist', 'thumbnail', 'duration', 'channel', 'album'}
+                payload = {k: song_data[k] for k in allowed_keys if k in song_data}
+                
+                logging.info(f"Syncing remove for {user_email} with payload keys: {list(payload.keys())}")
+                
                 response = requests.post(f'{AUTH_SERVICE_URL}/library/remove',
-                                      json=song_data,
+                                      json=payload,
                                       headers={'X-User-Email': user_email},
                                       timeout=10)
                 
                 if response.status_code == 200 and response.json().get('success'):
                     logging.info(f"Successfully synced remove to server for {user_email}")
+                elif response.status_code == 404:
+                    # Treat 404 as success (item already gone or desync)
+                    logging.warning(f"Song not found on server (404), removing from local cache only for {user_email}")
+                    return jsonify({'success': True, 'message': 'Removed (was not on server)'}), 200
+                else:
+                    logging.warning(f"Failed to sync remove. Status: {response.status_code}, Body: {response.text}")
+                    
                 return jsonify(response.json()), response.status_code
             except requests.Timeout:
                 logging.warning(f"Timeout removing from library for {user_email}, but cache updated")

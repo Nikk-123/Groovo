@@ -412,10 +412,17 @@ const Player = {
 
     updateDisplay(title, artist, thumbnail) {
         ['mini', 'main'].forEach(type => {
-            Elements.display[type].thumbnail.src = thumbnail || 'default_thumbnail.jpg';
-            Elements.display[type].title.textContent = title || 'Unknown Title';
-            Elements.display[type].artist.textContent = artist || 'Unknown Artist';
+            if (Elements.display[type].thumbnail) Elements.display[type].thumbnail.src = thumbnail || 'default_thumbnail.jpg';
+            if (Elements.display[type].title) Elements.display[type].title.textContent = title || 'Unknown Title';
+            if (Elements.display[type].artist) Elements.display[type].artist.textContent = artist || 'Unknown Artist';
         });
+
+        // Update Expanded Player Background
+        const expandedBg = document.getElementById('expandedBg');
+        if (expandedBg) {
+            expandedBg.style.backgroundImage = `url('${thumbnail || 'default_thumbnail.jpg'}')`;
+        }
+
         if (PlayerState.currentSong) {
             Library.updateLikeButton(PlayerState.currentSong.url);
         }
@@ -888,8 +895,7 @@ const Library = {
 
             return `
                 <div class="expanded-song-row ${PlayerState.currentSong && PlayerState.currentSong.url === song.url ? 'playing' : ''}" 
-                     data-url="${sanitizedUrl}"
-                     onclick="Player.playFromLibrary('${sanitizedUrl}', '${sanitizedTitle}', '${sanitizedThumbnail}', '${sanitizedArtist}')">
+                     data-url="${sanitizedUrl}">
                     <div class="row-index">
                         <span class="index-number">${index + 1}</span>
                         <div class="playing-indicator">
@@ -908,7 +914,6 @@ const Library = {
                     <div class="row-artist">${sanitizedArtist}</div>
                     <div class="row-duration">
                         <button class="remove-from-library-btn" 
-                                onclick="event.stopPropagation(); Library.toggleLike({url: '${sanitizedUrl}', title: '${sanitizedTitle}', thumbnail: '${sanitizedThumbnail}', artist: '${sanitizedArtist}'})"
                                 title="Remove from Liked Songs">
                             <i class="fas fa-heart"></i>
                         </button>
@@ -962,14 +967,21 @@ const Library = {
     },
 
     async add(songData) {
+        // Ensure consistent URL format (Server likely normalizes it)
+        const cleanUrl = Player.cleanYouTubeUrl(songData.url);
+        const normalizedSong = {
+            ...songData,
+            url: cleanUrl || songData.url
+        };
+
         // Optimistic update: Add to library and update UI immediately
         const songWithMeta = {
-            ...songData,
+            ...normalizedSong,
             dateAdded: new Date().toISOString()
         };
         PlayerState.library.push(songWithMeta);
         this.updateDisplay();
-        this.updateLikeButton(songData.url);
+        this.updateLikeButton(normalizedSong.url);
         // Also update extended view if open
         this.renderExtendedView();
 
@@ -977,7 +989,7 @@ const Library = {
             const response = await fetch('/library/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(songData)
+                body: JSON.stringify(normalizedSong)
             });
             const data = await response.json();
             if (!data.success) {
@@ -988,26 +1000,33 @@ const Library = {
         } catch (error) {
             console.error('Error adding to library:', error);
             // Revert changes on failure
-            PlayerState.library = PlayerState.library.filter(s => s.url !== songData.url);
+            PlayerState.library = PlayerState.library.filter(s => s.url !== normalizedSong.url);
             this.updateDisplay();
-            this.updateLikeButton(songData.url);
+            this.updateLikeButton(normalizedSong.url);
             alert('Failed to add song to library');
         }
     },
 
     async remove(songData) {
+        // Ensure consistent URL format
+        const cleanUrl = Player.cleanYouTubeUrl(songData.url);
+        const normalizedSong = {
+            ...songData,
+            url: cleanUrl || songData.url
+        };
+
         // Optimistic update: Remove from library and update UI immediately
         const originalLibrary = [...PlayerState.library]; // Backup for revert
-        PlayerState.library = PlayerState.library.filter(song => song.url !== songData.url);
+        PlayerState.library = PlayerState.library.filter(song => song.url !== normalizedSong.url);
         this.updateDisplay();
         this.renderExtendedView(); // Update extended view
-        this.updateLikeButton(songData.url);
+        this.updateLikeButton(normalizedSong.url);
 
         try {
             const response = await fetch('/library/remove', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(songData)
+                body: JSON.stringify(normalizedSong)
             });
             const data = await response.json();
             if (!data.success) {
@@ -1020,7 +1039,7 @@ const Library = {
             // Revert changes on failure
             PlayerState.library = originalLibrary;
             this.updateDisplay();
-            this.updateLikeButton(songData.url);
+            this.updateLikeButton(normalizedSong.url);
             alert('Failed to remove song from library');
         }
     },
@@ -1196,31 +1215,59 @@ const Search = {
             return;
         }
 
-        Elements.search.list.innerHTML = results.map(song => `
-            <li class="song-item" 
-                data-url="${song.url}"
-                data-title="${song.title}"
-                data-thumbnail="${song.thumbnail}"
-                data-artist="${song.artist}">
-                <img class="song-thumbnail" src="${song.thumbnail}" alt="${song.title}">
+        Elements.search.list.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+
+        results.forEach(song => {
+            const li = document.createElement('li');
+            li.className = 'song-item';
+            li.setAttribute('data-url', song.url);
+            li.setAttribute('data-title', song.title);
+            li.setAttribute('data-thumbnail', song.thumbnail);
+            li.setAttribute('data-artist', song.artist);
+
+            const isLiked = PlayerState.library.some(s => s.url === song.url);
+
+            li.innerHTML = `
+                <img class="song-thumbnail" src="${song.thumbnail}" alt="${song.title}" loading="lazy">
                 <div class="song-info">
-                    <h3>${song.title}</h3>
-                    <p>${song.artist}</p>
+                    <h3></h3>
+                    <p></p>
                     <div class="song-buttons">
-                        <button onclick="Player.togglePlayPause('${song.url}', '${song.title}', '${song.thumbnail}', '${song.artist}')" class="play-btn">
+                        <button class="play-btn">
                             <i class="fas fa-play"></i>
                         </button>
-                        <button 
-                            class="add-to-library"
-                            onclick="Library.toggleLike({url: '${song.url}', title: '${song.title}', thumbnail: '${song.thumbnail}', artist: '${song.artist}'})"
-                            title="Save to Library"
-                        >
-                            <i class="fa-heart ${PlayerState.library.some(s => s.url === song.url) ? 'fas' : 'far'}"></i>
+                        <button class="add-to-library" title="Save to Library">
+                            <i class="fa-heart ${isLiked ? 'fas' : 'far'}"></i>
                         </button>
                     </div>
                 </div>
-            </li>
-        `).join('');
+            `;
+
+            // Safe text insertion
+            li.querySelector('h3').textContent = song.title;
+            li.querySelector('p').textContent = song.artist;
+
+            // Attach event listeners
+            li.querySelector('.play-btn').onclick = (e) => {
+                e.stopPropagation();
+                Player.togglePlayPause(song.url, song.title, song.thumbnail, song.artist);
+            };
+
+            li.querySelector('.add-to-library').onclick = (e) => {
+                e.stopPropagation();
+                Library.toggleLike({
+                    url: song.url,
+                    title: song.title,
+                    thumbnail: song.thumbnail,
+                    artist: song.artist
+                });
+            };
+
+            fragment.appendChild(li);
+        });
+
+        Elements.search.list.appendChild(fragment);
     }
 };
 
@@ -1360,6 +1407,31 @@ function updateCustomRepeatDisplay() {
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     Library.load();
+
+    // Event delegation for the library list
+    const expandedList = document.getElementById('expandedSongsList');
+    if (expandedList) {
+        expandedList.addEventListener('click', (e) => {
+            const row = e.target.closest('.expanded-song-row');
+            if (!row) return;
+
+            const url = row.dataset.url;
+            // Decode URL if strictly necessary, but dataset usually handles it. 
+            // We match against library which we assume uses the same URL string.
+            const song = PlayerState.library.find(s => s.url === url);
+
+            if (e.target.closest('.remove-from-library-btn')) {
+                e.stopPropagation();
+                if (song) Library.toggleLike(song);
+                return;
+            }
+
+            if (song) {
+                Player.playFromLibrary(song.url, song.title, song.thumbnail, song.artist);
+            }
+        });
+    }
+
     Search.init();
 
     // Start keep-alive manager to prevent Render cold starts

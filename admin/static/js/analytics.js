@@ -181,7 +181,7 @@ async function loadTopSongs() {
                             onerror="this.src='https://via.placeholder.com/48?text=No+Image'"
                         />
                         <div class="flex-1 min-w-0">
-                            <p class="text-white font-semibold truncate">${escapeHtml(song.title)}</p>
+                            <p class="text-white font-semibold truncate">${escapeHtml(song.title || 'Unknown Title')}</p>
                             <p class="text-gray-400 text-sm truncate">${escapeHtml(song.artist || 'Unknown Artist')}</p>
                         </div>
                     </div>
@@ -242,8 +242,8 @@ async function loadCurrentSessions() {
                                 <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full animate-pulse"></div>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p class="text-white font-semibold truncate">${escapeHtml(session.song.title)}</p>
-                                <p class="text-gray-400 text-sm truncate">${escapeHtml(session.song.artist || 'Unknown Artist')}</p>
+                                <p class="text-white font-semibold truncate">${escapeHtml(session.song?.title || 'Unknown Title')}</p>
+                                <p class="text-gray-400 text-sm truncate">${escapeHtml(session.song?.artist || 'Unknown Artist')}</p>
                             </div>
                         </div>
                         <div class="flex items-center space-x-4">
@@ -277,6 +277,7 @@ function refreshCurrentSessions() {
 
 // Utility function
 function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
     const map = {
         '&': '&amp;',
         '<': '&lt;',
@@ -284,5 +285,5 @@ function escapeHtml(text) {
         '"': '&quot;',
         "'": '&#039;'
     };
-    return text.replace(/[&<>"']/g, m => map[m]);
+    return String(text).replace(/[&<>"']/g, m => map[m]);
 }
