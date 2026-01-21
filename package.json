@@ -1,0 +1,20 @@
+{
+    "name": "groovo-postman-collection-generator",
+    "version": "1.0.0",
+    "description": "Generate Postman collection for Groovo API endpoints",
+    "main": "generate-postman-collection.js",
+    "scripts": {
+        "generate": "node generate-postman-collection.js"
+    },
+    "keywords": [
+        "postman",
+        "api",
+        "testing",
+        "groovo"
+    ],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "postman-collection": "^4.4.0"
+    }
+}

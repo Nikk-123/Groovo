@@ -70,28 +70,41 @@ function createSongCard(song) {
     li.innerHTML = `
         <img class="song-thumbnail" src="${song.thumbnail}" alt="${song.title}" loading="lazy" />
         <div class="song-info">
-            <h3>${song.title}</h3>
-            <p>${artist}</p>
+            <h3></h3>
+            <p></p>
             <div class="song-buttons">
-              <button
-                onclick="Player.play('${escapeHtml(song.url)}', '${escapeHtml(song.title)}', '${escapeHtml(song.thumbnail)}', '${escapeHtml(artist)}')"
-                class="play-btn">
+              <button class="play-btn">
                 <i class="fas fa-play"></i>
               </button>
-              <button class="add-to-library"
-                onclick="Library.toggleLike({url: '${escapeHtml(song.url)}', title: '${escapeHtml(song.title)}', thumbnail: '${escapeHtml(song.thumbnail)}', artist: '${escapeHtml(artist)}', duration: '${escapeHtml(duration)}'})"
-                title="Save to Library">
+              <button class="add-to-library" title="Save to Library">
                 <i class="far fa-heart"></i>
               </button>
             </div>
         </div>
     `;
 
+    // Safe text insertion
+    li.querySelector('h3').textContent = song.title;
+    li.querySelector('p').textContent = artist;
+
+    // Attach event listeners safely
+    const playBtn = li.querySelector('.play-btn');
+    playBtn.onclick = () => Player.play(song.url, song.title, song.thumbnail, artist);
+
+    const likeBtn = li.querySelector('.add-to-library');
+    likeBtn.onclick = () => Library.toggleLike({
+        url: song.url,
+        title: song.title,
+        thumbnail: song.thumbnail,
+        artist: artist,
+        duration: duration
+    });
+
     // Check if in library to toggle heart (optional optimization: fetch library ids first)
     // For now, client-side check might require passing user_library_urls to JS.
     // We can expose it as a global variable in the template.
     if (window.USER_LIBRARY_URLS && window.USER_LIBRARY_URLS.includes(song.url)) {
-        const heart = li.querySelector('.add-to-library i');
+        const heart = likeBtn.querySelector('i');
         if (heart) {
             heart.classList.remove('far');
             heart.classList.add('fas');
