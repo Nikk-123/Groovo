@@ -357,8 +357,8 @@
   width: 120px;
   height: 4px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.2);
-  accent-color: var(--player-green);
+  -webkit-appearance: none;
+  background: linear-gradient(90deg, var(--player-green) var(--volume-level, 100%), rgba(255, 255, 255, 0.2) var(--volume-level, 100%));
   border: none;
   outline: none;
 }
