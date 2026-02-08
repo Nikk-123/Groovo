@@ -1101,15 +1101,49 @@ body {
     scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
+#trendingContainer .song-list {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 10px;
+}
+
 #trendingContainer .song-list::-webkit-scrollbar,
 #moodPlaylistsContainer .song-list::-webkit-scrollbar {
     height: 10px;
+}
+
+#trendingContainer .song-list::-webkit-scrollbar {
+    height: 0;
 }
 
 #trendingContainer .song-list::-webkit-scrollbar-thumb,
 #moodPlaylistsContainer .song-list::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.2);
     border-radius: 999px;
+}
+
+#trendingContainer .scroll-dots {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+#trendingContainer .scroll-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+#trendingContainer .scroll-dot.active {
+    background: rgba(30, 215, 96, 0.95);
+    box-shadow: 0 0 12px rgba(30, 215, 96, 0.5);
+    transform: scale(1.35);
 }
 }
 

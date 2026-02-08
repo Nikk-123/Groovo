@@ -260,22 +260,25 @@
   /* Active device color */
 }
 
-#volumeControl {
+#volumeControl,
+#miniVolumeControl {
   -webkit-appearance: none;
   width: 90px;
   height: 4px;
-  background: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(90deg, #1db954 var(--volume-level, 100%), rgba(255, 255, 255, 0.1) var(--volume-level, 100%));
   border-radius: 2px;
   outline: none;
   cursor: pointer;
   transition: height 0.1s;
 }
 
-#volumeControl:hover {
+#volumeControl:hover,
+#miniVolumeControl:hover {
   height: 6px;
 }
 
-#volumeControl::-webkit-slider-thumb {
+#volumeControl::-webkit-slider-thumb,
+#miniVolumeControl::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 12px;
   height: 12px;
@@ -288,7 +291,8 @@
   transition: opacity 0.2s;
 }
 
-#volumeControl:hover::-webkit-slider-thumb {
+#volumeControl:hover::-webkit-slider-thumb,
+#miniVolumeControl:hover::-webkit-slider-thumb {
   opacity: 1;
   /* Show on hover */
 }

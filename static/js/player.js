@@ -1314,7 +1314,10 @@ function updateVolumeControls(volume) {
     // Update volume sliders - sync both controls
     const volumeControls = document.querySelectorAll('#miniVolumeControl, #volumeControl');
     volumeControls.forEach(control => {
-        if (control) control.value = volume;
+        if (control) {
+            control.value = volume;
+            control.style.setProperty('--volume-level', `${clampedVolume * 100}%`);
+        }
     });
 
     // Update volume icons
@@ -1539,18 +1542,104 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Unified progress bar handler
-    document.querySelectorAll('.mini-player .progress-bar, .expanded-player .progress-bar')
-        .forEach(bar => {
-            bar.addEventListener('click', (e) => {
-                const rect = bar.getBoundingClientRect();
-                const percentage = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
-                if (PlayerState.audio && !Number.isNaN(PlayerState.audio.duration)) {
-                    PlayerState.audio.currentTime = percentage * PlayerState.audio.duration;
-                }
-                e.stopPropagation();
-            });
+    // Unified progress bar handler (click + drag)
+    const setupSeekHandler = (bar) => {
+        if (!bar) return;
+
+        const seekTo = (clientX) => {
+            const rect = bar.getBoundingClientRect();
+            const percentage = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+            if (PlayerState.audio && !Number.isNaN(PlayerState.audio.duration)) {
+                PlayerState.audio.currentTime = percentage * PlayerState.audio.duration;
+            }
+        };
+
+        let isSeeking = false;
+
+        bar.addEventListener('pointerdown', (e) => {
+            isSeeking = true;
+            bar.setPointerCapture(e.pointerId);
+            seekTo(e.clientX);
+            e.stopPropagation();
         });
+
+        bar.addEventListener('pointermove', (e) => {
+            if (!isSeeking) return;
+            seekTo(e.clientX);
+            e.stopPropagation();
+        });
+
+        bar.addEventListener('pointerup', (e) => {
+            isSeeking = false;
+            bar.releasePointerCapture(e.pointerId);
+            e.stopPropagation();
+        });
+
+        bar.addEventListener('pointercancel', (e) => {
+            isSeeking = false;
+            bar.releasePointerCapture(e.pointerId);
+        });
+    };
+
+    document.querySelectorAll('.mini-player .progress-bar, .expanded-player .progress-bar-wrapper')
+        .forEach(setupSeekHandler);
+
+    // Trending scroll dots indicator
+    const trendingList = document.getElementById('trending-list');
+    const trendingDots = document.querySelectorAll('#trendingContainer .scroll-dot');
+    if (trendingList && trendingDots.length) {
+        const setActiveDot = (index) => {
+            trendingDots.forEach((dot, i) => {
+                dot.classList.toggle('active', i === index);
+            });
+        };
+
+        const updateDots = () => {
+            const maxScroll = trendingList.scrollWidth - trendingList.clientWidth;
+            if (maxScroll <= 0) {
+                setActiveDot(0);
+                return;
+            }
+            const ratio = trendingList.scrollLeft / maxScroll;
+            const index = Math.min(trendingDots.length - 1, Math.floor(ratio * trendingDots.length));
+            setActiveDot(index);
+        };
+
+        const scrollToDot = (index) => {
+            const maxScroll = trendingList.scrollWidth - trendingList.clientWidth;
+            if (maxScroll <= 0) return;
+            const clampedIndex = Math.max(0, Math.min(index, trendingDots.length - 1));
+            const ratio = trendingDots.length === 1 ? 0 : clampedIndex / (trendingDots.length - 1);
+            const target = ratio * maxScroll;
+            trendingList.scrollTo({ left: target, behavior: 'smooth' });
+        };
+
+        trendingDots.forEach((dot, index) => {
+            dot.addEventListener('click', () => scrollToDot(index));
+        });
+
+        // Mouse wheel horizontal scrolling + circular wrap
+        trendingList.addEventListener('wheel', (e) => {
+            if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+            e.preventDefault();
+            const maxScroll = trendingList.scrollWidth - trendingList.clientWidth;
+            if (maxScroll <= 0) return;
+            const next = trendingList.scrollLeft + e.deltaY;
+            if (next >= maxScroll - 2) {
+                trendingList.scrollLeft = 0;
+                return;
+            }
+            if (next <= 2) {
+                trendingList.scrollLeft = maxScroll;
+                return;
+            }
+            trendingList.scrollLeft = next;
+        }, { passive: false });
+
+        trendingList.addEventListener('scroll', updateDots, { passive: true });
+        window.addEventListener('resize', updateDots);
+        updateDots();
+    }
 
     // Notification permission
     if ('Notification' in window) {
