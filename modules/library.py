@@ -142,6 +142,7 @@ def register_library_routes(flask_app):
         
         try:
             user_email = session['user_id']
+            force_refresh = request.args.get('force') == '1'
             import time
             from threading import Thread
             
@@ -151,6 +152,33 @@ def register_library_routes(flask_app):
             if disk_cache:
                 LIBRARY_CACHE = disk_cache
             
+            # Optional: force refresh from auth service
+            if force_refresh:
+                try:
+                    logging.info(f"Force refresh requested for {user_email}")
+                    response = requests.get(
+                        f'{AUTH_SERVICE_URL}/api/check-session',
+                        headers={'X-User-Email': user_email},
+                        timeout=15
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+
+                    if data.get('success'):
+                        library_data = data.get('library', [])
+                        LIBRARY_CACHE[user_email] = {
+                            'data': library_data,
+                            'timestamp': time.time()
+                        }
+                        save_cache()
+                        return jsonify({
+                            'success': True,
+                            'library': library_data,
+                            'syncing': False
+                        })
+                except Exception as e:
+                    logging.warning(f"Force refresh failed for {user_email}: {str(e)}")
+
             # Get cached data
             cached = LIBRARY_CACHE.get(user_email)
             
@@ -183,16 +211,19 @@ def register_library_routes(flask_app):
             if cached:
                 # Serve cached data immediately
                 logging.info(f"Serving library from cache for {user_email}")
+                syncing = False
                 
                 # If cache is old (> 5 minutes), trigger background sync
                 if time.time() - cached['timestamp'] > 300:  # 5 minutes
                     logging.info(f"Cache is old, triggering background sync for {user_email}")
                     sync_thread = Thread(target=sync_library_in_background, daemon=True)
                     sync_thread.start()
+                    syncing = True
                 
                 return jsonify({
                     'success': True,
-                    'library': cached['data']
+                    'library': cached['data'],
+                    'syncing': syncing
                 })
             
             # No cache exists - must fetch synchronously (first time only)
