@@ -1057,6 +1057,7 @@ const Library = {
     updateHeaderState() {
         const headerImage = document.getElementById('likedSongsHeaderImage');
         const headerTitle = document.getElementById('likedSongsHeaderTitle');
+        const expandedView = document.getElementById('likedSongsExpanded');
 
         if (!headerImage || !headerTitle) return;
 
@@ -1080,6 +1081,10 @@ const Library = {
         if (shouldShowSong && currentSong) {
             // Show current song info
             headerImage.innerHTML = `<img src="${currentSong.thumbnail}" alt="${currentSong.title}" style="width: 100%; height: 100%; object-fit: cover;">`;
+            if (expandedView) {
+                expandedView.classList.add('library-playing');
+                expandedView.style.setProperty('--library-art', `url("${currentSong.thumbnail}")`);
+            }
 
             // Truncate title to first 2 words
             const words = currentSong.title.split(' ');
@@ -1097,6 +1102,10 @@ const Library = {
             // Revert to default
             headerImage.innerHTML = '<i class="fas fa-heart"></i>';
             headerTitle.textContent = 'Liked Songs';
+            if (expandedView) {
+                expandedView.classList.remove('library-playing');
+                expandedView.style.removeProperty('--library-art');
+            }
 
             // Revert User and Count
             const headerUser = document.getElementById('likedSongsHeaderUser');
