@@ -1641,6 +1641,59 @@ document.addEventListener('DOMContentLoaded', () => {
         updateDots();
     }
 
+    // Dashboard vertical scroll dots
+    const mainScroller = document.querySelector('.main');
+    const dashboardDots = document.querySelectorAll('.dashboard-scroll-dots .scroll-dot');
+    if (mainScroller && dashboardDots.length) {
+        const sections = Array.from(dashboardDots)
+            .map((dot) => document.getElementById(dot.dataset.target))
+            .filter(Boolean);
+
+        const setActiveDot = (index) => {
+            dashboardDots.forEach((dot, i) => {
+                dot.classList.toggle('active', i === index);
+            });
+        };
+
+        const updateActiveDot = () => {
+            const maxScroll = mainScroller.scrollHeight - mainScroller.clientHeight;
+            if (maxScroll <= 0) {
+                setActiveDot(0);
+                return;
+            }
+            const ratio = mainScroller.scrollTop / maxScroll;
+            const index = Math.min(dashboardDots.length - 1,
+                Math.round(ratio * (dashboardDots.length - 1)));
+            setActiveDot(index);
+        };
+
+        const scrollToSection = (index) => {
+            const maxScroll = mainScroller.scrollHeight - mainScroller.clientHeight;
+            if (maxScroll <= 0) return;
+            const clampedIndex = Math.max(0, Math.min(index, dashboardDots.length - 1));
+            const ratio = dashboardDots.length === 1 ? 0 : clampedIndex / (dashboardDots.length - 1);
+            const targetTop = ratio * maxScroll;
+            mainScroller.scrollTo({ top: targetTop, behavior: 'smooth' });
+        };
+
+        dashboardDots.forEach((dot, index) => {
+            dot.addEventListener('click', () => scrollToSection(index));
+        });
+
+        mainScroller.addEventListener('scroll', updateActiveDot, { passive: true });
+        window.addEventListener('resize', updateActiveDot);
+        updateActiveDot();
+
+        document.addEventListener('wheel', (e) => {
+            const settingsOverlay = document.getElementById('settingsOverlay');
+            const expandedPlayer = document.getElementById('expandedPlayer');
+            if (settingsOverlay && settingsOverlay.classList.contains('show')) return;
+            if (expandedPlayer && expandedPlayer.classList.contains('show')) return;
+            if (mainScroller.contains(e.target)) return;
+            mainScroller.scrollTop += e.deltaY;
+        }, { passive: true });
+    }
+
     // Notification permission
     if ('Notification' in window) {
         Notification.requestPermission();

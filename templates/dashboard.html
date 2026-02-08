@@ -63,7 +63,7 @@
   </div>
 
   <div class="main">
-    <section class="greeting-hero">
+    <section class="greeting-hero" id="greetingHero">
       <div class="greeting-text" id="greetingText" data-username="{{ user_email | default('') }}">Good day</div>
 
     </section>
@@ -138,6 +138,12 @@
         </div>
       </div>
       {% endfor %}
+    </div>
+
+    <div class="dashboard-scroll-dots" aria-hidden="true">
+      <button type="button" class="scroll-dot active" data-target="greetingHero" aria-label="Go to greeting"></button>
+      <button type="button" class="scroll-dot" data-target="trendingContainer" aria-label="Go to trending"></button>
+      <button type="button" class="scroll-dot" data-target="moodPlaylistsContainer" aria-label="Go to moods"></button>
     </div>
 
     <div class="audio-control-container" id="audioControlContainer" style="display: none;">

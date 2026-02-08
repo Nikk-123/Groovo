@@ -27,6 +27,7 @@ body {
     height: 100vh;
     margin: 0;
     overflow-x: hidden;
+    overflow-y: hidden;
 }
 
 /* Greeting hero */
@@ -234,6 +235,49 @@ body {
     width: 100%;
     padding: 96px 40px 120px;
     min-height: 100vh;
+    height: calc(100vh - 70px);
+    overflow-y: auto;
+    position: relative;
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+}
+
+.main::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
+.dashboard-scroll-dots {
+    position: fixed;
+    top: 50%;
+    right: 22px;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 90;
+}
+
+.dashboard-scroll-dots .scroll-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    border: none;
+    background: rgba(255, 255, 255, 0.25);
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-scroll-dots .scroll-dot:hover {
+    transform: scale(1.2);
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.dashboard-scroll-dots .scroll-dot.active {
+    background: rgba(30, 215, 96, 0.95);
+    box-shadow: 0 0 12px rgba(30, 215, 96, 0.5);
+    transform: scale(1.4);
 }
 
 /* Song list styles */
@@ -485,6 +529,12 @@ body {
 
     .main {
         padding: 80px 16px 100px;
+        height: calc(100vh - 60px);
+    }
+
+    .dashboard-scroll-dots {
+        right: 10px;
+        gap: 8px;
     }
 
     .song-list {
@@ -1282,18 +1332,25 @@ body {
 }
 
 .mini-control-btn.repeat.active,
-.control-btn.repeat.active {
+.control-btn.repeat.active,
+.control-btn-icon.repeat.active {
     color: #1DB954;
 }
 
 .mini-control-btn.repeat.once::after,
-.control-btn.repeat.once::after {
+.control-btn.repeat.once::after,
+.control-btn-icon.repeat.once::after {
     content: '1';
     position: absolute;
     font-size: 8px;
     bottom: 2px;
     right: 2px;
     color: #1DB954;
+}
+
+.control-btn-icon.repeat,
+.mini-control-btn.repeat {
+    position: relative;
 }
 
 /* Extended Liked Songs View - Spotify-inspired */
