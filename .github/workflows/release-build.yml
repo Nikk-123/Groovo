@@ -113,11 +113,6 @@ jobs:
           name: env-file
           path: .env
 
-      - name: Clean PyInstaller Artifacts
-        run: |
-          rm -rf build dist *.spec
-        shell: bash
-
       - name: Checkpoint 4 - Build Complete
         run: |
           git add .
@@ -153,3 +148,8 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clean PyInstaller Artifacts
+        run: |
+          rm -rf build dist *.spec
+        shell: bash
