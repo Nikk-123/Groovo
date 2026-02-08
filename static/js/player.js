@@ -786,9 +786,11 @@ const PlaybackControls = {
 // Library Management (unchanged except for play button handling)
 const Library = {
     isLoading: true, // Add loading state
-    async load() {
+    async load(options = {}) {
         try {
-            const response = await fetch('/library/get');
+            const { silent = false, retries = 0, force = false } = options;
+            const url = force ? '/library/get?force=1' : '/library/get';
+            const response = await fetch(url);
             const data = await response.json();
 
             if (data.success) {
@@ -809,6 +811,13 @@ const Library = {
                 const expandedView = document.getElementById('likedSongsExpanded');
                 if (expandedView && expandedView.classList.contains('show')) {
                     this.renderExtendedView();
+                }
+
+                // If server is syncing in background, re-fetch shortly to refresh UI
+                if (data.syncing && retries < 3 && !force) {
+                    setTimeout(() => {
+                        this.load({ silent: true, retries: retries + 1, force: true });
+                    }, 2000);
                 }
             } else {
                 console.warn('Failed to load library:', data.message);
@@ -1122,13 +1131,20 @@ const Library = {
         // Helper to check library status
         const isLiked = (url) => PlayerState.library.some(s => s.url === url);
 
-        // 1. Update Main/Mini Player Heart
+        // 1. Update Main/Mini/Expanded Player Hearts
         const playerHeart = document.getElementById('likeButtonIcon');
+        const expandedHeart = document.getElementById('expandedLikeIcon');
         if (playerHeart && PlayerState.currentSong) {
             // If targetUrl is provided, only update if it matches current song
             if (!targetUrl || targetUrl === PlayerState.currentSong.url) {
                 const liked = isLiked(PlayerState.currentSong.url);
                 playerHeart.className = `fa-heart ${liked ? 'fas' : 'far'}`;
+            }
+        }
+        if (expandedHeart && PlayerState.currentSong) {
+            if (!targetUrl || targetUrl === PlayerState.currentSong.url) {
+                const liked = isLiked(PlayerState.currentSong.url);
+                expandedHeart.className = `fa-heart ${liked ? 'fas' : 'far'}`;
             }
         }
 
