@@ -81,3 +81,4 @@ if __name__ == "__main__":
 
     # Start webview
     webview.start(private_mode=False, storage_path=storage_path)
+    
