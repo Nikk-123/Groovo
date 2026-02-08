@@ -1,4 +1,4 @@
-name: Auto Release and Build EXE
+name: Auto Build EXE and Release
 
 permissions:
   contents: write
@@ -14,142 +14,94 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: windows-latest  # Use Windows for building EXE
+    runs-on: windows-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Ensure all tags are fetched
-
-      - name: Configure Git User
-        run: |
-          git config --global user.name "Chayan Das"
-          git config --global user.email "chayan.das@stu.adamasuniversity.ac.in"
-
+          fetch-depth: 0   # needed for git describe --tags
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller Pillow
-
-      - name: Checkpoint 1 - Dependencies
-        run: |
-          git add .
-          git commit --allow-empty -m "Workflow Progress: Dependencies installed [skip ci]"
         shell: bash
 
-
-      - name: Create Icon
+      - name: Create ICO from PNG (if needed)
         run: |
           python -c "from PIL import Image; Image.open('static/icon_new.png').save('static/icon.ico')"
         shell: cmd
+        continue-on-error: true   # skip if file already exists or fails
 
-      - name: Checkpoint 2 - Icon Generated
-        run: |
-          git add static/icon.ico
-          git commit --allow-empty -m "Workflow Progress: Icon generated [skip ci]"
-        shell: bash
-
-
-      - name: Get Latest Release Tag and Increment
+      - name: Get latest tag and increment patch version
         id: versioning
         run: |
-          # Get the latest tag or use v1.0.0 if none exist
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
-          
-          # Extract version number (removing 'v')
-          VERSION_NUMBER=$(echo "$LATEST_TAG" | sed 's/v//')
-
-          # Split version (major.minor.patch)
+          VERSION_NUMBER=${LATEST_TAG#v}
           MAJOR=$(echo $VERSION_NUMBER | cut -d. -f1)
           MINOR=$(echo $VERSION_NUMBER | cut -d. -f2)
           PATCH=$(echo $VERSION_NUMBER | cut -d. -f3)
-
-          # Increment patch version
           NEW_PATCH=$((PATCH + 1))
           NEW_TAG="v$MAJOR.$MINOR.$NEW_PATCH"
-
-          # Output new tag
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
         shell: bash
 
-      - name: Checkpoint 3 - Versioning
-        run: |
-          git add .
-          git commit --allow-empty -m "Workflow Progress: Version calculated [skip ci]"
-        shell: bash
-
-
-      - name: Ensure .env is included
+      - name: Ensure .env exists (fallback)
         run: |
           if [ ! -f ".env" ]; then
-            echo "WARNING: .env file not found! Creating a dummy .env file."
-            echo "URI=your_mongodb_connection_string" > .env
+            echo "WARNING: .env not found → creating dummy"
+            echo "URI=your_mongodb_connection_string_here" > .env
           fi
         shell: bash
 
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --noconsole --clean --add-data "templates;templates" --add-data "static;static" --add-data "modules;modules" --add-data ".env;." --icon "static/icon.ico" --name "groovo-${{ env.NEW_TAG }}" app.py
+          pyinstaller --onefile --noconsole --clean ^
+            --add-data "templates;templates" ^
+            --add-data "static;static" ^
+            --add-data "modules;modules" ^
+            --add-data ".env;." ^
+            --icon "static/icon.ico" ^
+            --name "groovo-${{ env.NEW_TAG }}" ^
+            app.py
         shell: cmd
 
-      - name: Verify EXE Creation
-        run: dir dist
-
-      - name: Upload EXE to Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub Release and upload EXE
+        uses: softprops/action-gh-release@v2
         with:
-          name: groovo-exe-${{ env.NEW_TAG }}
-          path: dist/groovo-${{ env.NEW_TAG }}.exe
-
-      - name: Upload .env to Artifacts (for debugging)
-        uses: actions/upload-artifact@v4
-        with:
-          name: env-file
-          path: .env
-
-      - name: Checkpoint 4 - Build Complete
-        run: |
-          git add .
-          git commit --allow-empty -m "Workflow Progress: Build successfully completed [skip ci]"
-        shell: bash
-
-      - name: Checkpoint 5 - Ready to Release
-        run: |
-          git add .
-          git commit --allow-empty -m "Workflow Progress: Ready for release [skip ci]"
-        shell: bash
-
-      - name: Push New Tag and Commits
-        run: |
-          # Create the new tag (user is already globally configured as Chayan Das)
-          git tag ${{ env.NEW_TAG }}
-        
-          # Push commits and tag
-          git push https://github.com/${{ github.repository }} HEAD:main
-          git push https://github.com/${{ github.repository }} ${{ env.NEW_TAG }}
-          
-        shell: bash
-
-
-      - name: Release on GitHub
-        uses: softprops/action-gh-release@v1
-        with:
-          files: dist/groovo-${{ env.NEW_TAG }}.exe
           tag_name: ${{ env.NEW_TAG }}
-          name: "Release ${{ env.NEW_TAG }}"
-          body: "🚀 New version released: ${{ env.NEW_TAG }} \n\n - Auto-generated update."
+          name: Release ${{ env.NEW_TAG }}
+          body: |
+            Auto-built executable for version ${{ env.NEW_TAG }}
+            
+            Built from commit ${{ github.sha }}
+          files: dist/groovo-${{ env.NEW_TAG }}.exe
+          fail_on_unmatched_files: true
+          generate_release_notes: false
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Clean PyInstaller Artifacts
+      - name: Tag the commit and push tag
         run: |
-          rm -rf build dist *.spec
+          git tag ${{ env.NEW_TAG }}
+          git push origin ${{ env.NEW_TAG }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # allows push without password
         shell: bash
+
+      - name: Clean up PyInstaller temporary files
+        if: always()
+        run: |
+          rmdir /s /q build || exit /b 0
+          rmdir /s /q dist  || exit /b 0
+          del /q *.spec     || exit /b 0
+        shell: cmd
