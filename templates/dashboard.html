@@ -318,6 +318,21 @@
 
     <!-- Extended Liked Songs View -->
     <div id="likedSongsExpanded" class="liked-songs-expanded">
+      <div class="liked-songs-topbar">
+        <div class="liked-topbar-left">
+          <img src="{{ url_for('static', filename='icon_new.png') }}" alt="Groovo" class="liked-topbar-logo" />
+          <div class="liked-topbar-text">
+            <span class="liked-topbar-title">Groovo</span>
+            <span class="liked-topbar-tagline">Liked Songs</span>
+          </div>
+        </div>
+        <div class="liked-topbar-right">
+          <button class="liked-topbar-btn" onclick="Library.toggleExtendedView()" title="Close">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+      <div class="liked-songs-content">
       <div class="expanded-view-header">
         <div class="header-content">
           <div class="header-image" id="likedSongsHeaderImage">
@@ -332,14 +347,14 @@
             </div>
           </div>
         </div>
-        <button class="close-expanded-btn" onclick="Library.toggleExtendedView()">
-          <i class="fas fa-times"></i>
-        </button>
       </div>
 
       <div class="expanded-view-controls">
         <button class="play-all-btn" id="likedSongsPlayBtn" onclick="Library.playAll()">
           <i class="fas fa-play"></i>
+        </button>
+        <button class="shuffle-all-btn" id="likedSongsShuffleBtn" onclick="Library.shuffleAll()" title="Shuffle">
+          <i class="fas fa-random"></i>
         </button>
       </div>
 
@@ -365,6 +380,7 @@
           <div class="skeleton-duration"></div>
         </div>
         {% endfor %}
+      </div>
       </div>
     </div>
   </div>

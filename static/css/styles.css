@@ -1357,7 +1357,14 @@ body {
 .liked-songs-expanded {
     position: fixed;
     inset: 0;
-    padding: 96px 40px 140px;
+    padding: 0 40px 140px;
+    --liked-table-gap: 28px;
+    --liked-table-pad: 16px;
+    --liked-sticky-top: 56px;
+    --liked-table-bg: rgba(10, 10, 10, 0.78);
+    --liked-table-border: rgba(255, 255, 255, 0.08);
+    --liked-table-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+    --liked-table-columns: 48px minmax(0, 2.4fr) minmax(0, 1.2fr) 80px;
     background: radial-gradient(circle at 20% 10%, rgba(29, 185, 84, 0.25), transparent 45%),
         linear-gradient(180deg, #111111 0%, #0a0a0a 30%, #050505 100%);
     background-color: #050505;
@@ -1401,6 +1408,93 @@ body {
     display: block;
 }
 
+.liked-songs-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    height: 56px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 0 40px;
+    margin: 0 -40px;
+    background: rgba(12, 12, 12, 0.9);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.liked-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    grid-column: 2;
+    justify-self: center;
+}
+
+.liked-topbar-logo {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.35);
+}
+
+.liked-topbar-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: center;
+}
+
+.liked-topbar-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.02em;
+}
+
+.liked-topbar-tagline {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.liked-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    grid-column: 3;
+    justify-self: end;
+}
+
+.liked-topbar-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.85);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.liked-topbar-btn:hover {
+    transform: scale(1.08);
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+}
+
+.liked-songs-content {
+    padding-top: 18px;
+}
+
 /* Header Section */
 .expanded-view-header {
     position: relative;
@@ -1408,7 +1502,7 @@ body {
     display: flex;
     align-items: flex-end;
     gap: 28px;
-    margin-bottom: 28px;
+    margin-bottom: 20px;
 }
 
 .header-content {
@@ -1428,6 +1522,16 @@ body {
     justify-content: center;
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+}
+
+.header-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    border-radius: inherit;
+    display: block;
 }
 
 .header-image i {
@@ -1504,7 +1608,7 @@ body {
 .expanded-view-controls {
     position: relative;
     z-index: 2;
-    padding: 20px 0 16px;
+    padding: 12px 0 10px;
     display: flex;
     align-items: center;
     gap: 24px;
@@ -1532,27 +1636,64 @@ body {
     box-shadow: 0 18px 36px rgba(29, 185, 84, 0.55);
 }
 
+.shuffle-all-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease, border 0.2s ease, color 0.2s ease;
+}
+
+.shuffle-all-btn:hover {
+    transform: translateY(-1px) scale(1.05);
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.shuffle-all-btn.active {
+    color: #1db954;
+    border-color: rgba(29, 185, 84, 0.6);
+    background: rgba(29, 185, 84, 0.12);
+}
+
 /* Table Header */
 .songs-table-header {
     position: sticky;
-    top: 72px;
+    top: var(--liked-sticky-top);
     z-index: 3;
     display: grid;
-    grid-template-columns: 56px 5fr 3fr 1.2fr;
-    padding: 10px 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    grid-template-columns: var(--liked-table-columns);
+    padding: 12px var(--liked-table-pad);
+    margin-top: 8px;
+    border-bottom: 1px solid var(--liked-table-border);
     color: rgba(255, 255, 255, 0.55);
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.2em;
-    background: rgba(7, 7, 7, 0.85);
+    background: var(--liked-table-bg);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
+    box-shadow: var(--liked-table-shadow);
+}
+
+.col-index {
+    text-align: center;
+}
+
+.col-artist {
+    text-align: right;
+    padding-right: 12px;
 }
 
 .col-duration {
     text-align: right;
-    padding-right: 12px;
+    padding-right: 6px;
 }
 
 .songs-table-header i {
@@ -1562,8 +1703,8 @@ body {
 /* Songs List */
 .expanded-song-row {
     display: grid;
-    grid-template-columns: 56px 5fr 3fr 1.2fr;
-    padding: 10px 20px;
+    grid-template-columns: var(--liked-table-columns);
+    padding: 12px var(--liked-table-pad);
     align-items: center;
     border-radius: 10px;
     cursor: default;
@@ -1629,8 +1770,10 @@ body {
 .row-thumbnail {
     width: 44px;
     height: 44px;
-    border-radius: 8px;
+    border-radius: 12px;
     object-fit: cover;
+    object-position: center;
+    background: rgba(255, 255, 255, 0.06);
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
 }
 
@@ -1657,6 +1800,7 @@ body {
 .row-artist {
     font-size: 13px;
     color: rgba(255, 255, 255, 0.6);
+    text-align: right;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1758,7 +1902,14 @@ body {
 
 @media (max-width: 900px) {
     .liked-songs-expanded {
-        padding: 88px 20px 120px;
+        padding: 0 20px 120px;
+        --liked-table-pad: 14px;
+        --liked-table-columns: 44px minmax(0, 2fr) minmax(0, 1fr) 72px;
+    }
+
+    .liked-songs-topbar {
+        padding: 0 20px;
+        margin: 0 -20px;
     }
 
     .expanded-view-header,
@@ -1774,18 +1925,30 @@ body {
 
     .songs-table-header,
     .expanded-song-row {
-        grid-template-columns: 48px 4fr 2fr 1fr;
+        grid-template-columns: var(--liked-table-columns);
     }
 }
 
 @media (max-width: 640px) {
     .liked-songs-expanded {
-        padding: 84px 16px 110px;
+        padding: 0 16px 110px;
+        --liked-table-pad: 12px;
+        --liked-table-columns: 40px minmax(0, 1fr) 64px;
+    }
+
+    .liked-songs-topbar {
+        height: 52px;
+        padding: 0 16px;
+        margin: 0 -16px;
+    }
+
+    .liked-topbar-title {
+        font-size: 14px;
     }
 
     .songs-table-header,
     .expanded-song-row {
-        grid-template-columns: 44px 4fr 1.2fr;
+        grid-template-columns: var(--liked-table-columns);
     }
 
     .col-artist,
