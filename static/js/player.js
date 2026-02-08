@@ -598,6 +598,20 @@ const Player = {
 
 // Playback Controls
 const PlaybackControls = {
+    updateShuffleButtons() {
+        const shuffleButtons = [
+            document.getElementById('miniShuffleBtn'),
+            document.getElementById('shuffleBtn'),
+            document.getElementById('likedSongsShuffleBtn')
+        ];
+
+        shuffleButtons.forEach(btn => {
+            if (btn) {
+                btn.classList.toggle('active', PlayerState.isShuffleOn);
+            }
+        });
+    },
+
     togglePlayPause() {
         if (!PlayerState.currentSong) return;
 
@@ -635,16 +649,7 @@ const PlaybackControls = {
         PlayerState.isShuffleOn = !PlayerState.isShuffleOn;
 
         // Update button states
-        const shuffleButtons = [
-            document.getElementById('miniShuffleBtn'),
-            document.getElementById('shuffleBtn')
-        ];
-
-        shuffleButtons.forEach(btn => {
-            if (btn) {
-                btn.classList.toggle('active', PlayerState.isShuffleOn);
-            }
-        });
+        this.updateShuffleButtons();
 
         if (PlayerState.isShuffleOn) {
             // Create shuffled queue
@@ -968,6 +973,32 @@ const Library = {
             PlayerState.queue = reversedLibrary;
             PlayerState.queue.type = 'library';
             PlayerState.currentIndex = 0;
+            Player.play(firstSong.url, firstSong.title, firstSong.thumbnail, firstSong.artist);
+        }
+    },
+
+    shuffleAll() {
+        if (PlayerState.library.length === 0) {
+            return;
+        }
+
+        const reversedLibrary = [...PlayerState.library].reverse();
+        PlayerState.queue = reversedLibrary;
+        PlayerState.queue.type = 'library';
+        PlayerState.currentIndex = 0;
+
+        PlayerState.isShuffleOn = true;
+        PlayerState.shuffledQueue = [...PlayerState.queue];
+        for (let i = PlayerState.shuffledQueue.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [PlayerState.shuffledQueue[i], PlayerState.shuffledQueue[j]] =
+                [PlayerState.shuffledQueue[j], PlayerState.shuffledQueue[i]];
+        }
+
+        PlaybackControls.updateShuffleButtons();
+
+        const firstSong = PlayerState.shuffledQueue[0];
+        if (firstSong) {
             Player.play(firstSong.url, firstSong.title, firstSong.thumbnail, firstSong.artist);
         }
     },
