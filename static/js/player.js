@@ -435,7 +435,7 @@ const Player = {
     },
 
     updateUIState(url) {
-        document.querySelectorAll('.library-item, .song-item, .expanded-song-row').forEach(item => {
+        document.querySelectorAll('.song-item, .expanded-song-row').forEach(item => {
             const isCurrentSong = item.dataset.url === url;
             const isPlaying = isCurrentSong && PlayerState.isPlaying;
             item.classList.toggle('playing', isPlaying);
@@ -831,17 +831,14 @@ const Library = {
 
     toggleExtendedView() {
         const expandedView = document.getElementById('likedSongsExpanded');
-        const librarySection = document.getElementById('librarySection');
         if (!expandedView) return;
 
         expandedView.classList.toggle('show');
         if (expandedView.classList.contains('show')) {
             this.renderExtendedView();
             document.body.style.overflow = 'hidden'; // Prevent background scrolling
-            if (librarySection) librarySection.style.display = 'none';
         } else {
             document.body.style.overflow = '';
-            if (librarySection) librarySection.style.display = '';
         }
     },
 
@@ -1149,7 +1146,7 @@ const Library = {
         }
 
         // 2. Update List Buttons (Search, Trending, Moods)
-        const songItems = document.querySelectorAll('.song-item, .expanded-song-row, .library-item');
+        const songItems = document.querySelectorAll('.song-item, .expanded-song-row');
         songItems.forEach(item => {
             const url = item.dataset.url;
             if (!url) return;
@@ -1158,8 +1155,8 @@ const Library = {
             if (targetUrl && url !== targetUrl) return;
 
             // Handle different button locations/structures
-            // Standard song-item or library-item might have .add-to-library or .remove-from-library
-            const heartIcon = item.querySelector('.add-to-library i, .remove-from-library i, .mini-like-btn i');
+            // Standard song-item might have .add-to-library or .mini-like-btn
+            const heartIcon = item.querySelector('.add-to-library i, .mini-like-btn i');
             if (heartIcon) {
                 const liked = isLiked(url);
                 heartIcon.className = `fa-heart ${liked ? 'fas' : 'far'}`;
