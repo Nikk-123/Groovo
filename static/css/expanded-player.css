@@ -23,12 +23,17 @@
   padding: 24px 28px 28px;
   background: var(--player-bg);
   color: var(--player-strong);
-  overflow: hidden;
+  overflow: hidden !important;
   transform: translateY(100%);
   transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
   z-index: 2000;
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
   letter-spacing: 0.01em;
+}
+
+/* Prevent body scrolling when expanded player is shown */
+body:has(.expanded-player.show) {
+  overflow: hidden !important;
 }
 
 .expanded-player.show {
@@ -524,6 +529,7 @@
     opacity: 0;
     transform: translateY(12px) scale(0.98);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -535,6 +541,7 @@
     opacity: 0;
     transform: translateX(18px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -542,6 +549,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .expanded-player,
   .expanded-player * {
     animation: none !important;
@@ -637,6 +645,7 @@
   0% {
     height: 10%;
   }
+
   100% {
     height: 100%;
   }
