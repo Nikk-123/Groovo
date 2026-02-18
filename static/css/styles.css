@@ -1146,33 +1146,18 @@ body {
     grid-auto-flow: column;
     grid-auto-columns: minmax(180px, 1fr);
     overflow-x: auto;
-    padding-bottom: 18px;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-}
-
-#trendingContainer .song-list {
+    padding-bottom: 10px;
     scrollbar-width: none;
     -ms-overflow-style: none;
-    padding-bottom: 10px;
 }
 
 #trendingContainer .song-list::-webkit-scrollbar,
 #moodPlaylistsContainer .song-list::-webkit-scrollbar {
-    height: 10px;
-}
-
-#trendingContainer .song-list::-webkit-scrollbar {
     height: 0;
+    display: none;
 }
 
-#trendingContainer .song-list::-webkit-scrollbar-thumb,
-#moodPlaylistsContainer .song-list::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 999px;
-}
-
-#trendingContainer .scroll-dots {
+.scroll-dots {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1180,7 +1165,7 @@ body {
     margin-top: 6px;
 }
 
-#trendingContainer .scroll-dot {
+.scroll-dot {
     width: 6px;
     height: 6px;
     border-radius: 999px;
@@ -1190,11 +1175,10 @@ body {
     transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
-#trendingContainer .scroll-dot.active {
+.scroll-dot.active {
     background: rgba(30, 215, 96, 0.95);
     box-shadow: 0 0 12px rgba(30, 215, 96, 0.5);
     transform: scale(1.35);
-}
 }
 
 /* Device Info Styles */

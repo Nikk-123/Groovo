@@ -1164,6 +1164,47 @@ const Library = {
         this.updateLikeButton(song.url);
     },
 
+    async forceRefresh() {
+        try {
+            console.log('Force refreshing library cache...');
+            this.isLoading = true;
+
+            const response = await fetch('/library/force-refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                PlayerState.library = data.library || [];
+                this.isLoading = false;
+                console.log(`Cache force refreshed: ${PlayerState.library.length} songs`);
+
+                // Update all UI
+                this.updateDisplay();
+                this.updateLikeButton();
+                this.updateHeaderState();
+
+                if (PlayerState.currentSong) {
+                    this.updateLikeButton(PlayerState.currentSong.url);
+                }
+
+                // Re-render expanded view if open
+                const expandedView = document.getElementById('likedSongsExpanded');
+                if (expandedView && expandedView.classList.contains('show')) {
+                    this.renderExtendedView();
+                }
+            } else {
+                console.error('Force refresh failed:', data.message);
+            }
+            return data;
+        } catch (error) {
+            console.error('Error force refreshing library:', error);
+            this.isLoading = false;
+            return { success: false, message: error.message };
+        }
+    },
+
     updateLikeButton(targetUrl = null) {
         // Helper to check library status
         const isLiked = (url) => PlayerState.library.some(s => s.url === url);
