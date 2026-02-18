@@ -47,11 +47,81 @@ async function loadMoodPlaylists() {
                         list.appendChild(card);
                     });
                 }
+                // Initialize scroll dots for this mood section
+                initMoodScrollDots(list);
             }
         } catch (error) {
             console.error(`Error loading mood ${mood}:`, error);
         }
     });
+}
+
+function initMoodScrollDots(songList) {
+    const moodPlaylist = songList.closest('.mood-playlist');
+    if (!moodPlaylist) return;
+
+    const dotsContainer = moodPlaylist.querySelector('.mood-scroll-dots');
+    const dots = moodPlaylist.querySelectorAll('.mood-scroll-dots .scroll-dot');
+    if (!dotsContainer || !dots.length) return;
+
+    const setActiveDot = (index) => {
+        dots.forEach((dot, i) => {
+            dot.classList.toggle('active', i === index);
+        });
+    };
+
+    const updateDotsVisibility = () => {
+        // Only show dots when content overflows (small window)
+        const overflows = songList.scrollWidth > songList.clientWidth + 2; // Add a small tolerance
+        dotsContainer.style.display = overflows ? 'flex' : 'none';
+    };
+
+    const updateDots = () => {
+        updateDotsVisibility();
+        const maxScroll = songList.scrollWidth - songList.clientWidth;
+        if (maxScroll <= 0) {
+            setActiveDot(0);
+            return;
+        }
+        const ratio = songList.scrollLeft / maxScroll;
+        const index = Math.min(dots.length - 1, Math.floor(ratio * dots.length));
+        setActiveDot(index);
+    };
+
+    const scrollToDot = (index) => {
+        const maxScroll = songList.scrollWidth - songList.clientWidth;
+        if (maxScroll <= 0) return;
+        const clampedIndex = Math.max(0, Math.min(index, dots.length - 1));
+        const ratio = dots.length === 1 ? 0 : clampedIndex / (dots.length - 1);
+        const target = ratio * maxScroll;
+        songList.scrollTo({ left: target, behavior: 'smooth' });
+    };
+
+    dots.forEach((dot, index) => {
+        dot.addEventListener('click', () => scrollToDot(index));
+    });
+
+    // Mouse wheel horizontal scrolling + circular wrap
+    songList.addEventListener('wheel', (e) => {
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+        e.preventDefault();
+        const maxScroll = songList.scrollWidth - songList.clientWidth;
+        if (maxScroll <= 0) return;
+        const next = songList.scrollLeft + e.deltaY;
+        if (next >= maxScroll - 2) {
+            songList.scrollLeft = 0;
+            return;
+        }
+        if (next <= 2) {
+            songList.scrollLeft = maxScroll;
+            return;
+        }
+        songList.scrollLeft = next;
+    }, { passive: false });
+
+    songList.addEventListener('scroll', updateDots, { passive: true });
+    window.addEventListener('resize', updateDots);
+    updateDots();
 }
 
 function createSongCard(song) {

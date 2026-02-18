@@ -135,6 +135,11 @@
             </li>
             {% endfor %}
           </ul>
+          <div class="scroll-dots mood-scroll-dots" aria-hidden="true">
+            <span class="scroll-dot"></span>
+            <span class="scroll-dot"></span>
+            <span class="scroll-dot"></span>
+          </div>
         </div>
       </div>
       {% endfor %}
@@ -333,54 +338,54 @@
         </div>
       </div>
       <div class="liked-songs-content">
-      <div class="expanded-view-header">
-        <div class="header-content">
-          <div class="header-image" id="likedSongsHeaderImage">
-            <i class="fas fa-heart"></i>
-          </div>
-          <div class="header-info">
-            <span class="header-type">Playlist</span>
-            <h1 class="header-title" id="likedSongsHeaderTitle">Liked Songs</h1>
-            <div class="header-meta">
-              <span class="header-user" id="likedSongsHeaderUser">{{ user_email }}</span>
-              <span class="header-count" id="expandedSongCount">0 songs</span>
+        <div class="expanded-view-header">
+          <div class="header-content">
+            <div class="header-image" id="likedSongsHeaderImage">
+              <i class="fas fa-heart"></i>
+            </div>
+            <div class="header-info">
+              <span class="header-type">Playlist</span>
+              <h1 class="header-title" id="likedSongsHeaderTitle">Liked Songs</h1>
+              <div class="header-meta">
+                <span class="header-user" id="likedSongsHeaderUser">{{ user_email }}</span>
+                <span class="header-count" id="expandedSongCount">0 songs</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div class="expanded-view-controls">
-        <button class="play-all-btn" id="likedSongsPlayBtn" onclick="Library.playAll()">
-          <i class="fas fa-play"></i>
-        </button>
-        <button class="shuffle-all-btn" id="likedSongsShuffleBtn" onclick="Library.shuffleAll()" title="Shuffle">
-          <i class="fas fa-random"></i>
-        </button>
-      </div>
-
-      <div class="songs-table-header">
-        <div class="col-index">#</div>
-        <div class="col-title">Title</div>
-        <div class="col-artist">Artist</div>
-        <div class="col-duration"></div>
-      </div>
-
-      <div class="expanded-songs-list" id="expandedSongsList">
-        {% for i in range(10) %}
-        <div class="expanded-song-row skeleton">
-          <div class="skeleton-index"></div>
-          <div class="row-title-container">
-            <div class="skeleton-thumbnail"></div>
-            <div class="skeleton-row-text">
-              <div class="skeleton-title"></div>
-              <div class="skeleton-subtitle"></div>
-            </div>
-          </div>
-          <div class="skeleton-artist"></div>
-          <div class="skeleton-duration"></div>
+        <div class="expanded-view-controls">
+          <button class="play-all-btn" id="likedSongsPlayBtn" onclick="Library.playAll()">
+            <i class="fas fa-play"></i>
+          </button>
+          <button class="shuffle-all-btn" id="likedSongsShuffleBtn" onclick="Library.shuffleAll()" title="Shuffle">
+            <i class="fas fa-random"></i>
+          </button>
         </div>
-        {% endfor %}
-      </div>
+
+        <div class="songs-table-header">
+          <div class="col-index">#</div>
+          <div class="col-title">Title</div>
+          <div class="col-artist">Artist</div>
+          <div class="col-duration"></div>
+        </div>
+
+        <div class="expanded-songs-list" id="expandedSongsList">
+          {% for i in range(10) %}
+          <div class="expanded-song-row skeleton">
+            <div class="skeleton-index"></div>
+            <div class="row-title-container">
+              <div class="skeleton-thumbnail"></div>
+              <div class="skeleton-row-text">
+                <div class="skeleton-title"></div>
+                <div class="skeleton-subtitle"></div>
+              </div>
+            </div>
+            <div class="skeleton-artist"></div>
+            <div class="skeleton-duration"></div>
+          </div>
+          {% endfor %}
+        </div>
       </div>
     </div>
   </div>
