@@ -1837,7 +1837,7 @@ const Settings = {
             // Close profile dropdown if open
             const profileDropdown = document.getElementById('profileDropdown');
             if (profileDropdown) {
-                profileDropdown.style.display = 'none';
+                profileDropdown.classList.remove('show');
             }
         }
     },
@@ -1858,10 +1858,105 @@ const Settings = {
         document.querySelectorAll('.settings-nav-item').forEach(item => {
             item.classList.remove('active');
         });
-        event.target.closest('.settings-nav-item')?.classList.add('active');
+        // Use the global event object (from onclick handler) to find the clicked nav item
+        const evt = window.event || arguments.callee.caller?.arguments?.[0];
+        if (evt && evt.target) {
+            evt.target.closest('.settings-nav-item')?.classList.add('active');
+        } else {
+            // Fallback: find nav item by href
+            const navItem = document.querySelector(`.settings-nav-item[href="#${sectionId}"]`);
+            if (navItem) navItem.classList.add('active');
+        }
 
-        // Scroll to section
-        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Scroll within the settings content container
+        const contentEl = document.querySelector('.settings-content');
+        if (contentEl) {
+            const offsetTop = section.offsetTop - contentEl.offsetTop;
+            contentEl.scrollTo({ top: offsetTop, behavior: 'smooth' });
+        } else {
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    },
+
+    showMessage(message, type = 'success') {
+        // Remove any existing message
+        const existing = document.querySelector('.settings-toast');
+        if (existing) existing.remove();
+
+        const toast = document.createElement('div');
+        toast.className = `settings-toast settings-toast-${type}`;
+        toast.innerHTML = `
+            <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+            <span>${message}</span>
+        `;
+
+        // Insert at the top of settings content
+        const settingsContent = document.querySelector('.settings-sections');
+        if (settingsContent) {
+            settingsContent.insertBefore(toast, settingsContent.firstChild);
+
+            // Auto-remove after 4 seconds
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-10px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+    },
+
+    init() {
+        // Hook up AJAX form submission for the settings profile form
+        const form = document.querySelector('#settingsOverlay .settings-form');
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const formData = new FormData(form);
+                const submitBtn = form.querySelector('button[type="submit"]');
+                const originalText = submitBtn?.textContent;
+
+                // Show loading state
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Saving...';
+                }
+
+                try {
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: formData,
+                        credentials: 'include'
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.showMessage(data.message || 'Profile updated successfully', 'success');
+                        // Update the displayed email in the dashboard if it changed
+                        const newEmail = formData.get('email');
+                        if (newEmail) {
+                            const emailSpans = document.querySelectorAll('.dropdown-header span, .header-user');
+                            emailSpans.forEach(el => { el.textContent = newEmail; });
+                            const greetingEl = document.getElementById('greetingText');
+                            if (greetingEl) greetingEl.dataset.username = newEmail;
+                        }
+                    } else {
+                        this.showMessage(data.message || 'Failed to update profile', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error saving profile:', error);
+                    this.showMessage('An error occurred while saving your profile', 'error');
+                } finally {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = originalText;
+                    }
+                }
+            });
+        }
     }
 };
 
@@ -1885,4 +1980,5 @@ document.addEventListener('click', (e) => {
 
 document.addEventListener('DOMContentLoaded', () => {
     Player.loadState();
+    Settings.init();
 });

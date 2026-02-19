@@ -37,6 +37,14 @@
         onclick="scrollToSection('privacy')">
         <i class="fas fa-shield-alt mr-3"></i> Face Authentication
       </a>
+      <a href="#help" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition"
+        onclick="scrollToSection('help')">
+        <i class="fas fa-life-ring mr-3"></i> Help
+      </a>
+      <a href="#about" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition"
+        onclick="scrollToSection('about')">
+        <i class="fas fa-info-circle mr-3"></i> About Us
+      </a>
 
       <a href="{{ url_for('dashboard') }}"
         class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition">
@@ -57,6 +65,18 @@
   <!-- Main Content -->
   <div class="ml-64 p-8 min-h-screen">
     <div class="max-w-2xl mx-auto">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="mb-8 space-y-2">
+        {% for category, message in messages %}
+        <div class="px-4 py-3 rounded-lg text-sm border {{ 'border-green-600 text-green-300 bg-green-900/20' if category == 'success' else 'border-red-600 text-red-300 bg-red-900/20' }}">
+          {{ message }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
+
       <!-- Profile Section -->
       <div id="profile" class="settings-section mb-12">
         <h2 class="text-3xl font-semibold text-white mb-4">Profile</h2>
@@ -70,6 +90,7 @@
           <div>
             <label for="email" class="block text-sm font-medium text-gray-300">Email</label>
             <input type="email" id="email" name="email" placeholder="Enter new email" required
+              value="{{ user_email or '' }}"
               class="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500" />
           </div>
           <button type="submit"
@@ -93,6 +114,42 @@
           class="px-6 py-3 bg-green-500 text-black font-semibold rounded-full hover:bg-green-600 transition">
           Manage Face Authentication Settings
         </button>
+      </div>
+
+      <!-- Help Section -->
+      <div id="help" class="settings-section mb-12">
+        <h2 class="text-3xl font-semibold text-white mb-4">Help</h2>
+        <p class="text-gray-400 mb-6">Quick answers and tips to keep Groovo running smoothly.</p>
+        <div class="space-y-4">
+          <div class="p-4 bg-gray-900 border border-gray-800 rounded-lg">
+            <h3 class="text-lg font-semibold text-white">Playback issues</h3>
+            <p class="text-gray-400 mt-2">If a track fails to play, try refreshing the dashboard or searching again. This helps reset the stream and load a fresh source.</p>
+          </div>
+          <div class="p-4 bg-gray-900 border border-gray-800 rounded-lg">
+            <h3 class="text-lg font-semibold text-white">Library sync</h3>
+            <p class="text-gray-400 mt-2">Use the heart button to save tracks. Your library updates automatically and is tied to your account.</p>
+          </div>
+          <div class="p-4 bg-gray-900 border border-gray-800 rounded-lg">
+            <h3 class="text-lg font-semibold text-white">Account access</h3>
+            <p class="text-gray-400 mt-2">If you changed your email, log out and log back in to refresh the session with your updated profile.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- About Us Section -->
+      <div id="about" class="settings-section mb-12">
+        <h2 class="text-3xl font-semibold text-white mb-4">About Us</h2>
+        <p class="text-gray-400 mb-6">Groovo is a focused music streaming experience designed for quick discovery and smooth playback.</p>
+        <div class="p-4 bg-gray-900 border border-gray-800 rounded-lg">
+          <h3 class="text-lg font-semibold text-white">Developer</h3>
+          <p class="text-gray-400 mt-2">Built by Chayan, a developer who enjoys crafting clean, fast, and immersive music apps. Groovo blends modern UI with smart playback flows to keep listening effortless.</p>
+          <div class="mt-4 flex flex-wrap gap-3">
+            <a href="https://chayan.live/" target="_blank" rel="noopener"
+              class="px-4 py-2 rounded-full bg-gray-800 text-gray-200 hover:bg-gray-700 transition">Portfolio</a>
+            <a href="https://github.com/Nikk-123" target="_blank" rel="noopener"
+              class="px-4 py-2 rounded-full bg-gray-800 text-gray-200 hover:bg-gray-700 transition">GitHub</a>
+          </div>
+        </div>
       </div>
 
 

@@ -154,20 +154,17 @@ def register_auth_routes(flask_app):
                                  trending=[],
                                  mood_playlists={mood: [] for mood in MOODS})
 
-    @flask_app.route('/settings')
-    def settings():
-        if 'user_id' not in session:
-            return redirect(url_for('login'))
-        return render_template('setting.html')
-
     @flask_app.route('/edit_profile', methods=['POST'])
     def edit_profile():
         if 'user_id' not in session:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': 'Not logged in'}), 401
             return redirect(url_for('login'))
 
         username = request.form.get('username')
         email = request.form.get('email')
         user_email = session['user_id']
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
         try:
             # Call auth service API to update profile
@@ -186,14 +183,25 @@ def register_auth_routes(flask_app):
                 data = response.json()
                 if data.get('success'):
                     session['user_id'] = email  # Update session with new email
+                    if is_ajax:
+                        return jsonify({'success': True, 'message': 'Profile updated successfully'})
                     flash('Profile updated successfully', 'success')
                 else:
-                    flash(data.get('message', 'Failed to update profile'), 'error')
+                    msg = data.get('message', 'Failed to update profile')
+                    if is_ajax:
+                        return jsonify({'success': False, 'message': msg})
+                    flash(msg, 'error')
             else:
+                if is_ajax:
+                    return jsonify({'success': False, 'message': 'Failed to update profile'})
                 flash('Failed to update profile', 'error')
                 
-            return redirect(url_for('settings'))
+            if not is_ajax:
+                return redirect(url_for('dashboard'))
         except Exception as e:
             logging.error(f"Error updating profile: {str(e)}")
+            if is_ajax:
+                return jsonify({'success': False, 'message': 'An error occurred while updating your profile'})
             flash('An error occurred while updating your profile', 'error')
-            return redirect(url_for('settings'))
+            return redirect(url_for('dashboard'))
+
