@@ -29,6 +29,35 @@ register_face_auth_routes(app)
 
 
 if __name__ == "__main__":
+    # ── Single-instance guard ──────────────────────────────────
+    import socket
+    def is_already_running(port=8000):
+        """Check if another Groovo instance is already using the port."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.bind(('127.0.0.1', port))
+            sock.close()
+            return False  # Port is free – no other instance
+        except OSError:
+            sock.close()
+            return True   # Port in use – another instance is running
+
+    if is_already_running():
+        # Try to bring the existing window to the front via a simple request
+        try:
+            import requests as req
+            req.get('http://127.0.0.1:8000/', timeout=2)
+        except Exception:
+            pass
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(
+            0,
+            "Groovo is already running.\nCheck your taskbar for the existing window.",
+            "Groovo",
+            0x40  # MB_ICONINFORMATION
+        )
+        sys.exit(0)
+
     # Start Flask in a separate thread
     from threading import Thread
     flask_thread = Thread(target=lambda: app.run(debug=False, use_reloader=False, port=8000))
