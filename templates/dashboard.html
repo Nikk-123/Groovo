@@ -408,14 +408,25 @@
           </button>
         </div>
         <nav class="settings-nav">
-          <a href="#profile" class="settings-nav-item active" onclick="Settings.scrollToSection('profile')">
+          <a href="#settingsProfile" class="settings-nav-item active"
+            onclick="Settings.scrollToSection('settingsProfile'); return false;">
             <i class="fas fa-user"></i> Profile
           </a>
-          <a href="#device" class="settings-nav-item" onclick="Settings.scrollToSection('device')">
+          <a href="#settingsDevice" class="settings-nav-item"
+            onclick="Settings.scrollToSection('settingsDevice'); return false;">
             <i class="fas fa-laptop"></i> Device Information
           </a>
-          <a href="#privacy" class="settings-nav-item" onclick="Settings.scrollToSection('privacy')">
+          <a href="#settingsPrivacy" class="settings-nav-item"
+            onclick="Settings.scrollToSection('settingsPrivacy'); return false;">
             <i class="fas fa-shield-alt"></i> Face Authentication
+          </a>
+          <a href="#settingsHelp" class="settings-nav-item"
+            onclick="Settings.scrollToSection('settingsHelp'); return false;">
+            <i class="fas fa-life-ring"></i> Help
+          </a>
+          <a href="#settingsAbout" class="settings-nav-item"
+            onclick="Settings.scrollToSection('settingsAbout'); return false;">
+            <i class="fas fa-info-circle"></i> About Us
           </a>
         </nav>
       </div>
@@ -424,18 +435,19 @@
       <div class="settings-content">
         <div class="settings-sections">
           <!-- Profile Section -->
-          <div id="profile" class="settings-section">
+          <div id="settingsProfile" class="settings-section">
             <h2 class="section-title">Profile</h2>
             <p class="section-description">Manage your profile information.</p>
             <form action="{{ url_for('edit_profile') }}" method="POST" class="settings-form">
               <div class="form-group">
-                <label for="username" class="form-label">Username</label>
-                <input type="text" id="username" name="username" placeholder="Enter new username" required
+                <label for="settingsUsername" class="form-label">Username</label>
+                <input type="text" id="settingsUsername" name="username" placeholder="Enter new username" required
                   class="form-input" />
               </div>
               <div class="form-group">
-                <label for="email" class="form-label">Email</label>
-                <input type="email" id="email" name="email" placeholder="Enter new email" required class="form-input" />
+                <label for="settingsEmail" class="form-label">Email</label>
+                <input type="email" id="settingsEmail" name="email" placeholder="Enter new email" required
+                  value="{{ user_email or '' }}" class="form-input" />
               </div>
               <button type="submit" class="btn-primary">
                 Save Changes
@@ -444,18 +456,57 @@
           </div>
 
           <!-- Device Information Section -->
-          <div id="device" class="settings-section">
+          <div id="settingsDevice" class="settings-section">
             <h2 class="section-title">Device Information</h2>
             <p class="section-description">Your current device IP: {{ request.remote_addr }}</p>
           </div>
 
-          <!-- Privacy Section -->
-          <div id="privacy" class="settings-section">
+          <!-- Face Authentication Section -->
+          <div id="settingsPrivacy" class="settings-section">
             <h2 class="section-title">Face Authentication</h2>
             <p class="section-description">Control your face authentication settings and data preferences.</p>
             <button onclick="window.location.href='{{ url_for('face_auth') }}';" class="btn-primary">
               Manage Face Authentication Settings
             </button>
+          </div>
+
+          <!-- Help Section -->
+          <div id="settingsHelp" class="settings-section">
+            <h2 class="section-title">Help</h2>
+            <p class="section-description">Quick answers and tips to keep Groovo running smoothly.</p>
+            <div class="settings-help-cards">
+              <div class="settings-help-card">
+                <h3>Playback issues</h3>
+                <p>If a track fails to play, try refreshing the dashboard or searching again. This helps reset the
+                  stream and load a fresh source.</p>
+              </div>
+              <div class="settings-help-card">
+                <h3>Library sync</h3>
+                <p>Use the heart button to save tracks. Your library updates automatically and is tied to your account.
+                </p>
+              </div>
+              <div class="settings-help-card">
+                <h3>Account access</h3>
+                <p>If you changed your email, log out and log back in to refresh the session with your updated profile.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- About Us Section -->
+          <div id="settingsAbout" class="settings-section">
+            <h2 class="section-title">About Us</h2>
+            <p class="section-description">Groovo is a focused music streaming experience designed for quick discovery
+              and smooth playback.</p>
+            <div class="settings-help-card">
+              <h3>Developer</h3>
+              <p>Built by Chayan, a developer who enjoys crafting clean, fast, and immersive music apps. Groovo blends
+                modern UI with smart playback flows to keep listening effortless.</p>
+              <div style="margin-top: 12px; display: flex; gap: 10px;">
+                <a href="https://chayan.live/" target="_blank" rel="noopener" class="btn-secondary">Portfolio</a>
+                <a href="https://github.com/Nikk-123" target="_blank" rel="noopener" class="btn-secondary">GitHub</a>
+              </div>
+            </div>
           </div>
         </div>
       </div>
