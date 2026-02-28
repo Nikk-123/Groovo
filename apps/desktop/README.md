@@ -355,7 +355,7 @@ AUTH_SERVICE_URL=http://localhost:5002
 
 # Production URLs (if deploying)
 FACE_SERVICE_URL=https://groovoface-production.up.railway.app
-AUTH_SERVICE_URL=https://groovoauth-production.up.railway.app
+AUTH_SERVICE_URL=https://login-auth-jgxb.onrender.com
 ```
 
 ### 🌐 Service URLs
@@ -363,7 +363,7 @@ AUTH_SERVICE_URL=https://groovoauth-production.up.railway.app
 | Environment | Main App | Auth Service | Face Service |
 |-------------|----------|--------------|--------------|
 | **Development** | `localhost:8000` | `localhost:5002` | `localhost:5001` |
-| **Production** | Railway URL | `groovoauth-*.railway.app` | `groovoface-*.railway.app` |
+| **Production** | Railway URL | `login-auth-jgxb.onrender.com` | `groovoface-*.railway.app` |
 
 ---
 

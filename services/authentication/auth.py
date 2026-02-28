@@ -59,6 +59,14 @@ def get_user_by_email(email):
         logging.error(f"Database error while fetching user: {e}")
         return None
 
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({
+        'success': True,
+        'message': 'Auth service is running perfectly',
+        'status': 'healthy'
+    }), 200
+
 @app.route('/api/signup', methods=['POST'])
 def api_signup():
     try:
@@ -476,11 +484,9 @@ def test_db_connection():
 
 
 if __name__ == "__main__":
-    # Only run the development server if not running under gunicorn
-    if os.environ.get("RUN_MAIN") == "true" or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        if test_db_connection():
-            port = int(os.environ.get("PORT", 5000))
-            app.run(debug=True, host="0.0.0.0", port=port)
-        else:
-            print("Application cannot start due to database connection failure")
-            sys.exit(1)
+    if test_db_connection():
+        port = int(os.environ.get("PORT", 5002))
+        app.run(debug=True, host="0.0.0.0", port=port)
+    else:
+        print("Application cannot start due to database connection failure")
+        sys.exit(1)
