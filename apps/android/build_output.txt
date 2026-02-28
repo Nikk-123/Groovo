@@ -1,0 +1,76 @@
+Reusing configuration cache.
+> Task :innertube:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :taglib:preBuild UP-TO-DATE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :lrclib:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :kugou:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :lrclib:processResources NO-SOURCE
+> Task :innertube:processResources NO-SOURCE
+> Task :kugou:processResources NO-SOURCE
+> Task :taglib:preDebugBuild UP-TO-DATE
+> Task :material-color-utilities:processResources NO-SOURCE
+> Task :app:prepareLibraryDefinitionsCoreDebug UP-TO-DATE
+> Task :taglib:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preCoreDebugBuild UP-TO-DATE
+> Task :taglib:processDebugManifest UP-TO-DATE
+> Task :taglib:generateDebugResValues UP-TO-DATE
+> Task :taglib:writeDebugAarMetadata UP-TO-DATE
+> Task :taglib:processDebugNavigationResources UP-TO-DATE
+> Task :material-color-utilities:compileJava UP-TO-DATE
+> Task :app:generateCoreDebugResValues UP-TO-DATE
+> Task :taglib:generateDebugResources UP-TO-DATE
+> Task :taglib:extractDeepLinksDebug UP-TO-DATE
+> Task :app:generateCoreDebugBuildConfig UP-TO-DATE
+> Task :material-color-utilities:classes UP-TO-DATE
+> Task :taglib:extractDebugSupportedLocales UP-TO-DATE
+> Task :app:createCoreDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:generateCoreDebugResources UP-TO-DATE
+> Task :taglib:javaPreCompileDebug UP-TO-DATE
+> Task :app:extractCoreDebugSupportedLocales UP-TO-DATE
+> Task :lrclib:compileKotlin UP-TO-DATE
+> Task :app:extractDeepLinksCoreDebug UP-TO-DATE
+> Task :material-color-utilities:jar UP-TO-DATE
+> Task :innertube:compileKotlin UP-TO-DATE
+> Task :taglib:packageDebugResources UP-TO-DATE
+> Task :kugou:compileKotlin UP-TO-DATE
+> Task :lrclib:compileJava NO-SOURCE
+> Task :innertube:compileJava NO-SOURCE
+> Task :kugou:compileJava NO-SOURCE
+> Task :lrclib:classes UP-TO-DATE
+> Task :innertube:classes UP-TO-DATE
+> Task :kugou:classes UP-TO-DATE
+> Task :taglib:parseDebugLocalResources UP-TO-DATE
+> Task :taglib:compileDebugLibraryResources UP-TO-DATE
+> Task :kugou:jar UP-TO-DATE
+> Task :innertube:jar UP-TO-DATE
+> Task :lrclib:jar UP-TO-DATE
+> Task :taglib:generateDebugRFile UP-TO-DATE
+> Task :app:processCoreDebugNavigationResources UP-TO-DATE
+> Task :app:checkCoreDebugAarMetadata UP-TO-DATE
+> Task :taglib:compileDebugKotlin UP-TO-DATE
+> Task :app:compileCoreDebugNavigationResources UP-TO-DATE
+> Task :app:processCoreDebugMainManifest UP-TO-DATE
+> Task :taglib:compileDebugJavaWithJavac NO-SOURCE
+> Task :app:mapCoreDebugSourceSetPaths UP-TO-DATE
+> Task :app:processCoreDebugManifest UP-TO-DATE
+> Task :taglib:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :app:generateCoreDebugLocaleConfig UP-TO-DATE
+> Task :app:processCoreDebugManifestForPackage UP-TO-DATE
+> Task :app:packageCoreDebugResources UP-TO-DATE
+> Task :app:mergeCoreDebugResources UP-TO-DATE
+> Task :app:parseCoreDebugLocalResources UP-TO-DATE
+> Task :app:processCoreDebugResources UP-TO-DATE
+> Task :app:kspCoreDebugKotlin
+> Task :app:compileCoreDebugKotlin
+w: file:///C:/Users/chaya/OneDrive/Desktop/PERSONAL/TEST/music/OuterTune/app/src/main/java/com/dd3boh/outertune/MainActivity.kt:110:8 'class WindowWidthSizeClass : Any' is deprecated. WindowWidthSizeClass will not be developed further, use WindowSizeClass instead.
+w: file:///C:/Users/chaya/OneDrive/Desktop/PERSONAL/TEST/music/OuterTune/app/src/main/java/com/dd3boh/outertune/MainActivity.kt:282:37 'val windowWidthSizeClass: WindowWidthSizeClass' is deprecated. Use either isWidthAtLeastBreakpoint or isAtLeastBreakpoint to check matching bounds.
+w: file:///C:/Users/chaya/OneDrive/Desktop/PERSONAL/TEST/music/OuterTune/app/src/main/java/com/dd3boh/outertune/MainActivity.kt:282:61 'class WindowWidthSizeClass : Any' is deprecated. WindowWidthSizeClass will not be developed further, use WindowSizeClass instead.
+w: file:///C:/Users/chaya/OneDrive/Desktop/PERSONAL/TEST/music/OuterTune/app/src/main/java/com/dd3boh/outertune/MainActivity.kt:282:82 'val EXPANDED: WindowWidthSizeClass' is deprecated. WindowWidthSizeClass not be developed further.
+w: file:///C:/Users/chaya/OneDrive/Desktop/PERSONAL/TEST/music/OuterTune/app/src/main/java/com/dd3boh/outertune/MainActivity.kt:1043:20 'var navigationBarColor: Int' is deprecated. Deprecated in Java.
+w: file:///C:/Users/chaya/OneDrive/Desktop/PERSONAL/TEST/music/OuterTune/app/src/main/java/com/dd3boh/outertune/ui/player/Queue.kt:681:40 'fun rememberSwipeToDismissBoxState(initialValue: SwipeToDismissBoxValue = ..., confirmValueChange: (SwipeToDismissBoxValue) -> Boolean = ..., positionalThreshold: (Float) -> Float = ...): SwipeToDismissBoxState' is deprecated. confirmValueChange is deprecated without replacement. Rather than relying on a callback to veto state changes, the anchor set should not include disallowed anchors. See androidx.compose.foundation.samples.AnchoredDraggableDynamicAnchorsSample for an example of using dynamic anchors over confirmValueChange.
+w: file:///C:/Users/chaya/OneDrive/Desktop/PERSONAL/TEST/music/OuterTune/app/src/main/java/com/dd3boh/outertune/ui/screens/LoginScreen.kt:82:32 'fun <reified VM : ViewModel> hiltViewModel(viewModelStoreOwner: ViewModelStoreOwner = ..., key: String? = ...): VM' is deprecated. Moved to package: androidx.hilt.lifecycle.viewmodel.compose.
+
+BUILD SUCCESSFUL in 58s
+43 actionable tasks: 2 executed, 41 up-to-date
+Configuration cache entry reused.
