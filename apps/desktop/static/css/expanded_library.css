@@ -1,0 +1,298 @@
+/* Extended Liked Songs View */
+.liked-songs-expanded {
+    position: fixed;
+    top: 70px;
+    /* Below top nav */
+    left: 0;
+    right: 0;
+    bottom: 90px;
+    /* Above player */
+    background: linear-gradient(180deg, #5038a0 0%, #121212 400px);
+    /* Purple gradient like reference */
+    z-index: 900;
+    /* Above main content, below library sidebar (1000) */
+    padding: 24px 32px;
+    overflow-y: auto;
+    display: none;
+    /* Hidden by default */
+    color: white;
+}
+
+.liked-songs-expanded.show {
+    display: block;
+}
+
+/* Header Section */
+.expanded-view-header {
+    display: flex;
+    align-items: flex-end;
+    gap: 24px;
+    margin-bottom: 24px;
+    position: relative;
+}
+
+.header-image {
+    width: 232px;
+    height: 232px;
+    background: linear-gradient(135deg, #450af5, #c4efd9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 60px rgba(0, 0, 0, 0.5);
+    border-radius: 4px;
+}
+
+.header-image i {
+    font-size: 80px;
+    color: white;
+}
+
+.header-info {
+    flex: 1;
+}
+
+.header-type {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.header-title {
+    font-size: 96px;
+    font-weight: 900;
+    margin: 0 0 12px;
+    line-height: 1;
+    letter-spacing: -0.04em;
+}
+
+.header-meta {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.header-user {
+    font-weight: 700;
+    color: white;
+}
+
+.header-user::after {
+    content: "•";
+    margin-left: 4px;
+}
+
+.close-expanded-btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.3);
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.close-expanded-btn:hover {
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    transform: scale(1.1);
+}
+
+/* Controls Section */
+.expanded-view-controls {
+    padding: 24px 0;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+}
+
+.play-all-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #1db954;
+    border: none;
+    color: black;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.play-all-btn:hover {
+    transform: scale(1.05);
+    background: #1ed760;
+}
+
+/* Table Header */
+.songs-table-header {
+    display: grid;
+    grid-template-columns: 48px 4fr 3fr 2fr 1fr;
+    /* Index, Title, Album, Date, Duration */
+    padding: 8px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: #b3b3b3;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    position: sticky;
+    top: 0;
+    /* background: #121212;  Sticky header bg logic needed if scrolling within list */
+    /* For now letting it scroll with page or need sticky within container */
+}
+
+.col-duration {
+    text-align: right;
+    padding-right: 16px;
+}
+
+.songs-table-header i {
+    font-size: 16px;
+}
+
+/* Songs List */
+.expanded-song-row {
+    display: grid;
+    grid-template-columns: 48px 4fr 3fr 2fr 1fr;
+    padding: 8px 16px;
+    align-items: center;
+    border-radius: 4px;
+    cursor: default;
+    color: #b3b3b3;
+    font-size: 14px;
+}
+
+.expanded-song-row:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.expanded-song-row.playing {
+    color: #1db954;
+}
+
+.row-index {
+    font-size: 16px;
+    text-align: center;
+    width: 16px;
+}
+
+/* Show play icon on hover over index */
+.expanded-song-row:hover .row-index span {
+    display: none;
+}
+
+.expanded-song-row:hover .row-index::after {
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    content: "\f04b";
+    /* play icon */
+    font-size: 12px;
+    color: white;
+}
+
+.expanded-song-row.playing .row-index span {
+    display: none;
+}
+
+.expanded-song-row.playing .row-index::after {
+    content: "\n";
+    width: 14px;
+    height: 14px;
+    background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 14 14' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 2h2v10H6V2zm-4 4h2v6H2V6zm8-2h2v8h-2V4z' fill='%231db954'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    display: inline-block;
+}
+
+.row-title-container {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    overflow: hidden;
+}
+
+.row-thumbnail {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.row-text {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.row-title {
+    color: white;
+    /* Always white for title */
+    font-size: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.expanded-song-row.playing .row-title {
+    color: #1db954;
+}
+
+.row-artist {
+    font-size: 14px;
+    color: #b3b3b3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.expanded-song-row:hover .row-artist,
+.expanded-song-row:hover .row-album,
+.expanded-song-row:hover .row-date {
+    color: white;
+}
+
+.row-album,
+.row-date {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.row-duration {
+    text-align: right;
+    padding-right: 16px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Scrollbar for expanded view */
+.liked-songs-expanded::-webkit-scrollbar {
+    width: 16px;
+}
+
+.liked-songs-expanded::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.liked-songs-expanded::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border: 4px solid transparent;
+    background-clip: content-box;
+    border-radius: 8px;
+}
+
+.liked-songs-expanded::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+}
