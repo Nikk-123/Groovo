@@ -1,0 +1,24 @@
+# Web Framework
+Flask
+flask-cors
+
+# Database
+pymongo
+python-dotenv
+
+# GUI
+pywebview>=5.0
+
+# Media Processing
+requests
+yt-dlp @ git+https://github.com/yt-dlp/yt-dlp.git
+# opencv-python
+# opencv-python-headless
+
+# Machine Learning & Face Recognition
+# numpy
+# scipy
+# tensorflow
+# tf-keras
+# deepface
+# face-recognition
