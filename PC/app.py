@@ -16,7 +16,6 @@ from modules.library import register_library_routes
 from modules.player import register_player_routes
 from modules.analytics import register_analytics_routes
 from modules.keepalive import register_keepalive_routes
-from modules.face_auth import register_face_auth_routes, users
 
 
 # Register all routes
@@ -25,7 +24,6 @@ register_library_routes(app)
 register_player_routes(app)
 register_analytics_routes(app)
 register_keepalive_routes(app)
-register_face_auth_routes(app)
 
 
 if __name__ == "__main__":
@@ -85,7 +83,6 @@ if __name__ == "__main__":
                 pass  # Ignore any connection errors during shutdown
             
             # Clear any in-memory data
-            users.clear()
             
             # Force exit the application
             import sys

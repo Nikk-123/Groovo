@@ -416,10 +416,7 @@
             onclick="Settings.scrollToSection('settingsDevice'); return false;">
             <i class="fas fa-laptop"></i> Device Information
           </a>
-          <a href="#settingsPrivacy" class="settings-nav-item"
-            onclick="Settings.scrollToSection('settingsPrivacy'); return false;">
-            <i class="fas fa-shield-alt"></i> Face Authentication
-          </a>
+
           <a href="#settingsHelp" class="settings-nav-item"
             onclick="Settings.scrollToSection('settingsHelp'); return false;">
             <i class="fas fa-life-ring"></i> Help
@@ -461,14 +458,7 @@
             <p class="section-description">Your current device IP: {{ request.remote_addr }}</p>
           </div>
 
-          <!-- Face Authentication Section -->
-          <div id="settingsPrivacy" class="settings-section">
-            <h2 class="section-title">Face Authentication</h2>
-            <p class="section-description">Control your face authentication settings and data preferences.</p>
-            <button onclick="window.location.href='{{ url_for('face_auth') }}';" class="btn-primary">
-              Manage Face Authentication Settings
-            </button>
-          </div>
+
 
           <!-- Help Section -->
           <div id="settingsHelp" class="settings-section">

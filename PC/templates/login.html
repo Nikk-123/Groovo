@@ -17,27 +17,7 @@
     <link rel="icon" href="{{ url_for('static', filename='icon_new.png') }}" sizes="680x484" />
     <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png" />
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon_new.png') }}" />
-    <!-- Inline CSS for Stop Button -->
-    <style>
-        #stopScanButton {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background-color: #ef4444;
-            /* Tailwind red-500 */
-            color: white;
-            padding: 8px;
-            border-radius: 50%;
-            font-size: 18px;
-            cursor: pointer;
-            transition: background-color 0.3s ease-in-out;
-        }
 
-        #stopScanButton:hover {
-            background-color: #dc2626;
-            /* Tailwind red-600 */
-        }
-    </style>
 </head>
 
 <body
@@ -84,15 +64,7 @@
                 LOG IN
             </button>
         </form>
-        <div class="relative my-6 text-center text-gray-400">
-            <span class="px-2 bg-black">or</span>
-            <div class="absolute top-1/2 left-0 w-5/12 h-px bg-gray-700"></div>
-            <div class="absolute top-1/2 right-0 w-5/12 h-px bg-gray-700"></div>
-        </div>
-        <button id="faceIdButton"
-            class="w-full p-3 bg-gray-800 text-white font-semibold rounded-full hover:bg-gray-700 transition flex items-center justify-center">
-            <i class="fas fa-user-circle mr-2"></i> Face ID
-        </button>
+
         <div class="mt-6 pt-6 border-t border-gray-700 text-center">
             <p class="text-gray-400">Don't have an account?</p>
             <a href="/signup" class="text-green-500 font-semibold hover:text-green-600 hover:underline transition">
@@ -101,19 +73,7 @@
         </div>
     </div>
 
-    <!-- Face ID Overlay -->
-    <div id="faceIdOverlay" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80">
-        <button id="stopScanButton" title="Stop Scanning">
-            <i class="fas fa-times"></i>
-        </button>
-        <i class="fas fa-user-circle face-id-icon"></i>
-        <p class="mt-4 text-lg">Scanning Face...</p>
-        <p id="result" class="mt-4 text-lg"></p>
-    </div>
 
-    <!-- Hidden Video and Canvas for Background Processing -->
-    <video id="video" width="320" height="240" autoplay style="display: none;"></video>
-    <canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
 
     <script>
         // Email/Password Login
@@ -165,101 +125,7 @@
                 });
         });
 
-        // Face ID Login
-        document.getElementById('faceIdButton').addEventListener('click', function () {
-            const overlay = document.getElementById('faceIdOverlay');
-            overlay.style.display = 'flex';
-            startFaceId();
-        });
 
-        function startFaceId() {
-            const video = document.getElementById('video');
-            const canvas = document.getElementById('canvas');
-            const ctx = canvas.getContext('2d');
-            const resultDiv = document.getElementById('result');
-            const overlay = document.getElementById('faceIdOverlay');
-            let isScanning = true;
-
-            async function startCamera() {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    video.srcObject = stream;
-                    video.onloadedmetadata = () => {
-                        if (isScanning) {
-                            processFrame();
-                        }
-                    };
-                } catch (err) {
-                    console.error('Error accessing camera:', err);
-                    resultDiv.textContent = 'Error: Could not access camera';
-                    resultDiv.className = 'text-red-500';
-                    setTimeout(closeOverlay, 2000);
-                }
-            }
-
-            async function processFrame() {
-                if (!isScanning || video.paused || video.ended) {
-                    return;
-                }
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const frameData = canvas.toDataURL('image/jpeg');
-                await matchFace(frameData);
-            }
-
-            async function matchFace(frameData) {
-                try {
-                    const response = await fetch('/match_face', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ frame: frameData })
-                    });
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    const result = await response.json();
-                    console.log('Match face response:', result);
-
-                    if (result.status === 'success' && result.verified) {
-                        isScanning = false;
-                        resultDiv.textContent = `Face Verified: ${result.username}`;
-                        resultDiv.className = 'text-green-500';
-                        console.log('Attempting redirect to /dashboard');
-                        setTimeout(() => {
-                            window.location.href = '/dashboard';
-                        }, 1500);
-                    } else {
-                        resultDiv.textContent = result.message || 'No Match';
-                        resultDiv.className = 'text-red-500';
-                        if (isScanning) {
-                            setTimeout(processFrame, 500);
-                        }
-                    }
-                } catch (err) {
-                    console.error('Error matching face:', err);
-                    resultDiv.textContent = 'Error matching face';
-                    resultDiv.className = 'text-red-500';
-                    if (isScanning) {
-                        setTimeout(processFrame, 500);
-                    }
-                }
-            }
-
-            function closeOverlay() {
-                isScanning = false;
-                overlay.style.display = 'none';
-                if (video.srcObject) {
-                    video.srcObject.getTracks().forEach(track => track.stop());
-                    video.srcObject = null;
-                }
-                resultDiv.textContent = '';
-                resultDiv.className = '';
-            }
-
-            // Stop button event listener
-            document.getElementById('stopScanButton').addEventListener('click', closeOverlay);
-
-            startCamera();
-        }
     </script>
     <!-- Footer with Creator Credit -->
     <footer class="w-full text-center py-4 text-gray-400 text-sm">
