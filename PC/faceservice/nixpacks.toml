@@ -1,8 +1,0 @@
-[phases.setup]
-  nixPkgs = ['python310', 'cmake', 'openblas', 'gcc', 'pkg-config', 'libpng', 'libjpeg']
-
-[phases.build]
-  cmds = ['pip install -r requirements.txt']
-
-[start]
-  cmd = 'gunicorn face_recognition_service:app --bind 0.0.0.0:$PORT'

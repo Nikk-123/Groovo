@@ -33,10 +33,7 @@
         onclick="scrollToSection('device')">
         <i class="fas fa-laptop mr-3"></i> Device Information
       </a>
-      <a href="#privacy" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition"
-        onclick="scrollToSection('privacy')">
-        <i class="fas fa-shield-alt mr-3"></i> Face Authentication
-      </a>
+
       <a href="#help" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition"
         onclick="scrollToSection('help')">
         <i class="fas fa-life-ring mr-3"></i> Help
@@ -69,7 +66,8 @@
       {% if messages %}
       <div class="mb-8 space-y-2">
         {% for category, message in messages %}
-        <div class="px-4 py-3 rounded-lg text-sm border {{ 'border-green-600 text-green-300 bg-green-900/20' if category == 'success' else 'border-red-600 text-red-300 bg-red-900/20' }}">
+        <div
+          class="px-4 py-3 rounded-lg text-sm border {{ 'border-green-600 text-green-300 bg-green-900/20' if category == 'success' else 'border-red-600 text-red-300 bg-red-900/20' }}">
           {{ message }}
         </div>
         {% endfor %}
@@ -106,15 +104,7 @@
         <p class="text-gray-400">Your current device IP: {{ request.remote_addr }}</p>
       </div>
 
-      <!-- Privacy Section -->
-      <div id="privacy" class="settings-section mb-12">
-        <h2 class="text-3xl font-semibold text-white mb-4">Face Authentication</h2>
-        <p class="text-gray-400 mb-6">Control your face authentication settings and data preferences.</p>
-        <button onclick="window.location.href='{{ url_for('face_auth') }}';"
-          class="px-6 py-3 bg-green-500 text-black font-semibold rounded-full hover:bg-green-600 transition">
-          Manage Face Authentication Settings
-        </button>
-      </div>
+
 
       <!-- Help Section -->
       <div id="help" class="settings-section mb-12">
@@ -123,15 +113,18 @@
         <div class="space-y-4">
           <div class="p-4 bg-gray-900 border border-gray-800 rounded-lg">
             <h3 class="text-lg font-semibold text-white">Playback issues</h3>
-            <p class="text-gray-400 mt-2">If a track fails to play, try refreshing the dashboard or searching again. This helps reset the stream and load a fresh source.</p>
+            <p class="text-gray-400 mt-2">If a track fails to play, try refreshing the dashboard or searching again.
+              This helps reset the stream and load a fresh source.</p>
           </div>
           <div class="p-4 bg-gray-900 border border-gray-800 rounded-lg">
             <h3 class="text-lg font-semibold text-white">Library sync</h3>
-            <p class="text-gray-400 mt-2">Use the heart button to save tracks. Your library updates automatically and is tied to your account.</p>
+            <p class="text-gray-400 mt-2">Use the heart button to save tracks. Your library updates automatically and is
+              tied to your account.</p>
           </div>
           <div class="p-4 bg-gray-900 border border-gray-800 rounded-lg">
             <h3 class="text-lg font-semibold text-white">Account access</h3>
-            <p class="text-gray-400 mt-2">If you changed your email, log out and log back in to refresh the session with your updated profile.</p>
+            <p class="text-gray-400 mt-2">If you changed your email, log out and log back in to refresh the session with
+              your updated profile.</p>
           </div>
         </div>
       </div>
@@ -139,10 +132,12 @@
       <!-- About Us Section -->
       <div id="about" class="settings-section mb-12">
         <h2 class="text-3xl font-semibold text-white mb-4">About Us</h2>
-        <p class="text-gray-400 mb-6">Groovo is a focused music streaming experience designed for quick discovery and smooth playback.</p>
+        <p class="text-gray-400 mb-6">Groovo is a focused music streaming experience designed for quick discovery and
+          smooth playback.</p>
         <div class="p-4 bg-gray-900 border border-gray-800 rounded-lg">
           <h3 class="text-lg font-semibold text-white">Developer</h3>
-          <p class="text-gray-400 mt-2">Built by Chayan, a developer who enjoys crafting clean, fast, and immersive music apps. Groovo blends modern UI with smart playback flows to keep listening effortless.</p>
+          <p class="text-gray-400 mt-2">Built by Chayan, a developer who enjoys crafting clean, fast, and immersive
+            music apps. Groovo blends modern UI with smart playback flows to keep listening effortless.</p>
           <div class="mt-4 flex flex-wrap gap-3">
             <a href="https://chayan.live/" target="_blank" rel="noopener"
               class="px-4 py-2 rounded-full bg-gray-800 text-gray-200 hover:bg-gray-700 transition">Portfolio</a>
