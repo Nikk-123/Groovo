@@ -15,6 +15,9 @@ on:
 jobs:
   build-and-release:
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/desktop
 
     steps:
       - name: Checkout repository
@@ -82,7 +85,7 @@ jobs:
             Auto-built executable for version ${{ env.NEW_TAG }}
             
             Built from commit ${{ github.sha }}
-          files: dist/groovo-${{ env.NEW_TAG }}.exe
+          files: apps/desktop/dist/groovo-${{ env.NEW_TAG }}.exe
           fail_on_unmatched_files: true
           generate_release_notes: false
           draft: false
