@@ -34,12 +34,27 @@ Our flagship Groovo Android application is a supercharged Material 3 YouTube Mus
 
 ---
 
+## 🏗️ Architecture (Android)
+
+The Android app follows an MVVM + Repository pattern with Hilt-based dependency injection.
+
+* **Presentation**: Jetpack Compose screens coordinated by `MainActivity`.
+* **ViewModels**: Extensive feature ViewModels (Hilt-injected) drive UI state.
+* **Services**: `MusicService` (Media3) for playback and `ExoDownloadService` for downloads.
+* **Data Layer**: Room (`MusicDatabase`) stores library, playlists, and history.
+* **Network Layer**: Ktor `HttpClient` for auth and library sync; Innertube/YouTube, KuGou, and LrcLib integrations for content/lyrics.
+* **Caching**: Media3 caches and on-device data stores for settings and sync state.
+
+Diagrams are exported to the `diagrams/` folder as `.drawio` and `.png`.
+
+---
+
 ## 📁 Repository Structure
 
 ```text
 Groovo/
 ├── apps/
-│   ├── admin/           # Web admin dashboard (Node.js/React)
+│   ├── admin/           # Web admin dashboard (Flask on Vercel)
 │   ├── android/         # Flagship Android mobile application (Kotlin)
 │   └── desktop/         # Desktop application (Python/Flask/Webview)
 └── services/
