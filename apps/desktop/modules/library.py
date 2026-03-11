@@ -147,10 +147,12 @@ def register_library_routes(flask_app):
             from threading import Thread
             
             # Reload cache from disk to handle Flask debug mode reloads
-            global LIBRARY_CACHE
+            # NOTE: Must mutate in-place (not rebind) so cache.py's save_cache()
+            # and other modules still reference the same dict object.
             disk_cache = load_cache()
             if disk_cache:
-                LIBRARY_CACHE = disk_cache
+                LIBRARY_CACHE.clear()
+                LIBRARY_CACHE.update(disk_cache)
             
             # Optional: force refresh from auth service
             if force_refresh:
@@ -159,7 +161,9 @@ def register_library_routes(flask_app):
                     response = requests.get(
                         f'{AUTH_SERVICE_URL}/api/check-session',
                         headers={'X-User-Email': user_email},
-                        timeout=15
+                        # Render free-tier can take 30-50s to wake from cold start;
+                        # 45s gives it a fair chance before we fall back to cache.
+                        timeout=45
                     )
                     response.raise_for_status()
                     data = response.json()
@@ -262,11 +266,12 @@ def register_library_routes(flask_app):
                     'success': False,
                     'message': 'Failed to fetch library'
                 }), 500
-                
+
+            # Fallback: auth service responded but success=False
             return jsonify({
                 'success': False,
-                'message': 'Failed to fetch library'
-            }), 500
+                'message': 'Auth service returned no library data'
+            }), 502
         except Exception as e:
             logging.error(f"Unexpected error in get_library: {str(e)}")
             return jsonify({
@@ -283,8 +288,7 @@ def register_library_routes(flask_app):
         try:
             import time
             user_email = session['user_id']
-            global LIBRARY_CACHE
-            
+
             logging.info(f"Force cache refresh triggered for {user_email}")
             
             # Clear the user's cache entry

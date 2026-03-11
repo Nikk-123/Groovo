@@ -120,11 +120,13 @@
 .expanded-song-row.skeleton {
     pointer-events: none;
     display: grid;
-    grid-template-columns: 48px 4fr 3fr 1fr;
-    /* Index, Title, Artist, Duration */
-    padding: 8px 16px;
+    /* Mirror styles.css exactly: uses the CSS variable so column widths
+       always stay in sync with the table header and real rows.
+       Fallback value matches --liked-table-columns default. */
+    grid-template-columns: var(--liked-table-columns, 48px minmax(0, 2.4fr) minmax(0, 1.2fr) 80px);
+    padding: 10px 16px;
     align-items: center;
-    border-radius: 4px;
+    border-radius: 8px;
     background: transparent;
 }
 
