@@ -155,11 +155,13 @@ def fetch_trending():
 
                 trending_songs.append({
                     "title": title,
-                    "url": f"https://www.youtube.com/watch?v={entry['id']}",
+                    "url": f"https://www.youtube.com/watch?v={entry.get('id', '')}",
                     "artist": artist,
                     "thumbnail": thumbnail_url,
                     "duration": duration_str
                 })
+                if not entry.get('id'):
+                    continue  # Skip entries with no video ID
             
             return trending_songs  
     except Exception as e:
@@ -170,7 +172,8 @@ def fetch_trending():
                 "title": "Popular Music",
                 "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
                 "artist": "Various Artists",
-                "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
+                "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+                "duration": "Unknown"
             }
         ]
         return fallback_songs

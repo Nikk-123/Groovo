@@ -26,6 +26,20 @@ register_analytics_routes(app)
 register_keepalive_routes(app)
 
 
+@app.route('/shutdown', methods=['GET', 'POST'])
+def shutdown():
+    """Graceful shutdown endpoint — called by the webview close handler."""
+    func = request.environ.get('werkzeug.server.shutdown')
+    if func:
+        func()
+    # werkzeug.server.shutdown is unavailable in newer Werkzeug;
+    # force-exit the process after a short delay so the response
+    # can still be sent before the process dies.
+    import threading, os
+    threading.Timer(0.25, lambda: os._exit(0)).start()
+    return 'Server shutting down...'
+
+
 if __name__ == "__main__":
     # ── Single-instance guard ──────────────────────────────────
     import socket
@@ -75,24 +89,12 @@ if __name__ == "__main__":
     
     def cleanup():
         try:
-            # Stop Flask server
-            import requests
-            try:
-                requests.get('http://127.0.0.1:8000/shutdown', timeout=1)
-            except:
-                pass  # Ignore any connection errors during shutdown
-            
-            # Clear any in-memory data
-            
-            # Force exit the application
-            import sys
-            sys.exit(0)
-            
-        except Exception as e:
-            print(f"Error during cleanup: {str(e)}")
-            # Force exit even if there's an error
-            import sys
-            sys.exit(1)
+            import requests as req
+            req.get('http://127.0.0.1:8000/shutdown', timeout=2)
+        except Exception:
+            pass  # Process will exit via os._exit in the /shutdown handler
+        import os
+        os._exit(0)
     
     # Register cleanup function
     window.events.closed += cleanup

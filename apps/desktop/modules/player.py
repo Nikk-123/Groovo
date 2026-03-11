@@ -214,12 +214,14 @@ def register_player_routes(flask_app):
 
                     result = {
                         'title': title,
-                        'url': f"https://www.youtube.com/watch?v={entry['id']}",
+                        'url': f"https://www.youtube.com/watch?v={entry.get('id', '')}",
                         'thumbnail': thumbnail_url,
                         'duration': duration_str,
                         'artist': artist,
                         'views': entry.get('view_count', 'N/A'),
                     }
+                    if not entry.get('id'):
+                        continue  # Skip entries with no video ID
                     results.append(result)
 
                 return jsonify(results)

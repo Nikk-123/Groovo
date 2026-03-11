@@ -138,7 +138,7 @@ function createSongCard(song) {
     li.setAttribute('data-duration', duration);
 
     li.innerHTML = `
-        <img class="song-thumbnail" src="${song.thumbnail}" alt="${song.title}" loading="lazy" />
+        <img class="song-thumbnail" src="${escapeHtml(song.thumbnail)}" alt="" loading="lazy" />
         <div class="song-info">
             <h3></h3>
             <p></p>
@@ -153,9 +153,11 @@ function createSongCard(song) {
         </div>
     `;
 
-    // Safe text insertion
+    // Safe text insertion (title/artist set via textContent, not innerHTML)
     li.querySelector('h3').textContent = song.title;
     li.querySelector('p').textContent = artist;
+    // Set alt via property after the fact so it also goes through textContent rules
+    li.querySelector('.song-thumbnail').alt = song.title;
 
     // Attach event listeners safely
     const playBtn = li.querySelector('.play-btn');
