@@ -6,6 +6,7 @@ Main entry point that initializes the Flask app and webview.
 import webview
 import os
 import sys
+from flask import request
 
 # Import Flask app from modules
 from modules.config import app
