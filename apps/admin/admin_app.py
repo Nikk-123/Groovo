@@ -299,11 +299,16 @@ def analytics_listening_patterns():
         daily_data = list(listening_history.aggregate(pipeline_daily))
         
         # Map day numbers to names
-        day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-        daily_breakdown = {day: 0 for day in day_names}
+        # MongoDB $dayOfWeek: 1=Sunday, 2=Monday, ..., 7=Saturday
+        mongo_day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        # Chart labels run Monday-Sunday
+        chart_day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        daily_breakdown = {day: 0 for day in chart_day_names}
         for item in daily_data:
-            day_index = item['_id'] - 1  # MongoDB dayOfWeek is 1-indexed (1=Sunday)
-            daily_breakdown[day_names[day_index]] = item['count']
+            day_index = item['_id'] - 1  # convert to 0-indexed (0=Sunday)
+            day_name = mongo_day_names[day_index]
+            if day_name in daily_breakdown:
+                daily_breakdown[day_name] = item['count']
         
         return jsonify({
             'success': True,
@@ -334,11 +339,11 @@ def analytics_currently_listening():
         ))
         
         # Convert datetime to string for JSON
-        for session in sessions:
-            if 'started_at' in session:
-                session['started_at'] = session['started_at'].isoformat()
-            if 'last_updated' in session:
-                session['last_updated'] = session['last_updated'].isoformat()
+        for listening_session in sessions:
+            if 'started_at' in listening_session:
+                listening_session['started_at'] = listening_session['started_at'].isoformat()
+            if 'last_updated' in listening_session:
+                listening_session['last_updated'] = listening_session['last_updated'].isoformat()
         
         return jsonify({
             'success': True,
@@ -431,6 +436,14 @@ def get_stats():
                 "artist": {"$first": "$library.artist"},
                 "thumbnail": {"$first": "$library.thumbnail"},
                 "count": {"$sum": 1}
+            }},
+            {"$project": {
+                "_id": 0,
+                "url": "$_id",
+                "title": 1,
+                "artist": 1,
+                "thumbnail": 1,
+                "count": 1
             }},
             {"$sort": {"count": -1}},
             {"$limit": 10}
@@ -621,10 +634,9 @@ def internal_error(error):
 
 def get_available_port():
     """Find and return an available port number"""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(('', 0))  # Bind to any available port
-    port = sock.getsockname()[1]
-    sock.close()
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(('', 0))  # Bind to any available port
+        port = sock.getsockname()[1]
     return port
 
 if __name__ == '__main__':

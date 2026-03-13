@@ -111,7 +111,7 @@ function displayUsers(users) {
             </td>
             <td class="py-4 px-4 text-center">
                 <button 
-                    onclick="viewUserDetails('${escapeHtml(user.email)}')" 
+                    onclick="viewUserDetails(this.dataset.email)" data-email="${escapeHtml(user.email)}" 
                     class="action-btn action-btn-view"
                 >
                     <i class="fas fa-eye"></i>
@@ -144,6 +144,7 @@ async function viewUserDetails(email) {
     // Show loading state
     libraryLoading.classList.remove('hidden');
     libraryContent.classList.add('hidden');
+    libraryContent.classList.remove('grid');
     libraryContent.innerHTML = '';
     libraryEmpty.classList.add('hidden');
 
@@ -161,6 +162,7 @@ async function viewUserDetails(email) {
                 libraryEmpty.classList.remove('hidden');
             } else {
                 libraryContent.classList.remove('hidden');
+                libraryContent.classList.add('grid');
                 libraryContent.innerHTML = library.map((song, index) => `
                     <div class="song-card p-4 rounded-lg border border-gray-700/50 flex items-center space-x-4">
                         <div class="flex-shrink-0">

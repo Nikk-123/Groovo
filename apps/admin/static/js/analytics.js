@@ -220,6 +220,7 @@ async function loadTopSongs() {
         if (data.success && data.top_songs.length > 0) {
             list.classList.remove('hidden');
             pagination.classList.remove('hidden');
+            pagination.classList.add('flex');
 
             // Update pagination controls
             document.getElementById('songsPageIndicator').textContent = `Page ${currentSongsPage}`;
@@ -265,6 +266,7 @@ async function loadTopSongs() {
             list.innerHTML = '<p class="text-center text-gray-400 py-8">No data available yet</p>';
             list.classList.remove('hidden');
             pagination.classList.add('hidden');
+            pagination.classList.remove('flex');
         }
     } catch (error) {
         console.error('Error loading top songs:', error);
@@ -299,8 +301,8 @@ async function loadCurrentSessions() {
                         <div class="flex items-center space-x-4 flex-1">
                             <div class="relative">
                                 <img 
-                                    src="${session.song.thumbnail || 'https://via.placeholder.com/48'}" 
-                                    alt="${escapeHtml(session.song.title)}"
+                                    src="${session.song?.thumbnail || 'https://via.placeholder.com/48'}" 
+                                    alt="${escapeHtml(session.song?.title || 'Unknown Title')}"
                                     class="song-thumbnail"
                                     onerror="this.src='https://via.placeholder.com/48?text=No+Image'"
                                 />
