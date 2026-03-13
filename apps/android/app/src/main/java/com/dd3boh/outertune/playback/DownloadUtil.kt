@@ -78,7 +78,9 @@ class DownloadUtil @Inject constructor(
 ) {
     val TAG = DownloadUtil::class.simpleName.toString()
 
-    private val connectivityManager = context.getSystemService<ConnectivityManager>()!!
+    private val connectivityManager = requireNotNull(context.getSystemService<ConnectivityManager>()) {
+        "ConnectivityManager system service is not available"
+    }
     private val audioQuality by enumPreference(context, AudioQualityKey, AudioQuality.AUTO)
     private val songUrlCache = HashMap<String, Pair<String, Long>>()
     private val dataSourceFactory = ResolvingDataSource.Factory(
@@ -215,8 +217,7 @@ class DownloadUtil @Inject constructor(
             }
         }
 
-        runBlocking {
-            database.song(id).first()?.song?.copy(localPath = null)
+        CoroutineScope(Dispatchers.IO).launch {
             database.updateDownloadStatus(id, null)
         }
         return true
@@ -304,7 +305,7 @@ class DownloadUtil @Inject constructor(
                     downloadMgr.enqueue(
                         mediaId = s.key,
                         data = songFromCache,
-                        displayName = runBlocking { database.song(s.key).first()?.title ?: "" })
+                        displayName = database.song(s.key).first()?.title ?: "")
                 }
             }
             scanDownloads()

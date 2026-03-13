@@ -278,7 +278,9 @@ class MusicService : MediaLibraryService(),
         val controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
         controllerFuture.addListener({ controllerFuture.get() }, MoreExecutors.directExecutor())
 
-        connectivityManager = getSystemService()!!
+        connectivityManager = requireNotNull(getSystemService()) {
+            "ConnectivityManager system service is not available"
+        }
 
         currentSong.collect(scope) {
             updateNotification()
@@ -343,10 +345,8 @@ class MusicService : MediaLibraryService(),
 
 
             // network connectivity
-            try {
+            if (::connectivityObserver.isInitialized) {
                 connectivityObserver.unregister()
-            } catch (e: UninitializedPropertyAccessException) {
-                // lol
             }
             connectivityObserver = NetworkConnectivityObserver(this@MusicService)
 
@@ -1037,7 +1037,8 @@ class MusicService : MediaLibraryService(),
                                 playTime = playbackStats.totalPlayTimeMs
                             )
                         )
-                    } catch (_: SQLException) {
+                    } catch (e: SQLException) {
+                        Log.w(TAG, "Failed to insert playback event", e)
                     }
                 }
 
