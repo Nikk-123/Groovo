@@ -8,7 +8,7 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon_new.png') }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
@@ -149,7 +149,7 @@
 
             <!-- Pagination Controls -->
             <div id="topSongsPagination"
-                class="hidden flex justify-between items-center border-t border-gray-700/50 pt-4">
+                class="hidden justify-between items-center border-t border-gray-700/50 pt-4">
                 <button onclick="changeSongsPage(-1)" id="prevSongsBtn"
                     class="bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed">
                     <i class="fas fa-chevron-left mr-1"></i> Prev
@@ -188,7 +188,7 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+    <script src="{{ url_for('static', filename='analytics.js') }}"></script>
 </body>
 
 </html>
