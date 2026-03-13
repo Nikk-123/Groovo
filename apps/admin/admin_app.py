@@ -23,8 +23,8 @@ else:
 
 # Flask app setup
 app = Flask(__name__, 
-            template_folder='templates',
-            static_folder='static')
+            template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'),
+            static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.secret_key = os.getenv('ADMIN_SECRET_KEY', 'AdminSecretKey@Groovo2024')
 app.permanent_session_lifetime = timedelta(hours=12)
