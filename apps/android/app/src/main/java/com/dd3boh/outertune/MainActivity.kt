@@ -232,10 +232,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         Log.i(MAIN_TAG, "onDestroy() called. isFinishing = $isFinishing")
-        try {
+        if (::connectivityObserver.isInitialized) {
             connectivityObserver.unregister()
-        } catch (e: UninitializedPropertyAccessException) {
-            // lol
         }
         // https://github.com/androidx/media/issues/805
         if (Build.VERSION.SDK_INT == Build.VERSION_CODES.UPSIDE_DOWN_CAKE && (playerConnection?.player?.playWhenReady != true || playerConnection?.player?.mediaItemCount == 0)) {
@@ -319,10 +317,8 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(DefaultThemeColor)
             }
 
-            try {
+            if (::connectivityObserver.isInitialized) {
                 connectivityObserver.unregister()
-            } catch (e: UninitializedPropertyAccessException) {
-                // lol
             }
             connectivityObserver = NetworkConnectivityObserver(this@MainActivity)
             val isNetworkConnected by connectivityObserver.networkStatus.collectAsState(true)
