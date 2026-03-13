@@ -73,17 +73,19 @@ jobs:
 
       - name: Build EXE with PyInstaller
         run: |
+          # Use a bash array for the icon arg — expanding a plain string variable
+          # unquoted ($ICON_FLAG) lets word-splitting corrupt paths and can embed
+          # literal quote characters in the value passed to PyInstaller.
+          ICON_ARGS=()
           if [ "$HAS_ICON" = "true" ]; then
-            ICON_FLAG='--icon "static/icon.ico"'
-          else
-            ICON_FLAG=""
+            ICON_ARGS=(--icon "static/icon.ico")
           fi
           pyinstaller --onefile --noconsole --clean \
             --add-data "templates;templates" \
             --add-data "static;static" \
             --add-data "modules;modules" \
             --add-data ".env;." \
-            $ICON_FLAG \
+            "${ICON_ARGS[@]}" \
             --name "groovo-${{ env.NEW_TAG }}" \
             app.py
         shell: bash
