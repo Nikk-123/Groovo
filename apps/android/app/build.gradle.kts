@@ -1,6 +1,5 @@
 @file:Suppress("UnstableApiUsage")
 
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.FileInputStream
 import java.util.Properties
@@ -23,12 +22,12 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.dd3boh.outertune"
-    compileSdk = 36
+    compileSdk = 36 
 
     defaultConfig {
         applicationId = "com.dd3boh.outertune"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 36 
         versionCode = 70
         versionName = "0.10.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -81,7 +80,7 @@ android {
         buildConfig = true
     }
 
-// build variants and stuff
+    // build variants and stuff
     splits {
         abi {
             isEnable = true
@@ -112,7 +111,7 @@ android {
         variant.outputs
             .map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
             .forEach { output ->
-                var outputFileName = "Groovo-${variant.versionName}-${output.baseName}-${output.versionCode}.apk"
+                val outputFileName = "Groovo-${variant.versionName}-${output.baseName}-${output.versionCode}.apk"
                 output.outputFileName = outputFileName
             }
     }
@@ -122,25 +121,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
-    kotlin {
-//        jvmToolchain(21)
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_21)
-            freeCompilerArgs.add("-Xannotation-default-target=param-property")
-
-        }
-    }
-
-    tasks.withType<KotlinCompile> {
-        if (!name.substringAfter("compile").lowercase().startsWith("full")) {
-            exclude("**/*FFmpegScanner.kt")
-            exclude("**/*NextRendersFactory.kt")
-        } else {
-            exclude("**/*FFmpegScannerDud.kt")
-            exclude("**/*ffdecoderDud.kt")
-        }
-    }
-
 
     aboutLibraries {
         offlineMode = true
@@ -164,7 +144,7 @@ android {
             allowedLicenses.addAll("Apache-2.0", "BSD-3-Clause", "GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1", "GPL-3.0-only", "GNU GENERAL PUBLIC LICENSE, Version 3", "EPL-2.0", "MIT", "MPL-2.0", "Public Domain")
 
             // Full license text for license IDs mentioned here will be included, even if no detected dependency uses them.
-             additionalLicenses.addAll(
+            additionalLicenses.addAll(
                 "apache_2_0",
                 "gpl_2_1",
                 "Apache-2.0",
@@ -200,6 +180,21 @@ android {
 
     androidResources {
         generateLocaleConfig = true
+    }
+}
+
+// Configure all Kotlin compile tasks: JVM target + compiler args + source file filtering
+tasks.withType<KotlinCompile>().configureEach {
+    kotlinOptions {
+        jvmTarget = "21"
+        freeCompilerArgs += "-Xannotation-default-target=param-property"
+    }
+    if (!name.substringAfter("compile").lowercase().startsWith("full")) {
+        exclude("**/*FFmpegScanner.kt")
+        exclude("**/*NextRendersFactory.kt")
+    } else {
+        exclude("**/*FFmpegScannerDud.kt")
+        exclude("**/*ffdecoderDud.kt")
     }
 }
 
