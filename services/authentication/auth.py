@@ -3,7 +3,7 @@ Authentication & data service for Groovo.
 Deployed on Render — provides REST API only (no HTML rendering).
 """
 
-from flask import Flask, request, session, jsonify
+from flask import Flask, request, jsonify
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 from flask_cors import CORS
@@ -45,26 +45,17 @@ IST = timezone(timedelta(hours=5, minutes=30))
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
-class User:
-    def __init__(self, user_id, email, password, library, is_password_hashed=False):
-        self.user_id = user_id
-        self.email = email
-        self.password = password
-        self.library = library
-        self.is_password_hashed = is_password_hashed
-
-    def check_password(self, password):
-        if self.is_password_hashed:
-            return bcrypt.checkpw(password.encode('utf-8'), self.password)
-        return self.password == password
-
-
 def get_user_by_email(email):
     try:
         return users_collection.find_one({'email': email})
     except PyMongoError as e:
         logging.error(f"Database error while fetching user: {e}")
         return None
+
+
+def get_request_user():
+    """Extract authenticated user email from request header (session-less REST API)."""
+    return request.headers.get('X-User-Email')
 
 
 # ── Health check ───────────────────────────────────────────────────────────────
@@ -99,7 +90,6 @@ def api_signup():
             'email': email,
             'password': hashed_password,
             'library': [],
-            'face_auth_enabled': False,
             'is_password_hashed': True,
         })
         return jsonify({
@@ -120,79 +110,110 @@ def api_login():
 
     email = data.get('email')
     password = data.get('password')
-    is_auto_login = data.get('auto_login', False)
 
-    if not email:
-        return jsonify({'success': False, 'message': 'Email required'}), 400
+    if not email or not password:
+        return jsonify({'success': False, 'message': 'Email and password required'}), 400
 
     user_data = get_user_by_email(email)
     if not user_data:
         return jsonify({'success': False, 'message': 'User not found'}), 404
 
-    user = User(
-        user_data['_id'],
-        user_data['email'],
-        user_data['password'],
-        user_data.get('library', []),
-        user_data.get('is_password_hashed', False),
+    is_hashed = user_data.get('is_password_hashed', False)
+    stored_password = user_data['password']
+
+    password_valid = (
+        bcrypt.checkpw(password.encode('utf-8'), stored_password)
+        if is_hashed
+        else stored_password == password
     )
 
-    if is_auto_login:
-        session['user_id'] = email
-        return jsonify({
-            'success': True,
-            'message': 'Auto-login successful',
-            'user': {'email': email},
-            'library': user.library,
-        }), 200
+    if not password_valid:
+        return jsonify({'success': False, 'message': 'Invalid password'}), 401
 
-    if not password:
-        return jsonify({'success': False, 'message': 'Password required'}), 400
-
-    if user.check_password(password):
-        session['user_id'] = email
-        return jsonify({
-            'success': True,
-            'message': 'Login successful',
-            'user': {'email': email},
-            'library': user.library,
-        }), 200
-
-    return jsonify({'success': False, 'message': 'Invalid password'}), 401
+    return jsonify({
+        'success': True,
+        'message': 'Login successful',
+        'user': {'email': email},
+        'library': user_data.get('library', []),
+    }), 200
 
 
 @app.route('/api/check-session', methods=['GET'])
 def check_session():
-    user_email = session.get('user_id') or request.headers.get('X-User-Email')
-    if user_email:
-        user_data = get_user_by_email(user_email)
-        if user_data:
-            return jsonify({
-                'success': True,
-                'message': 'User is logged in',
-                'user': {'email': user_email},
-                'library': user_data.get('library', []),
-            }), 200
-    return jsonify({'success': False, 'message': 'No active session'}), 401
+    user_email = get_request_user()
+    if not user_email:
+        return jsonify({'success': False, 'message': 'No active session'}), 401
+
+    user_data = get_user_by_email(user_email)
+    if not user_data:
+        return jsonify({'success': False, 'message': 'User not found'}), 404
+
+    return jsonify({
+        'success': True,
+        'message': 'User is logged in',
+        'user': {'email': user_email},
+        'library': user_data.get('library', []),
+    }), 200
 
 
 @app.route('/api/logout', methods=['POST'])
 def api_logout():
+    # Sessions are not used in this REST API — logout is handled client-side.
+    # This endpoint exists so the desktop client has a clean logout hook.
+    return jsonify({'success': True, 'message': 'Logout successful'}), 200
+
+
+# ── Profile endpoint ───────────────────────────────────────────────────────────
+@app.route('/api/update-profile', methods=['POST'])
+def update_profile():
+    user_email = get_request_user()
+    if not user_email:
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+
     try:
-        user_email = session.get('user_id') or request.headers.get('X-User-Email')
-        if not user_email:
-            return jsonify({'success': False, 'message': 'Not logged in'}), 401
-        session.pop('user_id', None)
-        return jsonify({'success': True, 'message': 'Logout successful'}), 200
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'No input data provided'}), 400
+
+        new_email = data.get('email')
+        new_username = data.get('username')
+        current_email = data.get('current_email') or user_email
+
+        if not get_user_by_email(current_email):
+            return jsonify({'success': False, 'message': 'User not found'}), 404
+
+        # If email is changing, check it isn't already taken
+        if new_email and new_email != current_email:
+            if get_user_by_email(new_email):
+                return jsonify({'success': False, 'message': 'Email already in use'}), 409
+
+        update_fields = {}
+        if new_email:
+            update_fields['email'] = new_email
+        if new_username:
+            update_fields['username'] = new_username
+
+        if not update_fields:
+            return jsonify({'success': False, 'message': 'No fields to update'}), 400
+
+        users_collection.update_one(
+            {'email': current_email},
+            {'$set': update_fields},
+        )
+        return jsonify({'success': True, 'message': 'Profile updated successfully'}), 200
+
+    except PyMongoError as e:
+        logging.error(f"MongoDB error updating profile: {str(e)}")
+        return jsonify({'success': False, 'message': 'Database error occurred'}), 500
     except Exception as e:
-        logging.error(f"Error during logout: {str(e)}")
-        return jsonify({'success': False, 'message': 'An error occurred during logout'}), 500
+        logging.error(f"Error updating profile: {str(e)}")
+        return jsonify({'success': False, 'message': 'An error occurred while updating profile'}), 500
 
 
 # ── Library endpoints ──────────────────────────────────────────────────────────
 @app.route('/library/add', methods=['POST'])
 def add_to_library():
-    user_email = session.get('user_id') or request.headers.get('X-User-Email')
+    user_email = get_request_user()
     if not user_email:
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
 
@@ -223,7 +244,7 @@ def add_to_library():
 
 @app.route('/library/remove', methods=['POST'])
 def remove_from_library():
-    user_email = session.get('user_id') or request.headers.get('X-User-Email')
+    user_email = get_request_user()
     if not user_email:
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
 
@@ -252,17 +273,21 @@ def remove_from_library():
 
 
 # ── Analytics tracking endpoints ───────────────────────────────────────────────
+# Consistent schema across all events:
+#   { user_email, song: {url, title, ...}, event_type, timestamp, listen_duration }
+
 @app.route('/api/track/play', methods=['POST'])
 def track_play():
-    user_email = session.get('user_id') or request.headers.get('X-User-Email')
+    user_email = get_request_user()
     if not user_email:
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
     try:
-        data = request.json
+        data = request.json or {}
         now_ist = datetime.now(IST)
+        song = data.get('song', {})
         listening_history.insert_one({
             'user_email': user_email,
-            'song': data.get('song', {}),
+            'song': song,
             'event_type': 'play',
             'timestamp': now_ist,
             'listen_duration': 0,
@@ -271,7 +296,7 @@ def track_play():
             {'user_email': user_email},
             {'$set': {
                 'user_email': user_email,
-                'song': data.get('song', {}),
+                'song': song,
                 'started_at': now_ist,
                 'last_updated': now_ist,
                 'status': 'playing',
@@ -286,15 +311,15 @@ def track_play():
 
 @app.route('/api/track/pause', methods=['POST'])
 def track_pause():
-    user_email = session.get('user_id') or request.headers.get('X-User-Email')
+    user_email = get_request_user()
     if not user_email:
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
     try:
-        data = request.json
+        data = request.json or {}
         now_ist = datetime.now(IST)
         listening_history.insert_one({
             'user_email': user_email,
-            'song_url': data.get('song_url'),
+            'song': data.get('song', {}),
             'event_type': 'pause',
             'timestamp': now_ist,
             'listen_duration': data.get('listen_duration', 0),
@@ -311,15 +336,15 @@ def track_pause():
 
 @app.route('/api/track/complete', methods=['POST'])
 def track_complete():
-    user_email = session.get('user_id') or request.headers.get('X-User-Email')
+    user_email = get_request_user()
     if not user_email:
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
     try:
-        data = request.json
+        data = request.json or {}
         now_ist = datetime.now(IST)
         listening_history.insert_one({
             'user_email': user_email,
-            'song_url': data.get('song_url'),
+            'song': data.get('song', {}),
             'event_type': 'complete',
             'timestamp': now_ist,
             'listen_duration': data.get('listen_duration', 0),
@@ -333,15 +358,15 @@ def track_complete():
 
 @app.route('/api/track/skip', methods=['POST'])
 def track_skip():
-    user_email = session.get('user_id') or request.headers.get('X-User-Email')
+    user_email = get_request_user()
     if not user_email:
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
     try:
-        data = request.json
+        data = request.json or {}
         now_ist = datetime.now(IST)
         listening_history.insert_one({
             'user_email': user_email,
-            'song_url': data.get('song_url'),
+            'song': data.get('song', {}),
             'event_type': 'skip',
             'timestamp': now_ist,
             'listen_duration': data.get('listen_duration', 0),
