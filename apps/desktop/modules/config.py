@@ -10,16 +10,15 @@ from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
 import logging
-import ctypes
 
 
-# Set App User Model ID (AUMID) for Windows
-# This ensures the app has a distinct identity in the taskbar and notifications
-try:
-    myappid = 'Groovo.App.v1'  # arbitrary string
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-except Exception as e:
-    logging.error(f"Failed to set AUMID: {e}")
+# Set App User Model ID (AUMID) — Windows only
+if os.name == 'nt':
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('Groovo.App.v1')
+    except Exception as e:
+        logging.error(f"Failed to set AUMID: {e}")
 
 # Load environment variables
 if getattr(sys, 'frozen', False):
@@ -28,17 +27,13 @@ if getattr(sys, 'frozen', False):
 else:
     load_dotenv()
 
-# Add face service URL (set via environment variable)
 FACE_SERVICE_URL = os.getenv('FACE_SERVICE_URL', '#')
 AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'https://login-auth-jgxb.onrender.com')
 
 # Get the project root directory (parent of modules/)
-# This ensures templates and static folders are found correctly
 if getattr(sys, 'frozen', False):
-    # Running as compiled executable
     PROJECT_ROOT = sys._MEIPASS
 else:
-    # Running as script - go up one level from modules/ to project root
     PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Flask app setup with explicit template and static paths
@@ -47,14 +42,33 @@ app = Flask(
     template_folder=os.path.join(PROJECT_ROOT, 'templates'),
     static_folder=os.path.join(PROJECT_ROOT, 'static')
 )
-CORS(app, resources={r"/*": {"origins": "*"}})
-app.secret_key = 'Chayan@12'
+
+# Restrict CORS to localhost only — Groovo is a desktop webview app,
+# so there is never a legitimate cross-origin caller from outside.
+CORS(app, resources={r"/*": {"origins": [
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+]}})
+
+# ── Secret key ────────────────────────────────────────────────
+# Always load from the environment. Set FLASK_SECRET_KEY in your .env file.
+# Example: FLASK_SECRET_KEY=some-long-random-string
+_secret = os.getenv('FLASK_SECRET_KEY')
+if not _secret:
+    logging.warning(
+        "FLASK_SECRET_KEY is not set in the environment. "
+        "Using an insecure default. Add it to your .env file!"
+    )
+    _secret = 'dev-insecure-fallback-do-not-use-in-production'
+app.secret_key = _secret
+# ──────────────────────────────────────────────────────────────
+
 app.permanent_session_lifetime = timedelta(days=30)
 app.config['JSON_SORT_KEYS'] = False  # Preserve order of JSON responses
 
 # Mood definitions
 MOODS = [
-    'Happy', 'Chill', 'Workout', 'Focus', 'Party', 
+    'Happy', 'Chill', 'Workout', 'Focus', 'Party',
     'Bollywood Party', 'Classical', 'Bhakti', 'Romantic', 'Punjabi'
 ]
 

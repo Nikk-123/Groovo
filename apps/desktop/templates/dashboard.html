@@ -7,7 +7,6 @@
   <meta name="theme-color" content="#000000" />
   <title>Groovo - Music Dashboard</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon_new.png') }}">
-  <!-- <script src="https://cdn.tailwindcss.com"></script> -->
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
 
@@ -17,10 +16,17 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/skeleton.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/expanded_library.css') }}" />
-
+  <!-- New feature styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/features.css') }}" />
 </head>
 
 <body>
+
+  <!-- ── Offline Banner (hidden by default) ── -->
+  <div id="offlineBanner">
+    <i class="fas fa-wifi-slash"></i> No internet connection — some features may be unavailable
+  </div>
+
   <div class="top-nav">
     <div class="left-nav">
       <h1>
@@ -66,8 +72,8 @@
   <div class="main">
     <section class="greeting-hero" id="greetingHero">
       <div class="greeting-text" id="greetingText" data-username="{{ user_email | default('') }}">Good day</div>
-
     </section>
+
     <div id="searchResultsContainer" style="display: none;">
       <h1>Search Results</h1>
       <ul id="search-result" class="song-list"></ul>
@@ -77,8 +83,14 @@
       <div class="spotify-loader"></div>
     </div>
 
+    <!-- ── Recently Played (populated from localStorage) ── -->
+    <div id="recentlyPlayedSection" style="display: none;">
+      <h2>Recently Played</h2>
+      <ul class="song-list" id="recentlyPlayedList"></ul>
+    </div>
+
     <div id="trendingContainer">
-      <h2>Here’s what’s trending right now</h2>
+      <h2>Here's what's trending right now</h2>
       <ul class="song-list" id="trending-list">
         {% if trending %}
         {% for song in trending %}
@@ -104,7 +116,7 @@
         </li>
         {% endfor %}
         {% else %}
-        <!-- Skeleton Loading State for Trending -->
+        <!-- Skeleton loading state — loader.js replaces these -->
         {% for i in range(7) %}
         <li class="song-item skeleton">
           <div class="skeleton-img"></div>
@@ -127,7 +139,6 @@
         <h2>{{ mood }} Mood</h2>
         <div class="mood-playlist">
           <ul class="song-list" data-mood="{{ mood }}">
-            <!-- Skeleton Loading State for Moods -->
             {% for i in range(7) %}
             <li class="song-item skeleton">
               <div class="skeleton-img"></div>
@@ -153,7 +164,7 @@
     </div>
 
     <div class="audio-control-container" id="audioControlContainer" style="display: none;">
-      <!-- Mini Player -->
+      <!-- ── Mini Player ── -->
       <div class="mini-player">
         <div class="mini-player-content">
           <div class="mini-song-info">
@@ -209,9 +220,8 @@
         </div>
       </div>
 
-      <!-- Expanded Player -->
+      <!-- ── Expanded Player ── -->
       <div class="expanded-player" id="expandedPlayer">
-        <!-- Dynamic Background Layer -->
         <div class="expanded-bg" id="expandedBg"></div>
         <div class="expanded-overlay"></div>
 
@@ -226,7 +236,6 @@
         <div class="expanded-main-body">
           <div class="album-art-container">
             <img id="currentThumbnail" class="album-art-image" src="" alt="Album Art" />
-            <!-- Shadow/Glow effect -->
             <div class="album-art-shadow"></div>
           </div>
 
@@ -246,7 +255,6 @@
                 <span class="time current-time">0:00</span>
                 <div class="progress-bar-wrapper" id="mainProgressBar">
                   <div class="progress-fill progress" id="mainProgress"></div>
-                  <!-- Glow effect point at end of bar -->
                   <div class="progress-glow"></div>
                 </div>
                 <span class="time total-time">0:00</span>
@@ -270,12 +278,16 @@
                 </button>
               </div>
 
+              <!-- Secondary Controls: queue | volume | sleep | eq | crossfade | repeat -->
               <div class="secondary-controls">
+
+                <!-- Library Queue -->
                 <button type="button" class="control-btn-small" id="libraryToggle"
                   onclick="Library.toggleExtendedView()" title="Queue">
                   <i class="fas fa-list"></i>
                 </button>
 
+                <!-- Volume -->
                 <div class="volume-slider-container">
                   <button type="button" class="control-btn-no-bg" id="volumeBtn">
                     <i class="fas fa-volume-up"></i>
@@ -283,28 +295,112 @@
                   <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1" />
                 </div>
 
-                <button type="button" class="control-btn-small" id="customRepeatBtn" onclick="toggleCustomRepeatUI()"
-                  title="Custom Repeat">
+                <!-- Sleep Timer -->
+                <div class="sleep-timer-wrapper">
+                  <button type="button" class="control-btn-small" id="sleepTimerBtn"
+                    onclick="toggleSleepTimerPanel()" title="Sleep Timer">
+                    <i class="fas fa-moon"></i>
+                    <span id="sleepTimerLabel"></span>
+                  </button>
+                  <div id="sleepTimerPanel" style="display:none;">
+                    <h4>Sleep Timer</h4>
+                    <button class="sleep-option" onclick="setSleepTimer(15)">15 minutes</button>
+                    <button class="sleep-option" onclick="setSleepTimer(30)">30 minutes</button>
+                    <button class="sleep-option" onclick="setSleepTimer(45)">45 minutes</button>
+                    <button class="sleep-option" onclick="setSleepTimer(60)">1 hour</button>
+                    <button class="sleep-option cancel-sleep" onclick="setSleepTimer(0)">
+                      <i class="fas fa-times" style="margin-right:6px;font-size:10px;"></i>Cancel timer
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Equalizer -->
+                <div class="eq-wrapper">
+                  <button type="button" class="control-btn-small" id="eqBtn"
+                    onclick="toggleEqualizerPanel()" title="Equalizer">
+                    <i class="fas fa-sliders-h"></i>
+                  </button>
+                  <div id="equalizerPanel" style="display:none;">
+                    <h4>Equalizer</h4>
+                    <div class="eq-bands">
+                      <!-- Band 0 — 60 Hz -->
+                      <div class="eq-band">
+                        <span class="eq-band-value" id="eqVal0">+0dB</span>
+                        <input type="range" id="eqBand0" min="-12" max="12" step="1" value="0"
+                          oninput="handleEqSlider(0, this.value)" orient="vertical" />
+                        <span class="eq-band-label">60Hz</span>
+                      </div>
+                      <!-- Band 1 — 230 Hz -->
+                      <div class="eq-band">
+                        <span class="eq-band-value" id="eqVal1">+0dB</span>
+                        <input type="range" id="eqBand1" min="-12" max="12" step="1" value="0"
+                          oninput="handleEqSlider(1, this.value)" orient="vertical" />
+                        <span class="eq-band-label">230Hz</span>
+                      </div>
+                      <!-- Band 2 — 910 Hz -->
+                      <div class="eq-band">
+                        <span class="eq-band-value" id="eqVal2">+0dB</span>
+                        <input type="range" id="eqBand2" min="-12" max="12" step="1" value="0"
+                          oninput="handleEqSlider(2, this.value)" orient="vertical" />
+                        <span class="eq-band-label">910Hz</span>
+                      </div>
+                      <!-- Band 3 — 3.6 kHz -->
+                      <div class="eq-band">
+                        <span class="eq-band-value" id="eqVal3">+0dB</span>
+                        <input type="range" id="eqBand3" min="-12" max="12" step="1" value="0"
+                          oninput="handleEqSlider(3, this.value)" orient="vertical" />
+                        <span class="eq-band-label">3.6k</span>
+                      </div>
+                      <!-- Band 4 — 14 kHz -->
+                      <div class="eq-band">
+                        <span class="eq-band-value" id="eqVal4">+0dB</span>
+                        <input type="range" id="eqBand4" min="-12" max="12" step="1" value="0"
+                          oninput="handleEqSlider(4, this.value)" orient="vertical" />
+                        <span class="eq-band-label">14kHz</span>
+                      </div>
+                    </div>
+                    <div class="eq-presets">
+                      <button class="eq-preset-btn" onclick="Equalizer.applyPreset('bass')">Bass</button>
+                      <button class="eq-preset-btn" onclick="Equalizer.applyPreset('treble')">Treble</button>
+                      <button class="eq-preset-btn" onclick="Equalizer.applyPreset('vocal')">Vocal</button>
+                      <button class="eq-preset-btn" onclick="Equalizer.applyPreset('pop')">Pop</button>
+                      <button class="eq-preset-btn" onclick="Equalizer.applyPreset('rock')">Rock</button>
+                      <button class="eq-reset-btn" onclick="Equalizer.reset()">Reset</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Crossfade Toggle -->
+                <button type="button" class="control-btn-small" id="crossfadeBtn"
+                  onclick="CrossfadeEngine.toggle()" title="Crossfade">
+                  <i class="fas fa-water"></i>
+                </button>
+
+                <!-- Custom Repeat -->
+                <button type="button" class="control-btn-small" id="customRepeatBtn"
+                  onclick="toggleCustomRepeatUI()" title="Custom Repeat">
                   <i class="fas fa-layer-group"></i>
                 </button>
+
               </div>
 
-              <!-- Repeat Status Indicator (moved here for visibility) -->
+              <!-- Repeat Status Indicator -->
               <div id="repeatStatusDisplay" class="repeat-status" style="display: none;">
                 <span class="repeat-count">Repeats left: <span id="repeatsLeftCount">0</span></span>
-                <button onclick="cancelCustomRepeat()" class="cancel-repeat-btn" title="Cancel Repeat"><i
-                    class="fas fa-times"></i></button>
+                <button onclick="cancelCustomRepeat()" class="cancel-repeat-btn" title="Cancel Repeat">
+                  <i class="fas fa-times"></i>
+                </button>
               </div>
 
             </div>
           </div>
         </div>
 
-        <!-- Custom Repeat Modal (Overlay) -->
+        <!-- Custom Repeat Modal -->
         <div id="customRepeatModal" class="custom-repeat-modal" style="display: none;">
           <div class="custom-repeat-content">
             <h3>Repeat Song</h3>
-            <p>Enter number of repeats (2-100)</p>
+            <p>Enter number of repeats (2–100)</p>
             <div class="repeat-input-group">
               <button type="button" onclick="adjustRepeatCount(-1)">-</button>
               <input type="number" id="playCountInput" min="2" max="100" value="2">
@@ -319,8 +415,6 @@
       </div>
       <audio id="audioPlayer" preload="auto" style="display: none;"></audio>
     </div>
-
-
 
     <!-- Extended Liked Songs View -->
     <div id="likedSongsExpanded" class="liked-songs-expanded">
@@ -391,14 +485,16 @@
     </div>
   </div>
 
+  <!-- Scripts — order matters -->
   <script src="{{ url_for('static', filename='js/player.js') }}"></script>
   <script src="{{ url_for('static', filename='js/greeting.js') }}"></script>
   <script src="{{ url_for('static', filename='js/loader.js') }}"></script>
+  <!-- Feature extensions — loaded last, patches player.js safely -->
+  <script src="{{ url_for('static', filename='js/features.js') }}"></script>
 
   <!-- Settings Overlay -->
   <div id="settingsOverlay" class="settings-overlay">
     <div class="settings-container">
-      <!-- Sidebar -->
       <div class="settings-sidebar">
         <div class="settings-header">
           <h1 class="settings-title">
@@ -417,7 +513,6 @@
             onclick="Settings.scrollToSection('settingsDevice'); return false;">
             <i class="fas fa-laptop"></i> Device Information
           </a>
-
           <a href="#settingsHelp" class="settings-nav-item"
             onclick="Settings.scrollToSection('settingsHelp'); return false;">
             <i class="fas fa-life-ring"></i> Help
@@ -429,10 +524,8 @@
         </nav>
       </div>
 
-      <!-- Main Content -->
       <div class="settings-content">
         <div class="settings-sections">
-          <!-- Profile Section -->
           <div id="settingsProfile" class="settings-section">
             <h2 class="section-title">Profile</h2>
             <p class="section-description">Manage your profile information.</p>
@@ -447,52 +540,55 @@
                 <input type="email" id="settingsEmail" name="email" placeholder="Enter new email" required
                   value="{{ user_email or '' }}" class="form-input" />
               </div>
-              <button type="submit" class="btn-primary">
-                Save Changes
-              </button>
+              <button type="submit" class="btn-primary">Save Changes</button>
             </form>
           </div>
 
-          <!-- Device Information Section -->
           <div id="settingsDevice" class="settings-section">
             <h2 class="section-title">Device Information</h2>
             <p class="section-description">Your current device IP: {{ request.remote_addr }}</p>
           </div>
 
-
-
-          <!-- Help Section -->
           <div id="settingsHelp" class="settings-section">
             <h2 class="section-title">Help</h2>
             <p class="section-description">Quick answers and tips to keep Groovo running smoothly.</p>
             <div class="settings-help-cards">
               <div class="settings-help-card">
                 <h3>Playback issues</h3>
-                <p>If a track fails to play, try refreshing the dashboard or searching again. This helps reset the
-                  stream and load a fresh source.</p>
+                <p>If a track fails to play, try refreshing the dashboard or searching again.</p>
+              </div>
+              <div class="settings-help-card">
+                <h3>Keyboard shortcuts</h3>
+                <p><strong>Space</strong> — play/pause &nbsp;·&nbsp; <strong>← →</strong> — seek ±10s &nbsp;·&nbsp;
+                  <strong>M</strong> — mute &nbsp;·&nbsp; <strong>N / P</strong> — next / previous &nbsp;·&nbsp;
+                  <strong>L</strong> — like current song</p>
+              </div>
+              <div class="settings-help-card">
+                <h3>Sleep timer</h3>
+                <p>Open the expanded player and tap the moon icon to set a sleep timer (15–60 min). Music pauses automatically.</p>
+              </div>
+              <div class="settings-help-card">
+                <h3>Equalizer</h3>
+                <p>Open the expanded player and tap the sliders icon. Choose a preset or drag the bands manually. Requires a track to be loaded first.</p>
               </div>
               <div class="settings-help-card">
                 <h3>Library sync</h3>
-                <p>Use the heart button to save tracks. Your library updates automatically and is tied to your account.
-                </p>
+                <p>Use the heart button to save tracks. Your library updates automatically and is tied to your account.</p>
               </div>
               <div class="settings-help-card">
                 <h3>Account access</h3>
-                <p>If you changed your email, log out and log back in to refresh the session with your updated profile.
-                </p>
+                <p>If you changed your email, log out and log back in to refresh the session.</p>
               </div>
             </div>
           </div>
 
-          <!-- About Us Section -->
           <div id="settingsAbout" class="settings-section">
             <h2 class="section-title">About Us</h2>
             <p class="section-description">Groovo is a focused music streaming experience designed for quick discovery
               and smooth playback.</p>
             <div class="settings-help-card">
               <h3>Developer</h3>
-              <p>Built by Chayan, a developer who enjoys crafting clean, fast, and immersive music apps. Groovo blends
-                modern UI with smart playback flows to keep listening effortless.</p>
+              <p>Built by Chayan, a developer who enjoys crafting clean, fast, and immersive music apps.</p>
               <div style="margin-top: 12px; display: flex; gap: 10px;">
                 <a href="https://chayan.live/" target="_blank" rel="noopener" class="btn-secondary">Portfolio</a>
                 <a href="https://github.com/Nikk-123" target="_blank" rel="noopener" class="btn-secondary">GitHub</a>
@@ -503,6 +599,6 @@
       </div>
     </div>
   </div>
-</body>
 
+</body>
 </html>
