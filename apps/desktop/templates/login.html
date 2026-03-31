@@ -6,22 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#000000" />
     <title>Login - GROOVO</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome CDN -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}" />
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
-    <link rel="icon" href="{{ url_for('static', filename='icon_new.png') }}" sizes="682x461" />
-    <link rel="icon" href="{{ url_for('static', filename='icon_new.png') }}" sizes="680x484" />
     <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png" />
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon_new.png') }}" />
-
 </head>
 
 <body
     class="bg-gradient-to-b from-green-500 to-gray-900 text-gray-100 font-sans flex flex-col min-h-screen items-center overflow-hidden">
+
     <!-- Header -->
     <header class="w-full py-6 border-b border-gray-700 text-center">
         <a href="/"
@@ -31,25 +26,23 @@
         </a>
     </header>
 
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    <div class="w-full max-w-md mx-auto mt-4">
+    <!--
+        FIX: Give the flash container a stable id="flashMessages" so the JS
+        can always find and reuse it instead of creating duplicate divs.
+    -->
+    <div id="flashMessages" class="w-full max-w-md mx-auto mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
-        <div
-            class="p-4 rounded {{ 'bg-red-600' if category == 'danger' else 'bg-green-500' }} text-white text-center mb-2">
+        <div class="p-4 rounded {{ 'bg-red-600' if category == 'danger' else 'bg-green-500' }} text-white text-center mb-2">
             {{ message }}
         </div>
         {% endfor %}
-    </div>
-    {% endif %}
-    {% endwith %}
+        {% endwith %}
 
-    {% if error %}
-    <div class="w-full max-w-md mx-auto mt-4">
+        {% if error %}
         <div class="p-4 rounded bg-red-600 text-white text-center mb-2">{{ error }}</div>
+        {% endif %}
     </div>
-    {% endif %}
 
     <!-- Login Container -->
     <div class="login-container bg-black rounded-lg w-full max-w-md mx-auto mt-10 mb-0 p-8 text-white shadow-2xl">
@@ -79,25 +72,40 @@
         </div>
     </div>
 
-
+    <footer class="w-full text-center py-4 text-gray-400 text-sm">
+        Created by <a href="https://github.com/Nikk-123" target="_blank"
+            class="text-green-500 hover:text-green-400 transition">Nikk-123</a>
+    </footer>
 
     <script>
-        // Clear any stale library data left from a previous session
-        // (the logout route doesn't reach this JS, so we clear here on page load)
+        // Clear stale library data from any previous session
         try { localStorage.removeItem('userLibrary'); } catch (e) {}
 
-        // Email/Password Login
+        /**
+         * FIX: Instead of querySelector('.flash-messages') which could fail or
+         * create duplicate nodes, we always use the stable #flashMessages container.
+         * We clear it before writing a new error so old messages don't stack up.
+         */
+        function showLoginError(message) {
+            const container = document.getElementById('flashMessages');
+            container.innerHTML = ''; // Clear previous errors
+            const div = document.createElement('div');
+            div.className = 'p-4 rounded bg-red-600 text-white text-center mb-2';
+            div.textContent = message;
+            container.appendChild(div);
+        }
+
         document.getElementById('loginForm').addEventListener('submit', function (e) {
             e.preventDefault();
             const formData = new FormData(this);
-            const submitButton = this.querySelector('button[type="submit"]');
-            submitButton.disabled = true;
-            submitButton.textContent = 'Logging in...';
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Logging in...';
 
             fetch('/login', {
                 method: 'POST',
                 body: formData,
-                headers: { 'Accept': 'application/json' }
+                headers: { 'Accept': 'application/json' },
             })
                 .then(response => {
                     if (!response.ok) throw new Error('Login failed');
@@ -110,38 +118,18 @@
                         }
                         window.location.href = data.redirect;
                     } else {
-                        const flashMessages = document.querySelector('.flash-messages') || document.createElement('div');
-                        flashMessages.className = 'flash-messages w-full max-w-md mx-auto mt-4';
-                        const message = document.createElement('div');
-                        message.className = 'p-4 rounded bg-red-600 text-white text-center mb-2';
-                        message.textContent = data.message || 'Login failed. Please check your credentials.';
-                        flashMessages.appendChild(message);
-                        document.body.insertBefore(flashMessages, document.querySelector('.login-container'));
-                        submitButton.disabled = false;
-                        submitButton.textContent = 'LOG IN';
+                        showLoginError(data.message || 'Invalid email or password.');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'LOG IN';
                     }
                 })
-                .catch(error => {
-                    console.error('Error:', error);
-                    const flashMessages = document.querySelector('.flash-messages') || document.createElement('div');
-                    flashMessages.className = 'flash-messages w-full max-w-md mx-auto mt-4';
-                    const message = document.createElement('div');
-                    message.className = 'p-4 rounded bg-red-600 text-white text-center mb-2';
-                    message.textContent = 'Login failed. Please try again.';
-                    flashMessages.appendChild(message);
-                    document.body.insertBefore(flashMessages, document.querySelector('.login-container'));
-                    submitButton.disabled = false;
-                    submitButton.textContent = 'LOG IN';
+                .catch(() => {
+                    showLoginError('Login failed. Please try again.');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'LOG IN';
                 });
         });
-
-
     </script>
-    <!-- Footer with Creator Credit -->
-    <footer class="w-full text-center py-4 text-gray-400 text-sm">
-        Created by <a href="https://github.com/Nikk-123" target="_blank"
-            class="text-green-500 hover:text-green-400 transition">Nikk-123</a>
-    </footer>
 </body>
 
 </html>

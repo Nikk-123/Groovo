@@ -27,7 +27,7 @@ def register_auth_routes(flask_app):
             try:
                 response = requests.post(f'{AUTH_SERVICE_URL}/api/login', 
                                          json={'email': email, 'password': password},
-                                         timeout=10)
+                                         timeout=60)
                 data = response.json()
                 
                 if data.get('success'):
