@@ -86,7 +86,14 @@
     <!-- ── Recently Played (populated from localStorage) ── -->
     <div id="recentlyPlayedSection" style="display: none;">
       <h2>Recently Played</h2>
-      <ul class="song-list" id="recentlyPlayedList"></ul>
+      <div class="mood-playlist">
+        <ul class="song-list" id="recentlyPlayedList" data-mood="recently-played"></ul>
+        <div class="scroll-dots mood-scroll-dots" aria-hidden="true">
+          <span class="scroll-dot"></span>
+          <span class="scroll-dot"></span>
+          <span class="scroll-dot"></span>
+        </div>
+      </div>
     </div>
 
     <div id="trendingContainer">

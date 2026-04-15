@@ -353,7 +353,16 @@ const Player = {
             // Pause and reset current audio
             PlayerState.audio.pause();
             PlayerState.audio.src = audioUrl;
-            PlayerState.audio.volume = PlayerState.volume;
+
+            // When EQ is active, masterGain controls output — keep audio.volume at 1
+            // so the full signal reaches the Web Audio graph. When EQ is inactive,
+            // audio.volume is the only volume control.
+            if (window.Equalizer && Equalizer.masterGain) {
+                PlayerState.audio.volume = 1;
+                Equalizer.masterGain.gain.value = Math.min(Math.max(PlayerState.volume, 0), 1);
+            } else {
+                PlayerState.audio.volume = PlayerState.volume;
+            }
 
             // Setup event handlers
             PlayerState.audio.onended = () => {
@@ -1376,24 +1385,25 @@ function debounce(func, wait) {
 
 // Update the volume control handling
 function updateVolumeControls(volume) {
-    // Clamp volume between 0 and 1 for HTML5 Audio
-    const clampedVolume = Math.min(Math.max(volume, 0), 1);
+    const clamped = Math.min(Math.max(volume, 0), 1);
+    PlayerState.volume = volume;
 
-    // Update audio volume
-    PlayerState.volume = volume; // Keep original volume value for display
-    PlayerState.audio.volume = clampedVolume; // Use clamped volume for audio
+    // Route through EQ master gain if active (window.Equalizer guard: features.js
+    // loads after player.js, so Equalizer may not exist when this first runs)
+    if (window.Equalizer && Equalizer.masterGain) {
+        Equalizer.masterGain.gain.value = clamped;
+    } else {
+        PlayerState.audio.volume = clamped;
+    }
 
-    // Update volume sliders - sync both controls
-    const volumeControls = document.querySelectorAll('#miniVolumeControl, #volumeControl');
-    volumeControls.forEach(control => {
+    // Update sliders + icons
+    document.querySelectorAll('#miniVolumeControl, #volumeControl').forEach(control => {
         if (control) {
-            control.value = volume;
-            control.style.setProperty('--volume-level', `${clampedVolume * 100}%`);
+            control.value = clamped;
+            control.style.setProperty('--volume-level', `${clamped * 100}%`);
         }
     });
-
-    // Update volume icons
-    updateVolumeIcons(volume);
+    updateVolumeIcons(clamped);
 }
 
 function updateVolumeIcons(volume) {
