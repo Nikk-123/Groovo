@@ -357,11 +357,16 @@ const Player = {
             // When EQ is active, masterGain controls output — keep audio.volume at 1
             // so the full signal reaches the Web Audio graph. When EQ is inactive,
             // audio.volume is the only volume control.
+            //
+            // If a crossfade transition is in progress (_suppressVolumeRestore = true),
+            // start silent so the new song doesn't burst at full volume before fadeIn
+            // gets a chance to ramp up.
+            const _cfSuppress = window.CrossfadeEngine && CrossfadeEngine._suppressVolumeRestore;
             if (window.Equalizer && Equalizer.masterGain) {
-                PlayerState.audio.volume = 1;
-                Equalizer.masterGain.gain.value = Math.min(Math.max(PlayerState.volume, 0), 1);
+                PlayerState.audio.volume = 1.0;
+                Equalizer.masterGain.gain.value = _cfSuppress ? 0 : Math.min(Math.max(PlayerState.volume, 0), 1);
             } else {
-                PlayerState.audio.volume = PlayerState.volume;
+                PlayerState.audio.volume = _cfSuppress ? 0 : PlayerState.volume;
             }
 
             // Setup event handlers
@@ -712,7 +717,7 @@ const PlaybackControls = {
         });
     },
 
-    playNext(isAuto = false) {
+    async playNext(isAuto = false) {
         // Track skip event if manually advancing (not auto-complete)
         if (!isAuto && PlayerState.currentSong && PlayerState.playStartTime) {
             const listenDuration = Math.floor((Date.now() - PlayerState.playStartTime) / 1000);
@@ -728,13 +733,12 @@ const PlaybackControls = {
                 // If counts remain (after decrement), replay current song
                 if (PlayerState.customRepeat.count > 0) {
                     if (PlayerState.currentSong) {
-                        Player.play(
+                        return Player.play(
                             PlayerState.currentSong.url,
                             PlayerState.currentSong.title,
                             PlayerState.currentSong.thumbnail,
                             PlayerState.currentSong.artist
                         );
-                        return;
                     }
                 } else {
                     // Count reached 0 on this play completion (it was 1, now 0)
@@ -752,13 +756,12 @@ const PlaybackControls = {
 
         // If repeat once is enabled, replay the current song (only if auto-advance)
         if (isAuto && PlayerState.repeatMode === 'once' && PlayerState.currentSong) {
-            Player.play(
+            return Player.play(
                 PlayerState.currentSong.url,
                 PlayerState.currentSong.title,
                 PlayerState.currentSong.thumbnail,
                 PlayerState.currentSong.artist
             );
-            return;
         }
 
         let nextIndex = PlayerState.currentIndex + 1;
@@ -775,10 +778,10 @@ const PlaybackControls = {
 
         PlayerState.currentIndex = nextIndex;
         const nextSong = queue[nextIndex];
-        Player.play(nextSong.url, nextSong.title, nextSong.thumbnail, nextSong.artist);
+        return Player.play(nextSong.url, nextSong.title, nextSong.thumbnail, nextSong.artist);
     },
 
-    playPrevious() {
+    async playPrevious() {
         const queue = PlayerState.isShuffleOn ? PlayerState.shuffledQueue : PlayerState.queue;
         if (queue.length === 0) return;
 
@@ -793,7 +796,7 @@ const PlaybackControls = {
 
         PlayerState.currentIndex = prevIndex;
         const prevSong = queue[prevIndex];
-        Player.play(prevSong.url, prevSong.title, prevSong.thumbnail, prevSong.artist);
+        return Player.play(prevSong.url, prevSong.title, prevSong.thumbnail, prevSong.artist);
     }
 };
 
@@ -1386,17 +1389,15 @@ function debounce(func, wait) {
 // Update the volume control handling
 function updateVolumeControls(volume) {
     const clamped = Math.min(Math.max(volume, 0), 1);
-    PlayerState.volume = volume;
+    PlayerState.volume = clamped;
 
-    // Route through EQ master gain if active (window.Equalizer guard: features.js
-    // loads after player.js, so Equalizer may not exist when this first runs)
     if (window.Equalizer && Equalizer.masterGain) {
         Equalizer.masterGain.gain.value = clamped;
     } else {
         PlayerState.audio.volume = clamped;
     }
 
-    // Update sliders + icons
+    // UI update
     document.querySelectorAll('#miniVolumeControl, #volumeControl').forEach(control => {
         if (control) {
             control.value = clamped;
