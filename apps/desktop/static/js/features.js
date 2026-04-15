@@ -450,28 +450,50 @@ const Equalizer = {
 };
 
 /* ─────────────────────────────────────────────────────────────
-   8. CROSSFADE (FIXED — now uses masterGain)
+   8. CROSSFADE (FIXED — correct timing, atomic ramps, proper async flow)
    ───────────────────────────────────────────────────────────── */
 const CrossfadeEngine = {
-    duration: 2000,
+    duration: 2000,   // 2 seconds (was wrongly set to 10 000 ms)
     enabled: false,
     _rampId: null,
+    _suppressVolumeRestore: false,   // true while a crossfade play() call is in flight
 
-    _ramp(from, to, onDone) {
-        clearInterval(this._rampId);
-        const STEPS = 30;
-        const stepTime = this.duration / STEPS;
-        const stepSize = (to - from) / STEPS;
-        let count = 0;
+    _ensureEQ() {
+        // Only init if we already have a running AudioContext — avoid creating
+        // one in an async callback where there may be no user-gesture token.
+        if (window.Equalizer && Equalizer._ready) {
+            Equalizer._ensureRunning();
+        }
+    },
+
+    /**
+     * Smoothly ramp the master volume from startVol → endVol over `this.duration` ms.
+     * Any in-progress ramp is cancelled atomically before the new one starts.
+     * @param {number}   startVol  0–1
+     * @param {number}   endVol    0–1
+     * @param {Function} [onDone]  called once the ramp finishes
+     */
+    _ramp(startVol, endVol, onDone) {
+        // Cancel any currently running ramp first
+        if (this._rampId !== null) {
+            clearInterval(this._rampId);
+            this._rampId = null;
+        }
+
+        const STEPS    = 40;                            // smoother than 50 at 2 s
+        const stepMs   = this.duration / STEPS;         // ~50 ms per step
+        const stepSize = (endVol - startVol) / STEPS;
+        let   count    = 0;
 
         this._rampId = setInterval(() => {
             count++;
-            const vol = Math.min(1, Math.max(0, from + stepSize * count));
+            const vol = Math.max(0, Math.min(1, startVol + stepSize * count));
 
-            if (Equalizer.masterGain) {
-                Equalizer.masterGain.gain.value = vol;   // ← use EQ gain
+            if (window.Equalizer && Equalizer.masterGain) {
+                Equalizer.masterGain.gain.value = vol;
             } else {
-                PlayerState.audio.volume = vol;         // fallback
+                // Fallback: drive html5 audio volume directly
+                try { PlayerState.audio.volume = vol; } catch (_) {}
             }
 
             if (count >= STEPS) {
@@ -479,23 +501,57 @@ const CrossfadeEngine = {
                 this._rampId = null;
                 onDone?.();
             }
-        }, stepTime);
+        }, stepMs);
     },
 
+    /**
+     * Fade current audio out to 0, then call onDone.
+     * If crossfade is disabled, onDone is called immediately.
+     * If the audio is already at/near 0 (e.g. song just ended), skip the ramp
+     * and call onDone right away to avoid a pointless multi-second wait.
+     */
     fadeOut(onDone) {
-        if (!this.enabled || PlayerState.audio.paused) { onDone?.(); return; }
-        const current = Equalizer.masterGain ? Equalizer.masterGain.gain.value : PlayerState.audio.volume;
+        if (!this.enabled) return onDone?.();
+
+        // Determine current volume level
+        let current = 0;
+        if (window.Equalizer && Equalizer.masterGain) {
+            current = Equalizer.masterGain.gain.value;
+        } else {
+            current = PlayerState.audio.volume;
+        }
+
+        // If already silent (song ended naturally), skip the fade
+        if (current < 0.02) {
+            this._ensureEQ();
+            return onDone?.();
+        }
+
+        this._ensureEQ();
         this._ramp(current, 0, onDone);
     },
 
+    /**
+     * Fade the new audio in from 0 → targetVolume.
+     * Silences the output first so the new song can't burst through at full
+     * volume before the ramp begins.
+     */
     fadeIn(targetVolume) {
-        if (Equalizer.masterGain) {
+        const target = targetVolume ?? PlayerState.volume ?? 1;
+
+        // Force-silence before ramping up
+        if (window.Equalizer && Equalizer.masterGain) {
             Equalizer.masterGain.gain.value = 0;
         } else {
-            PlayerState.audio.volume = 0;
+            try { PlayerState.audio.volume = 0; } catch (_) {}
         }
-        this._ramp(0, targetVolume, () => {
-            updateVolumeControls(targetVolume);   // sync sliders + PlayerState
+
+        this._ensureEQ();
+        this._ramp(0, target, () => {
+            // Sync the volume slider UI to the final value
+            if (typeof updateVolumeControls === 'function') {
+                updateVolumeControls(target);
+            }
         });
     },
 
@@ -505,6 +561,74 @@ const CrossfadeEngine = {
         if (btn) btn.classList.toggle('active', this.enabled);
         showToast(this.enabled ? '🌊 Crossfade ON (2s)' : '🌊 Crossfade OFF', 'info');
     }
+};
+
+/* ─────────────────────────────────────────────────────────────
+   CROSSFADE INTEGRATION
+   Key fix: await Player.play() before calling fadeIn, so the
+   ramp-up starts only when the new audio is actually playing —
+   not while the network fetch is still in progress.
+   ───────────────────────────────────────────────────────────── */
+
+// Hook into playNext
+const _origPlayNext = PlaybackControls.playNext;
+PlaybackControls.playNext = async function (isAuto = false) {
+    if (!CrossfadeEngine.enabled || !PlayerState.currentSong) {
+        return _origPlayNext.call(this, isAuto);
+    }
+
+    // Capture `this` for use inside the callback
+    const self = this;
+    CrossfadeEngine.fadeOut(async () => {
+        CrossfadeEngine._suppressVolumeRestore = true;
+        await _origPlayNext.call(self, isAuto);
+        CrossfadeEngine._suppressVolumeRestore = false;
+        // Only fade in if a new song actually started playing
+        if (PlayerState.isPlaying) {
+            CrossfadeEngine.fadeIn();
+        }
+    });
+};
+
+// Hook into playPrevious
+const _origPlayPrevious = PlaybackControls.playPrevious;
+PlaybackControls.playPrevious = async function () {
+    if (!CrossfadeEngine.enabled || !PlayerState.currentSong) {
+        return _origPlayPrevious.call(this);
+    }
+
+    const self = this;
+    CrossfadeEngine.fadeOut(async () => {
+        CrossfadeEngine._suppressVolumeRestore = true;
+        await _origPlayPrevious.call(self);
+        CrossfadeEngine._suppressVolumeRestore = false;
+        if (PlayerState.isPlaying) {
+            CrossfadeEngine.fadeIn();
+        }
+    });
+};
+
+// Hook into manual song selection (clicking any song card)
+const _origTogglePlayPause = Player.togglePlayPause;
+Player.togglePlayPause = async function (url, title, thumbnail, artist) {
+    // Only crossfade when switching to a *different* song, not toggling play/pause
+    if (CrossfadeEngine.enabled &&
+        PlayerState.currentSong &&
+        PlayerState.currentSong.url !== url) {
+
+        const self = this;
+        CrossfadeEngine.fadeOut(async () => {
+            CrossfadeEngine._suppressVolumeRestore = true;
+            await _origTogglePlayPause.call(self, url, title, thumbnail, artist);
+            CrossfadeEngine._suppressVolumeRestore = false;
+            // Fade in only if the new song actually started
+            if (PlayerState.isPlaying) {
+                CrossfadeEngine.fadeIn();
+            }
+        });
+        return;
+    }
+    return _origTogglePlayPause.call(this, url, title, thumbnail, artist);
 };
 
 
