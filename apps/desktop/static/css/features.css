@@ -318,3 +318,32 @@
   #equalizerPanel { width: calc(100vw - 32px); right: -8px; }
   .eq-bands       { height: 90px; }
 }
+
+/* ── Recently Played — horizontal scroll row (matches trending / mood) ── */
+#recentlyPlayedSection .mood-playlist {
+  position: relative;
+}
+
+#recentlyPlayedSection .mood-playlist ul.song-list {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: visible;
+  gap: 16px;
+  padding-bottom: 12px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE/Edge */
+}
+
+#recentlyPlayedSection .mood-playlist ul.song-list::-webkit-scrollbar {
+  display: none;
+}
+
+/* Each card keeps a fixed width so they sit in a single row */
+#recentlyPlayedSection .mood-playlist ul.song-list .song-item {
+  flex: 0 0 auto;
+  width: 180px;   /* matches typical song-item card width */
+}
