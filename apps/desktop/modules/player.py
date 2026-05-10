@@ -3,17 +3,23 @@ Player and playback module for Groovo application.
 Handles song playback, search, and playlist/trending API endpoints.
 """
 
+import logging
 from flask import jsonify, request
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
-import logging
 
-from modules.youtube import fetch_trending, fetch_single_mood, MOOD_QUERIES
+from modules.youtube import (
+    fetch_trending,
+    fetch_single_mood,
+    MOOD_QUERIES,
+    _build_opts,
+    _extract_info,
+)
 
 
 def register_player_routes(flask_app):
     """Register all player/playback related routes."""
-    
+
     @flask_app.route('/play', methods=['POST', 'OPTIONS'])
     def play():
         if request.method == 'OPTIONS':
@@ -29,63 +35,51 @@ def register_player_routes(flask_app):
         if not video_url:
             return jsonify({"success": False, "error": "No URL provided"}), 400
 
-        base_opts = {
-            'quiet': True,
-            'noplaylist': True,
-            'no_warnings': True,
-            'skip_download': True,
-            'ignore_no_formats_error': True,
-            'force_generic_extractor': False,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-                'Accept': '*/*',
-                'Referer': 'https://www.youtube.com/'
-            },
-            'socket_timeout': 20,
-            'source_address': '0.0.0.0',
-        }
-
+        # Try formats from best to most compatible.
+        # _extract_info handles cookie-fallback internally; DownloadError is
+        # only raised when the format itself is unavailable, not for cookie errors.
         format_candidates = [
             'bestaudio[protocol^=https]',
             'bestaudio/best',
             'best',
         ]
 
-        info = None
+        info       = None
         last_error = None
 
         try:
             for fmt in format_candidates:
-                ydl_opts = dict(base_opts)
-                ydl_opts['format'] = fmt
+                ydl_opts = _build_opts({
+                    'noplaylist': True,
+                    'format':     fmt,
+                    'skip_download': True,
+                })
                 try:
-                    with YoutubeDL(ydl_opts) as ydl:
-                        info = ydl.extract_info(video_url, download=False)
+                    info = _extract_info(ydl_opts, video_url)
                     if info:
                         break
                 except DownloadError as err:
                     last_error = err
+                    logging.warning("[/play] DownloadError fmt=%s: %s", fmt, err)
                     continue
 
             if not info:
-                error_message = str(last_error) if last_error else 'Unable to extract video information'
-                return jsonify({
-                    "success": False,
-                    "error": error_message
-                }), 500
+                msg = str(last_error) if last_error else 'Unable to extract video information'
+                logging.error("[/play] All candidates failed for %s: %s", video_url, msg)
+                return jsonify({"success": False, "error": msg}), 500
 
+            # Unwrap single-entry playlists (e.g. YouTube embeds)
             if info.get('_type') == 'playlist':
                 entries = info.get('entries') or []
-                info = next((entry for entry in entries if entry), None)
+                info = next((e for e in entries if e), None)
 
             if not info:
-                return jsonify({
-                    "success": False,
-                    "error": "Unable to extract video information"
-                }), 500
+                return jsonify({"success": False, "error": "Unable to extract video information"}), 500
 
+            # ── Audio URL resolution ──────────────────────────────────────────
             audio_url = None
 
+            # 1. Prefer requested_formats (present when yt-dlp selects a stream)
             requested_formats = info.get('requested_formats') or []
             if requested_formats:
                 audio_candidates = [
@@ -95,167 +89,151 @@ def register_player_routes(flask_app):
                 if audio_candidates:
                     audio_url = audio_candidates[-1]['url']
 
+            # 2. Fall back to manual format selection
             if not audio_url:
                 formats = info.get('formats') or []
                 audio_formats = [
                     f for f in formats
-                    if f.get('acodec') not in (None, 'none') and f.get('vcodec') in (None, 'none') and f.get('url')
+                    if f.get('acodec') not in (None, 'none')
+                    and f.get('vcodec') in (None, 'none')
+                    and f.get('url')
                 ]
 
-                def sort_key(fmt):
+                def _sort_key(f):
                     return (
-                        fmt.get('abr') or fmt.get('tbr') or 0,
-                        fmt.get('filesize') or fmt.get('filesize_approx') or 0
+                        f.get('abr') or f.get('tbr') or 0,
+                        f.get('filesize') or f.get('filesize_approx') or 0,
                     )
 
-                https_audio = [f for f in audio_formats if str(f.get('protocol', '')).startswith('https')]
-                candidate_formats = sorted(https_audio or audio_formats, key=sort_key)
-                if candidate_formats:
-                    audio_url = candidate_formats[-1]['url']
+                https_audio = [f for f in audio_formats
+                               if str(f.get('protocol', '')).startswith('https')]
+                candidates = sorted(https_audio or audio_formats, key=_sort_key)
+
+                if candidates:
+                    audio_url = candidates[-1]['url']
                 else:
+                    # Last resort: top-level URL (may be muxed)
                     audio_url = info.get('url') or info.get('direct_url')
 
             if not audio_url:
-                return jsonify({
-                    "success": False,
-                    "error": "No audio formats available"
-                }), 500
+                logging.error("[/play] No audio URL found for %s", video_url)
+                return jsonify({"success": False, "error": "No audio formats available"}), 500
 
-            thumbnails = info.get('thumbnails', [])
+            # ── Metadata ──────────────────────────────────────────────────────
+            thumbnails = info.get('thumbnails') or []
             thumbnail_url = ''
             if thumbnails:
-                sorted_thumbs = sorted(thumbnails, key=lambda x: x.get('height', 0), reverse=True)
+                sorted_thumbs = sorted(
+                    thumbnails, key=lambda x: x.get('height', 0), reverse=True
+                )
                 thumbnail_url = sorted_thumbs[0].get('url', '')
 
             artist = (
-                info.get('artist') or
-                info.get('uploader') or
-                info.get('channel') or
-                'Unknown Artist'
+                info.get('artist')
+                or info.get('uploader')
+                or info.get('channel')
+                or 'Unknown Artist'
             )
-
-            title = info.get('title', 'Unknown Title')
+            title    = info.get('title', 'Unknown Title')
             duration = info.get('duration', 0)
 
             response = jsonify({
-                'success': True,
+                'success':   True,
                 'audio_url': audio_url,
-                'title': title,
+                'title':     title,
                 'thumbnail': thumbnail_url,
-                'artist': artist,
-                'duration': duration
+                'artist':    artist,
+                'duration':  duration,
             })
             response.headers.add('Access-Control-Allow-Origin', '*')
             return response
 
         except Exception as e:
-            logging.exception("yt-dlp playback failure for %s", video_url)
-            print(f"[ERROR] /play: {str(e)}")
-            return jsonify({
-                "success": False,
-                "error": f"Error fetching audio: {str(e)}"
-            }), 500
+            logging.exception("[/play] Unhandled exception for %s", video_url)
+            return jsonify({"success": False, "error": f"Error fetching audio: {str(e)}"}), 500
+
 
     @flask_app.route('/search', methods=['GET'])
     def search_song():
-        query = request.args.get('query')
+        query = request.args.get('query', '').strip()
         if not query:
             return jsonify([])
 
         try:
-            ydl_opts = {
-                'format': 'bestaudio/best',
-                'quiet': True,
-                'extract_flat': True,
-                'no_warnings': True,
-                'default_search': 'ytsearch25',
-                'source_address': '0.0.0.0',
-            }
+            ydl_opts = _build_opts({'skip_download': True})
 
-            with YoutubeDL(ydl_opts) as ydl:
-                search_query = f"ytsearch25:{query} music"
-                info = ydl.extract_info(search_query, download=False)
-                
-                results = []
-                for entry in info.get('entries', []):
-                    if not entry:
-                        continue
-                        
-                    thumbnails = entry.get('thumbnails', [])
-                    thumbnail_url = ''
-                    if thumbnails:
-                        for thumb in thumbnails:
-                            if thumb.get('height', 0) >= 180:
-                                thumbnail_url = thumb['url']
-                                break
-                        if not thumbnail_url and thumbnails:
-                            thumbnail_url = thumbnails[0]['url']
+            info = _extract_info(ydl_opts, f"ytsearch25:{query} music")
 
-                    full_title = entry.get('title', '')
-                    artist = entry.get('channel', entry.get('uploader', ''))
-                    
-                    if ' - ' in full_title:
-                        parts = full_title.split(' - ', 1)
-                        if len(parts) == 2:
-                            artist = parts[0].strip()
-                            title = parts[1].strip()
-                        else:
-                            title = full_title
-                    else:
-                        title = full_title
+            results = []
+            for entry in (info or {}).get('entries', []):
+                # Guard first — skip entries without a playable video ID
+                if not entry or not entry.get('id'):
+                    continue
 
-                    duration = entry.get('duration')
-                    if duration:
-                        minutes = int(duration) // 60
-                        seconds = int(duration) % 60
-                        duration_str = f"{minutes}:{seconds:02d}"
-                    else:
-                        duration_str = "Unknown"
+                # Thumbnail: prefer height >= 180
+                thumbnail_url = ''
+                for thumb in (entry.get('thumbnails') or []):
+                    if thumb.get('height', 0) >= 180:
+                        thumbnail_url = thumb['url']
+                        break
+                if not thumbnail_url:
+                    thumbs = entry.get('thumbnails') or []
+                    thumbnail_url = thumbs[0]['url'] if thumbs else ''
 
-                    result = {
-                        'title': title,
-                        'url': f"https://www.youtube.com/watch?v={entry.get('id', '')}",
-                        'thumbnail': thumbnail_url,
-                        'duration': duration_str,
-                        'artist': artist,
-                        'views': entry.get('view_count', 'N/A'),
-                    }
-                    if not entry.get('id'):
-                        continue  # Skip entries with no video ID
-                    results.append(result)
+                # Artist / title: split on " - " convention
+                full_title = entry.get('title', '')
+                artist     = entry.get('channel') or entry.get('uploader') or ''
+                if ' - ' in full_title:
+                    parts  = full_title.split(' - ', 1)
+                    artist = parts[0].strip()
+                    title  = parts[1].strip()
+                else:
+                    title = full_title
 
-                return jsonify(results)
+                # Duration
+                raw_dur      = entry.get('duration')
+                duration_str = (
+                    f"{int(raw_dur) // 60}:{int(raw_dur) % 60:02d}"
+                    if raw_dur else 'Unknown'
+                )
+
+                results.append({
+                    'title':     title,
+                    'url':       f"https://www.youtube.com/watch?v={entry['id']}",
+                    'thumbnail': thumbnail_url,
+                    'duration':  duration_str,
+                    'artist':    artist,
+                    'views':     entry.get('view_count', 'N/A'),
+                })
+
+            return jsonify(results)
 
         except Exception as e:
-            print(f"Error searching for song: {e}")
+            logging.exception("[/search] Failed for query=%s", query)
             return jsonify({"error": "Failed to search for song"}), 500
+
 
     @flask_app.route('/api/trending')
     def api_trending():
         songs = fetch_trending()
         return jsonify(songs)
 
+
     @flask_app.route('/api/playlist')
     def api_playlist():
-        mood = request.args.get('mood')
+        mood = request.args.get('mood', '').strip()
         if not mood:
             return jsonify([])
-        
+
         query = MOOD_QUERIES.get(mood)
         if not query:
             return jsonify([])
 
-        ydl_opts = {
-            'format': 'bestaudio',
-            'quiet': True,
-            'extract_flat': True,
-            'geo_bypass': True,
+        ydl_opts = _build_opts({
+            'geo_bypass':         True,
             'nocheckcertificate': True,
-            'ignoreerrors': True,
-            'no_warnings': True,
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        
-        # Reuse fetch_single_mood
+            'ignoreerrors':       True,
+        })
+
         _, songs = fetch_single_mood(mood, query, ydl_opts, playlist_size=7)
         return jsonify(songs)

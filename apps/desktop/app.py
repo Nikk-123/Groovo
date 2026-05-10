@@ -16,7 +16,6 @@ from modules.auth import register_auth_routes
 from modules.library import register_library_routes
 from modules.player import register_player_routes
 from modules.analytics import register_analytics_routes
-from modules.keepalive import register_keepalive_routes
 
 
 # Register all routes
@@ -24,7 +23,6 @@ register_auth_routes(app)
 register_library_routes(app)
 register_player_routes(app)
 register_analytics_routes(app)
-register_keepalive_routes(app)
 
 
 @app.route('/shutdown', methods=['GET', 'POST'])
