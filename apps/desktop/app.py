@@ -60,13 +60,14 @@ if __name__ == "__main__":
             req.get('http://127.0.0.1:8000/', timeout=2)
         except Exception:
             pass
-        import ctypes
-        ctypes.windll.user32.MessageBoxW(
-            0,
-            "Groovo is already running.\nCheck your taskbar for the existing window.",
-            "Groovo",
-            0x40  # MB_ICONINFORMATION
-        )
+        if os.name == 'nt':
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                0,
+                "Groovo is already running.\nCheck your taskbar for the existing window.",
+                "Groovo",
+                0x40  # MB_ICONINFORMATION
+            )
         sys.exit(0)
 
     # Start Flask in a separate thread

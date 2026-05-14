@@ -36,4 +36,4 @@ def save_cache():
 
 
 LIBRARY_CACHE = load_cache()
-CACHE_DURATION = 1800  # 30 minutes (increased to reduce slow external API calls)
+CACHE_DURATION = 1800  # 30 minutes — import this in library.py; do not hardcode the TTL there

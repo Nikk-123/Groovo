@@ -8,7 +8,7 @@ import requests
 import logging
 
 from modules.config import AUTH_SERVICE_URL
-from modules.cache import LIBRARY_CACHE, save_cache, load_cache
+from modules.cache import LIBRARY_CACHE, save_cache, load_cache, CACHE_DURATION
 
 
 def register_library_routes(flask_app):
@@ -218,7 +218,7 @@ def register_library_routes(flask_app):
                 syncing = False
                 
                 # If cache is old (> 5 minutes), trigger background sync
-                if time.time() - cached['timestamp'] > 300:  # 5 minutes
+                if time.time() - cached['timestamp'] > CACHE_DURATION:
                     logging.info(f"Cache is old, triggering background sync for {user_email}")
                     sync_thread = Thread(target=sync_library_in_background, daemon=True)
                     sync_thread.start()
@@ -277,63 +277,4 @@ def register_library_routes(flask_app):
             return jsonify({
                 'success': False,
                 'message': str(e)
-            }), 500
-
-    @flask_app.route('/library/force-refresh', methods=['POST'])
-    def force_refresh_library():
-        """Force clear the cache and re-fetch library from auth service."""
-        if 'user_id' not in session:
-            return jsonify({'success': False, 'message': 'Not logged in'}), 401
-        
-        try:
-            import time
-            user_email = session['user_id']
-
-            logging.info(f"Force cache refresh triggered for {user_email}")
-            
-            # Clear the user's cache entry
-            if user_email in LIBRARY_CACHE:
-                del LIBRARY_CACHE[user_email]
-                save_cache()
-                logging.info(f"Cleared cache for {user_email}")
-            
-            # Fetch fresh data from auth service
-            response = requests.get(
-                f'{AUTH_SERVICE_URL}/api/check-session',
-                headers={'X-User-Email': user_email},
-                timeout=30
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            if data.get('success'):
-                library_data = data.get('library', [])
-                LIBRARY_CACHE[user_email] = {
-                    'data': library_data,
-                    'timestamp': time.time()
-                }
-                save_cache()
-                logging.info(f"Force refresh complete for {user_email}: {len(library_data)} songs cached")
-                return jsonify({
-                    'success': True,
-                    'message': f'Cache refreshed: {len(library_data)} songs',
-                    'library': library_data
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'message': 'Auth service returned unsuccessful response'
-                }), 502
-                
-        except requests.Timeout:
-            logging.error(f"Timeout during force refresh for {user_email}")
-            return jsonify({
-                'success': False,
-                'message': 'Auth service timeout'
-            }), 504
-        except Exception as e:
-            logging.error(f"Force refresh failed: {str(e)}")
-            return jsonify({
-                'success': False,
-                'message': f'Force refresh failed: {str(e)}'
             }), 500
