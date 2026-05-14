@@ -7,7 +7,6 @@ from flask import Flask, request, jsonify
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 from flask_cors import CORS
-from datetime import datetime, timezone, timedelta
 import os
 import sys
 import logging
@@ -18,8 +17,13 @@ load_dotenv()
 
 # ── App setup ──────────────────────────────────────────────────────────────────
 app = Flask(__name__)
+
+# This service is called server-to-server (desktop Flask → Render).
+# CORS is irrelevant for non-browser callers, but kept narrow as a precaution.
 CORS(app, resources={r"/*": {"origins": "*", "supports_credentials": True}})
-app.secret_key = os.getenv('SECRET_KEY', 'dev-change-me-in-production')
+
+# NOTE: app.secret_key intentionally omitted — this is a stateless REST API;
+# Flask sessions and cookies are never used here.
 
 logging.basicConfig(level=logging.INFO)
 
@@ -37,11 +41,6 @@ client = MongoClient(
 )
 db = client.get_database('music_app')
 users_collection = db.users
-listening_history = db.listening_history
-current_sessions = db.current_sessions
-
-# IST timezone constant (UTC+5:30)
-IST = timezone(timedelta(hours=5, minutes=30))
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -59,12 +58,32 @@ def get_request_user():
 
 
 # ── Health check ───────────────────────────────────────────────────────────────
-@app.route('/', methods=['GET'])
+@app.route('/api/health', methods=['GET'])
 def health_check():
+    """
+    Returns server + database liveness status.
+    Used by the desktop client on startup to detect cold-start / downtime.
+
+    Response shape:
+      200  { success: true,  status: "healthy",   db: "connected"    }
+      503  { success: false, status: "unhealthy",  db: "unreachable", error: "..." }
+    """
+    try:
+        client.admin.command('ping')
+        db_status = 'connected'
+    except Exception as e:
+        logging.error(f"Health check — DB unreachable: {e}")
+        return jsonify({
+            'success': False,
+            'status':  'unhealthy',
+            'db':      'unreachable',
+            'error':   str(e),
+        }), 503
+
     return jsonify({
         'success': True,
-        'message': 'Auth service is running perfectly',
-        'status': 'healthy',
+        'status':  'healthy',
+        'db':      db_status,
     }), 200
 
 
@@ -118,16 +137,13 @@ def api_login():
     if not user_data:
         return jsonify({'success': False, 'message': 'User not found'}), 404
 
-    is_hashed = user_data.get('is_password_hashed', False)
     stored_password = user_data['password']
 
-    password_valid = (
-        bcrypt.checkpw(password.encode('utf-8'), stored_password)
-        if is_hashed
-        else stored_password == password
-    )
-
-    if not password_valid:
+    # SECURITY NOTE: The is_password_hashed plaintext fallback has been removed.
+    # All passwords created via /api/signup are bcrypt-hashed (is_password_hashed=True).
+    # If you have legacy plaintext-password accounts in the DB, run a one-time migration
+    # script to bcrypt them before deploying this change.
+    if not bcrypt.checkpw(password.encode('utf-8'), stored_password):
         return jsonify({'success': False, 'message': 'Invalid password'}), 401
 
     return jsonify({
@@ -270,112 +286,6 @@ def remove_from_library():
     except Exception as e:
         logging.error(f"Error removing from library: {str(e)}")
         return jsonify({'success': False, 'message': 'An error occurred while removing from library'}), 500
-
-
-# ── Analytics tracking endpoints ───────────────────────────────────────────────
-# Consistent schema across all events:
-#   { user_email, song: {url, title, ...}, event_type, timestamp, listen_duration }
-
-@app.route('/api/track/play', methods=['POST'])
-def track_play():
-    user_email = get_request_user()
-    if not user_email:
-        return jsonify({'success': False, 'message': 'Not logged in'}), 401
-    try:
-        data = request.json or {}
-        now_ist = datetime.now(IST)
-        song = data.get('song', {})
-        listening_history.insert_one({
-            'user_email': user_email,
-            'song': song,
-            'event_type': 'play',
-            'timestamp': now_ist,
-            'listen_duration': 0,
-        })
-        current_sessions.update_one(
-            {'user_email': user_email},
-            {'$set': {
-                'user_email': user_email,
-                'song': song,
-                'started_at': now_ist,
-                'last_updated': now_ist,
-                'status': 'playing',
-            }},
-            upsert=True,
-        )
-        return jsonify({'success': True, 'message': 'Play event tracked'}), 200
-    except Exception as e:
-        logging.error(f"Error tracking play: {str(e)}")
-        return jsonify({'success': False, 'message': str(e)}), 500
-
-
-@app.route('/api/track/pause', methods=['POST'])
-def track_pause():
-    user_email = get_request_user()
-    if not user_email:
-        return jsonify({'success': False, 'message': 'Not logged in'}), 401
-    try:
-        data = request.json or {}
-        now_ist = datetime.now(IST)
-        listening_history.insert_one({
-            'user_email': user_email,
-            'song': data.get('song', {}),
-            'event_type': 'pause',
-            'timestamp': now_ist,
-            'listen_duration': data.get('listen_duration', 0),
-        })
-        current_sessions.update_one(
-            {'user_email': user_email},
-            {'$set': {'status': 'paused', 'last_updated': now_ist}},
-        )
-        return jsonify({'success': True, 'message': 'Pause event tracked'}), 200
-    except Exception as e:
-        logging.error(f"Error tracking pause: {str(e)}")
-        return jsonify({'success': False, 'message': str(e)}), 500
-
-
-@app.route('/api/track/complete', methods=['POST'])
-def track_complete():
-    user_email = get_request_user()
-    if not user_email:
-        return jsonify({'success': False, 'message': 'Not logged in'}), 401
-    try:
-        data = request.json or {}
-        now_ist = datetime.now(IST)
-        listening_history.insert_one({
-            'user_email': user_email,
-            'song': data.get('song', {}),
-            'event_type': 'complete',
-            'timestamp': now_ist,
-            'listen_duration': data.get('listen_duration', 0),
-        })
-        current_sessions.delete_one({'user_email': user_email})
-        return jsonify({'success': True, 'message': 'Complete event tracked'}), 200
-    except Exception as e:
-        logging.error(f"Error tracking complete: {str(e)}")
-        return jsonify({'success': False, 'message': str(e)}), 500
-
-
-@app.route('/api/track/skip', methods=['POST'])
-def track_skip():
-    user_email = get_request_user()
-    if not user_email:
-        return jsonify({'success': False, 'message': 'Not logged in'}), 401
-    try:
-        data = request.json or {}
-        now_ist = datetime.now(IST)
-        listening_history.insert_one({
-            'user_email': user_email,
-            'song': data.get('song', {}),
-            'event_type': 'skip',
-            'timestamp': now_ist,
-            'listen_duration': data.get('listen_duration', 0),
-        })
-        current_sessions.delete_one({'user_email': user_email})
-        return jsonify({'success': True, 'message': 'Skip event tracked'}), 200
-    except Exception as e:
-        logging.error(f"Error tracking skip: {str(e)}")
-        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 # ── Error handlers ─────────────────────────────────────────────────────────────
