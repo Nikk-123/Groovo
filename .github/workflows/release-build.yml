@@ -115,9 +115,17 @@ jobs:
         run: |
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
-          git tag ${{ env.NEW_TAG }}
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git push origin ${{ env.NEW_TAG }}
+          # Only push the tag if it doesn't already exist on remote.
+          # This handles the case where the tag was created manually as a
+          # baseline (e.g. after a versioning reset) — the release step
+          # will simply find and reuse the existing tag.
+          if git ls-remote --tags origin "refs/tags/${{ env.NEW_TAG }}" | grep -q .; then
+            echo "Tag ${{ env.NEW_TAG }} already exists on remote — skipping push"
+          else
+            git tag ${{ env.NEW_TAG }}
+            git push origin ${{ env.NEW_TAG }}
+          fi
         shell: bash
 
       - name: Create GitHub Release and upload EXE
