@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Groovo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    <div class="app">
+
+        <div class="drawer-backdrop" id="drawerBackdrop" onclick="closeSidebar()"></div>
+
+        <aside class="sidebar" id="sidebar">
+            <div class="drawer-header">
+                <div class="brand">
+                    <span class="brand-mark">●</span>
+                    <span class="brand-name">Groovo</span>
+                </div>
+                <button class="drawer-close" id="drawerCloseBtn" onclick="closeSidebar()" title="Close menu" aria-label="Close menu">✕</button>
+            </div>
+
+            <nav class="nav">
+                <button class="nav-item active" id="navHome" onclick="showHome(); closeSidebar()">
+                    <span class="nav-icon">⌂</span> Home
+                </button>
+                <button class="nav-item" id="navSearch" onclick="focusSearch(); closeSidebar()">
+                    <span class="nav-icon">⌕</span> Search
+                </button>
+            </nav>
+
+            <div class="sidebar-divider"></div>
+
+            <div class="sidebar-section">
+                <h3>Liked Songs</h3>
+                <div id="likedSongs" class="liked-list">
+                    <p class="empty-hint">Songs you like will show up here.</p>
+                </div>
+            </div>
+
+            <a href="/logout" class="logout-link">Log out</a>
+        </aside>
+
+        <main class="main">
+
+            <header class="topbar">
+                <button class="hamburger-btn" id="hamburgerBtn" onclick="openSidebar()" title="Menu" aria-label="Open menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+
+                <div class="search-bar">
+                    <span class="search-icon">⌕</span>
+                    <input type="text" id="query" placeholder="What do you want to play?"
+                           onkeydown="if(event.key==='Enter') searchSong()">
+                    <button class="search-btn" onclick="searchSong()">Search</button>
+                </div>
+
+                <div class="topbar-spacer" aria-hidden="true"></div>
+            </header>
+
+            <div class="content">
+
+                <section id="searchResultsSection" class="content-section hidden">
+                    <h2 id="searchResultsTitle">Results</h2>
+                    <div id="results" class="song-grid"></div>
+                </section>
+
+                <section id="homeSection" class="content-section">
+
+                    <div class="section-head">
+                        <h2>Trending now</h2>
+                    </div>
+                    <div class="rail-wrap">
+                        <div id="trending" class="rail">
+                            <p class="empty-hint">Loading trending tracks…</p>
+                        </div>
+                        <div class="scroll-dots" id="trendingDots" aria-hidden="true">
+                            <span class="scroll-dot active" data-dot="0"></span>
+                            <span class="scroll-dot" data-dot="1"></span>
+                            <span class="scroll-dot" data-dot="2"></span>
+                        </div>
+                    </div>
+
+                    <div class="section-head">
+                        <h2>Made for your mood</h2>
+                    </div>
+                    <div id="moodGrid" class="mood-grid"></div>
+
+                </section>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <div class="now-playing-bar" id="nowPlayingBar">
+        <div class="np-info">
+            <img id="npThumb" class="np-thumb" src="" alt="" hidden>
+            <div class="np-thumb np-thumb-placeholder" id="npThumbPlaceholder">♪</div>
+            <div class="np-text">
+                <div id="title" class="np-title">Nothing playing yet</div>
+                <div id="npChannel" class="np-channel"></div>
+            </div>
+            <button id="npLikeBtn" class="np-like-btn" onclick="toggleLikeCurrent()" title="Like this song">♡</button>
+        </div>
+
+        <div class="np-center">
+            <button id="npPlayBtn" class="np-play-btn" onclick="togglePlayPause()" title="Play/Pause" aria-label="Play or pause">
+                <span id="npPlayIcon">▶</span>
+            </button>
+
+            <div class="np-progress-row">
+                <span class="np-time" id="npCurrentTime">0:00</span>
+                <div class="np-progress-bar" id="npProgressBar" role="slider" aria-label="Seek" tabindex="0">
+                    <div class="np-progress-fill" id="npProgressFill"></div>
+                    <div class="np-progress-handle" id="npProgressHandle"></div>
+                </div>
+                <span class="np-time" id="npDuration">0:00</span>
+            </div>
+        </div>
+
+        <div class="np-volume">
+            <button id="npMuteBtn" class="np-mute-btn" onclick="toggleMute()" title="Mute/unmute" aria-label="Mute or unmute">🔊</button>
+            <input type="range" id="npVolume" class="np-volume-slider" min="0" max="100" value="100"
+                   oninput="setVolume(this.value)" aria-label="Volume">
+        </div>
+
+        <audio id="audio" preload="metadata"></audio>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
+</html>
