@@ -2,7 +2,9 @@ from flask import Flask, render_template, request, jsonify, session, redirect, f
 import yt_dlp
 import sqlite3
 import os
+import re
 import time
+from functools import wraps
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 from dotenv import load_dotenv
@@ -28,8 +30,6 @@ users = db["users"]
 # Enforce email uniqueness at the DB level to close the check-then-insert race.
 users.create_index("email", unique=True)
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance", "groovo.db")
-
 ydl_opts = {
     "quiet": True,
     "extract_flat": False,
@@ -42,40 +42,78 @@ ydl_opts = {
 _TRENDING_CACHE = {"data": None, "fetched_at": 0}
 _TRENDING_TTL_SECONDS = 60 * 30  # 30 minutes
 
+# -----------------------------
+# Per-user SQLite databases
+# -----------------------------
+# Every account gets its own SQLite file — instance/users/<user_id>.db —
+# instead of one shared liked_songs table. This means liked songs are
+# actually private per account, and if this repo is forked/deployed by
+# many different people, each of their users still only ever sees their
+# own library within that deployment.
+USERS_DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance", "users")
+
+_USER_ID_PATTERN = re.compile(r"^[0-9a-fA-F]{24}$")  # matches a Mongo ObjectId string
+
+
+def _is_valid_user_id(user_id):
+    """Mongo ObjectIds are always a 24-char hex string. Validating this
+    before touching the filesystem stops a tampered/malformed session value
+    from being used to build a path."""
+    return bool(user_id) and bool(_USER_ID_PATTERN.match(user_id))
+
+
+def get_user_db_path(user_id):
+    if not _is_valid_user_id(user_id):
+        raise ValueError("Invalid user id.")
+    return os.path.join(USERS_DB_DIR, f"{user_id}.db")
+
+
+def _init_liked_songs_table(conn):
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS liked_songs (
+            video_id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            channel TEXT,
+            thumbnail TEXT,
+            duration INTEGER,
+            added_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    """Connection to the *currently logged-in user's* personal SQLite
+    database. Creates the file (and schema) on first access for that user."""
+    user_id = session.get("user")
+    if not _is_valid_user_id(user_id):
+        raise RuntimeError("get_db() called with no valid user in session.")
+
+    os.makedirs(USERS_DB_DIR, exist_ok=True)
+    db_path = get_user_db_path(user_id)
+    is_new_file = not os.path.exists(db_path)
+
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+
+    if is_new_file:
+        _init_liked_songs_table(conn)
+
     return conn
 
 
-# -----------------------------
-# Database Initialization
-# -----------------------------
-def init_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-
-    conn = get_db()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS liked_songs (
-                video_id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                channel TEXT,
-                thumbnail TEXT,
-                duration INTEGER,
-                added_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        conn.commit()
-    finally:
-        conn.close()
-
-
-# Ensure the DB exists whether the app is started via `python app.py`
-# or via a WSGI server like gunicorn/flask run.
-init_db()
+def login_required(view):
+    """Guards routes that touch a per-user SQLite DB — without a logged-in
+    user there's no database file to open."""
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not _is_valid_user_id(session.get("user")):
+            if wants_json_response():
+                return jsonify({"success": False, "message": "Please log in."}), 401
+            return redirect(url_for("login_page"))
+        return view(*args, **kwargs)
+    return wrapped
 
 
 @app.route("/")
@@ -256,6 +294,7 @@ def play(video_id):
 
 
 @app.route("/like", methods=["POST"])
+@login_required
 def like_song():
     data = request.get_json(silent=True)
 
@@ -292,6 +331,7 @@ def like_song():
 
 
 @app.route("/liked")
+@login_required
 def liked_songs():
     conn = get_db()
     try:
@@ -309,6 +349,7 @@ def liked_songs():
 
 
 @app.route("/unlike/<video_id>", methods=["DELETE"])
+@login_required
 def unlike_song(video_id):
     conn = get_db()
     try:

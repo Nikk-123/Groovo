@@ -42,7 +42,9 @@ A Spotify-inspired music streaming web app built with Flask. Search and stream t
 Groovo/
 ├── app.py                     # Flask app: routes, auth, yt-dlp search, SQLite liked-songs
 ├── instance/
-│   └── groovo.db              # SQLite DB (auto-created on first run)
+│   └── users/
+│       ├── <user_id_1>.db      # Liked-songs DB for that account (auto-created on first like)
+│       └── <user_id_2>.db      # Every account gets its own isolated SQLite file
 ├── templates/
 │   ├── index.html             # Main dashboard (trending, moods, search, player)
 │   ├── login.html             # Login page (Tailwind)
@@ -113,6 +115,22 @@ Visit **http://127.0.0.1:5000** — you'll be redirected to `/login` until you s
 
 ---
 
+## Per-user databases
+
+Liked songs are **not** stored in one shared table. Every account gets its own SQLite file:
+
+```
+instance/users/<mongo_user_id>.db
+```
+
+- The file is created automatically (with schema) the first time that account likes a song — nothing to set up manually.
+- The `<mongo_user_id>` is validated against the 24-character hex format Mongo `ObjectId`s always take, before it's ever used to build a filesystem path.
+- `/like`, `/liked`, and `/unlike` all require an authenticated session (`@login_required`) — there's no "current user" without one, so these routes simply can't run for a logged-out visitor.
+- This means if 100 different people are using the same deployment, each of them only ever sees their own liked songs — never anyone else's.
+- `instance/` is git-ignored, so these per-user files never get committed to the repo.
+
+---
+
 ## API routes
 
 | Method     | Route                  | Description                                                                    |
@@ -134,9 +152,9 @@ Visit **http://127.0.0.1:5000** — you'll be redirected to `/login` until you s
 
 ## Known limitations
 
-- **No per-account library separation.** Liked songs are stored in a single shared SQLite table, not scoped to a user ID. Anyone logged in sees the same liked-songs list. If you need per-user libraries, `liked_songs` needs a `user_id` column tied to the MongoDB user `_id`.
 - **`yt-dlp` is slow and rate-limitable.** Search and mood-mix results depend on live YouTube scraping — under heavy traffic this can be slow or get throttled by YouTube. The `/trending` route is cached for this reason; `/search` is not.
 - **No queue / next-previous.** The player supports play, pause, seek, and volume, but there's no "up next" concept yet — that would need a real playlist/queue data model.
+- **Per-user databases don't sync across deployments.** Each account's SQLite file lives on whatever machine is running the Flask process. If you fork this repo and deploy it yourself, your users' libraries live only on your deployment — they're not shared with, or visible to, anyone else's fork. This is by design (see below), but worth knowing if you're moving to a multi-server setup, where you'd want these on a shared volume or moved to a proper multi-tenant database instead.
 
 ## Legal note
 

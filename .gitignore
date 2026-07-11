@@ -1,2 +1,16 @@
+# Environment
 .env
-*.db
+
+# Per-user SQLite databases (created at runtime, one file per account —
+# never commit real user data)
+instance/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Editor/OS clutter
+.vscode/
+.DS_Store
