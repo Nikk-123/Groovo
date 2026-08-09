@@ -5,10 +5,8 @@ permissions:
 
 on:
   push:
-    paths-ignore:
-      - 'admin/**'
-      - 'README.md'
-      - '.github/**'
+    paths:
+      - 'apps/desktop/**'
 
 jobs:
   build-and-release:
@@ -22,6 +20,25 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0   # needed for git describe --tags
+
+      - name: Verify apps/desktop exists at this commit
+        # The paths filter above should guarantee this, but if the folder
+        # was ever moved/renamed, every later step fails with an opaque
+        # "directory name is invalid" OS error instead of a clear message.
+        # Runs from the repo root (overriding the job's default
+        # working-directory) since that default directory is exactly what
+        # we're checking for — using it here would hit the same failure
+        # this step exists to catch.
+        working-directory: .
+        run: |
+          if [ ! -d "apps/desktop" ]; then
+            echo "::error::apps/desktop does not exist at this commit. Contents of repo root:"
+            ls -la
+            exit 1
+          fi
+          echo "Found apps/desktop:"
+          ls -la apps/desktop
+        shell: bash
 
       - name: Set up Python
         uses: actions/setup-python@v5
