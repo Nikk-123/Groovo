@@ -15,7 +15,7 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: apps/desktop
+        working-directory: apps\desktop
 
     steps:
       - name: Checkout repository

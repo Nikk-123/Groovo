@@ -13,7 +13,6 @@ from pymongo.errors import DuplicateKeyError
 from dotenv import load_dotenv
 import bcrypt
 
-
 load_dotenv()
 
 
