@@ -364,7 +364,7 @@ button {
   gap: 18px;
   overflow-x: auto;
   padding-bottom: 12px;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   scroll-behavior: smooth;
 }
 
@@ -826,21 +826,27 @@ button {
 }
 
 /* ---------------- Scrollbars ---------------- */
+/* All scrollbars are invisible; content remains scrollable via mouse wheel,
+   touch, or the dedicated dot indicator (for .rail). */
 
+html, body,
+.sidebar,
+.main,
+.rail,
+.liked-list {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge/IE */
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
 .sidebar::-webkit-scrollbar,
 .main::-webkit-scrollbar,
 .rail::-webkit-scrollbar,
 .liked-list::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.sidebar::-webkit-scrollbar-thumb,
-.main::-webkit-scrollbar-thumb,
-.rail::-webkit-scrollbar-thumb,
-.liked-list::-webkit-scrollbar-thumb {
-  background: var(--surface-hover);
-  border-radius: 4px;
+  width: 0;
+  height: 0;
+  display: none; /* Chrome, Edge, Safari */
 }
 
 /* ---------------- Responsive ---------------- */
