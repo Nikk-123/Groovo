@@ -155,7 +155,6 @@ jobs:
       - name: Clean up PyInstaller temporary files
         if: always()
         run: |
-          rmdir /s /q build || exit /b 0
-          rmdir /s /q dist  || exit /b 0
-          del /q *.spec     || exit /b 0
-        shell: cmd
+          rm -rf build dist
+          rm -f *.spec
+        shell: bash
