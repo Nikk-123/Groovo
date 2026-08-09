@@ -307,7 +307,7 @@ button {
   background: var(--surface-raised);
   border: 1px solid var(--border);
   border-radius: 500px;
-  padding: 4px 4px 4px 16px;
+  padding: 4px 16px;
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
@@ -332,20 +332,6 @@ button {
 }
 
 .search-bar input::placeholder { color: var(--text-faint); }
-
-.search-btn {
-  background: var(--text);
-  color: #000;
-  border: none;
-  font-weight: 700;
-  font-size: 0.82rem;
-  padding: 9px 20px;
-  border-radius: 500px;
-  cursor: pointer;
-  transition: transform 0.1s ease, background 0.15s ease;
-}
-
-.search-btn:hover { background: var(--accent-hover); transform: scale(1.02); }
 
 .content {
   padding: 8px 32px 40px;

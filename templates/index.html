@@ -56,8 +56,8 @@
                 <div class="search-bar">
                     <span class="search-icon">⌕</span>
                     <input type="text" id="query" placeholder="What do you want to play?"
-                           onkeydown="if(event.key==='Enter') searchSong()">
-                    <button class="search-btn" onclick="searchSong()">Search</button>
+                           oninput="handleSearchInput()"
+                           onkeydown="if(event.key==='Enter'){ event.preventDefault(); searchSong(); }">
                 </div>
 
                 <div class="topbar-spacer" aria-hidden="true"></div>

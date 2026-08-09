@@ -3,17 +3,39 @@ import yt_dlp
 import sqlite3
 import os
 import re
+import sys
 import time
+import socket
+import threading
 from functools import wraps
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 from dotenv import load_dotenv
 import bcrypt
 
-
 load_dotenv()
 
-app = Flask(__name__)
+
+def resource_path(relative_path):
+    """Resolve a path to a bundled resource.
+
+    In dev this is just relative to app.py. In a PyInstaller --onefile
+    build, everything passed via --add-data is unpacked at runtime into a
+    temp dir (sys._MEIPASS) -- NOT next to the exe. Flask's default
+    template/static folders are relative to app.root_path, which for a
+    frozen app resolves to the exe's own directory, so without this,
+    render_template() and static files silently 404 in the packaged exe
+    even though they work fine with `python app.py`.
+    """
+    base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+
+
+app = Flask(
+    __name__,
+    template_folder=resource_path("templates"),
+    static_folder=resource_path("static"),
+)
 
 # SECRET_KEY must be set before any session-based route runs.
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
@@ -30,9 +52,17 @@ users = db["users"]
 # Enforce email uniqueness at the DB level to close the check-then-insert race.
 users.create_index("email", unique=True)
 
+# extract_flat=True for search listings: we only need id/title/thumbnail/
+# duration/channel to render results, not playable stream URLs. With
+# extract_flat=False, yt-dlp fully resolves every single search result
+# (all ~50 of them) before returning anything, which means it also runs
+# YouTube's signature/"n" challenge solver on each one — slow, and any one
+# unavailable/challenge-failed video can take the whole search down. Full
+# extraction only actually needs to happen for the one video the user picks
+# to play, which is handled separately in /play/<video_id>.
 ydl_opts = {
     "quiet": True,
-    "extract_flat": False,
+    "extract_flat": True,
     "noplaylist": True
 }
 
@@ -215,23 +245,44 @@ def logout():
     return redirect("/")
 
 
+def _best_thumbnail(item):
+    """Flat search results usually carry a 'thumbnails' list rather than a
+    single 'thumbnail' string, so fall back to the last (highest-res) entry
+    in that list when the singular field isn't present."""
+    if item.get("thumbnail"):
+        return item["thumbnail"]
+    thumbs = item.get("thumbnails") or []
+    return thumbs[-1]["url"] if thumbs else None
+
+
 def run_yt_search(query, limit=50):
-    """Run a yt_dlp search and return a list of song dicts. Raises on failure."""
+    """Run a yt_dlp search and return a list of song dicts.
+
+    Uses flat extraction (see ydl_opts) so this only ever hits YouTube's
+    search endpoint once and never needs to solve a signature/n challenge
+    per result. Individual malformed/unavailable entries are skipped rather
+    than failing the whole search, since a single bad item shouldn't take
+    down 49 good ones.
+    """
     opts = dict(ydl_opts)
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(f"ytsearch{limit}:{query}", download=False)
 
     songs = []
     for item in info.get("entries") or []:
-        if not item:
+        if not item or not item.get("id"):
             continue
-        songs.append({
-            "title": item.get("title"),
-            "id": item.get("id"),
-            "thumbnail": item.get("thumbnail"),
-            "duration": item.get("duration"),
-            "channel": item.get("uploader")
-        })
+        try:
+            songs.append({
+                "title": item.get("title"),
+                "id": item.get("id"),
+                "thumbnail": _best_thumbnail(item),
+                "duration": item.get("duration"),
+                "channel": item.get("channel") or item.get("uploader")
+            })
+        except Exception:
+            # Skip anything malformed rather than aborting the whole batch.
+            continue
     return songs
 
 
@@ -273,24 +324,38 @@ def trending():
 
 @app.route("/play/<video_id>")
 def play(video_id):
+    # This is the one place we actually need a resolved stream URL, so it's
+    # also the one place signature/n-challenge solving genuinely matters.
+    # That solving step is occasionally flaky against a specific video, so
+    # retry once before giving up rather than failing on the first hiccup.
     opts = {
         "quiet": True,
+        "noplaylist": True,
         "format": "bestaudio/best"
     }
 
-    try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(
-                f"https://www.youtube.com/watch?v={video_id}",
-                download=False
-            )
-    except Exception as e:
-        return jsonify({"success": False, "message": f"Could not load video: {e}"}), 502
+    last_error = None
+    for attempt in range(2):
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(
+                    f"https://www.youtube.com/watch?v={video_id}",
+                    download=False
+                )
+            if info and info.get("url"):
+                return jsonify({
+                    "url": info.get("url"),
+                    "title": info.get("title")
+                })
+            last_error = "No playable stream was returned for this video."
+        except Exception as e:
+            last_error = str(e)
+            time.sleep(0.5)
 
     return jsonify({
-        "url": info.get("url"),
-        "title": info.get("title")
-    })
+        "success": False,
+        "message": f"Could not load video: {last_error}"
+    }), 502
 
 
 @app.route("/like", methods=["POST"])
@@ -367,5 +432,64 @@ def unlike_song(video_id):
     return jsonify({"success": True})
 
 
+def _find_free_port():
+    """Bind to port 0 to let the OS hand back an unused local port, so the
+    desktop app never fails to start just because 5000 is taken."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _wait_for_server(host, port, timeout=10):
+    """Block until the Flask server is actually accepting connections,
+    so pywebview isn't pointed at a URL that isn't up yet."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=0.5):
+                return True
+        except OSError:
+            time.sleep(0.1)
+    return False
+
+
+def _run_desktop_app():
+    """Run Flask in a background thread and open it in a native window via
+    pywebview, instead of launching a browser tab. This is what makes the
+    PyInstaller-built exe feel like a standalone desktop app."""
+    import webview
+
+    host = "127.0.0.1"
+    port = _find_free_port()
+
+    server_thread = threading.Thread(
+        target=lambda: app.run(host=host, port=port, debug=False, use_reloader=False, threaded=True),
+        daemon=True,
+    )
+    server_thread.start()
+
+    if not _wait_for_server(host, port):
+        raise RuntimeError("Local server did not start in time.")
+
+    icon_path = resource_path(os.path.join("static", "icon.ico"))
+
+    webview.create_window(
+        "Groovo",
+        f"http://{host}:{port}",
+        width=1280,
+        height=800,
+        min_size=(900, 600),
+    )
+    webview.start(icon=icon_path if os.path.exists(icon_path) else None)
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    # DESKTOP_MODE lets you still run `python app.py` as a normal dev server
+    # (e.g. DESKTOP_MODE=0 python app.py) when you want browser + hot reload,
+    # while the packaged exe always launches the pywebview window.
+    desktop_mode = os.getenv("DESKTOP_MODE", "1") == "1" or getattr(sys, "frozen", False)
+
+    if desktop_mode:
+        _run_desktop_app()
+    else:
+        app.run(debug=True)

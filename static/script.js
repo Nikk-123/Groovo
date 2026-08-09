@@ -5,6 +5,13 @@
 let likedIds = new Set();   // video_ids currently liked, kept in sync with /liked
 let currentSong = null;     // the song object currently loaded in the player
 
+// Dynamic search: debounce keystrokes, and stamp each request so a slow
+// response for an earlier (now-stale) query can never overwrite the
+// results of whatever the user has since typed.
+let searchDebounceTimer = null;
+let searchRequestId = 0;
+const SEARCH_DEBOUNCE_MS = 350;
+
 const MOODS = [
     { key: "chill",   name: "Chill",     emoji: "🌊", cls: "mood-chill",   query: "chill lofi relaxing music" },
     { key: "party",   name: "Party",     emoji: "🎉", cls: "mood-party",   query: "party dance hits" },
@@ -75,19 +82,28 @@ async function searchSong() {
     const queryInput = document.getElementById("query");
     const query = queryInput.value.trim();
 
-    if (!query) return;
+    clearTimeout(searchDebounceTimer);
+
+    if (!query) {
+        showHome();
+        return;
+    }
 
     showSearchResults(`Results for “${query}”`, "Searching…");
 
+    const requestId = ++searchRequestId;
     let songs = [];
     try {
         const response = await fetch("/search?q=" + encodeURIComponent(query));
         const data = await response.json();
         songs = Array.isArray(data) ? data : [];
     } catch (err) {
+        if (requestId !== searchRequestId) return; // a newer search superseded this one
         renderSongGrid("results", [], "Couldn't reach the server. Try again.");
         return;
     }
+
+    if (requestId !== searchRequestId) return; // stale response, a newer keystroke already fired
 
     if (songs.length === 0) {
         renderSongGrid("results", [], "No songs found. Try a different search.");
@@ -95,6 +111,22 @@ async function searchSong() {
     }
 
     renderSongGrid("results", songs);
+}
+
+function handleSearchInput() {
+    // Debounced live search as the user types — waits for a short pause in
+    // typing before hitting the server, so we're not firing a request per
+    // keystroke. Clearing the box goes straight back to Home.
+    const query = document.getElementById("query").value.trim();
+
+    clearTimeout(searchDebounceTimer);
+
+    if (!query) {
+        showHome();
+        return;
+    }
+
+    searchDebounceTimer = setTimeout(searchSong, SEARCH_DEBOUNCE_MS);
 }
 
 function focusSearch() {
