@@ -54,7 +54,8 @@ jobs:
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           else
-            echo "requirements.txt not found, continuing with explicit dependency install"
+            echo "requirements.txt not found, installing explicit dependency list"
+            pip install flask yt-dlp pymongo python-dotenv bcrypt
           fi
           pip install pyinstaller Pillow
           # pywebview: the native window shell. pythonnet: lets pywebview
@@ -102,14 +103,16 @@ jobs:
         shell: bash
 
       - name: Ensure .env exists (fallback)
-        # config.py reads AUTH_SERVICE_URL and FACE_SERVICE_URL — both have
-        # safe hardcoded defaults, so this .env just makes dotenv happy when
-        # running from a frozen bundle. Never put real secrets here.
+        # app.py hard-requires SECRET_KEY and MONGO_URI at import time and
+        # raises RuntimeError if either is missing, so this .env must supply
+        # real values. Pull them from repo secrets rather than hardcoding —
+        # add SECRET_KEY and MONGO_URI under Settings > Secrets and
+        # variables > Actions in this repo.
         run: |
           if [ ! -f ".env" ]; then
-            echo "WARNING: .env not found → creating stub"
-            echo "AUTH_SERVICE_URL=https://login-auth-jgxb.onrender.com" > .env
-            echo "FACE_SERVICE_URL=#" >> .env
+            echo "WARNING: .env not found → creating from repo secrets"
+            echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" > .env
+            echo "MONGO_URI=${{ secrets.MONGO_URI }}" >> .env
           fi
         shell: bash
 
