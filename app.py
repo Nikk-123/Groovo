@@ -13,9 +13,6 @@ from pymongo.errors import DuplicateKeyError
 from dotenv import load_dotenv
 import bcrypt
 
-load_dotenv()
-
-
 def resource_path(relative_path):
     """Resolve a path to a bundled resource.
 
@@ -29,6 +26,14 @@ def resource_path(relative_path):
     """
     base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_path, relative_path)
+
+
+# Must point explicitly at the bundled .env location. load_dotenv() with no
+# argument searches upward from the current working directory, which in a
+# frozen PyInstaller exe is NOT sys._MEIPASS -- so the bundled .env (added
+# via --add-data ".env;.") would silently fail to load and every os.getenv()
+# below would return None.
+load_dotenv(resource_path(".env"))
 
 
 app = Flask(
