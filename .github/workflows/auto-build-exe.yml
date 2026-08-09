@@ -102,18 +102,20 @@ jobs:
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
         shell: bash
 
-      - name: Ensure .env exists (fallback)
+      - name: Write .env from repo secrets
         # app.py hard-requires SECRET_KEY and MONGO_URI at import time and
         # raises RuntimeError if either is missing, so this .env must supply
-        # real values. Pull them from repo secrets rather than hardcoding —
-        # add SECRET_KEY and MONGO_URI under Settings > Secrets and
-        # variables > Actions in this repo.
+        # real values. Always overwrite (rather than only creating it when
+        # missing) so a stale/committed .env in the repo can never shadow
+        # the real secrets. Add SECRET_KEY and MONGO_URI under Settings >
+        # Secrets and variables > Actions in this repo.
         run: |
-          if [ ! -f ".env" ]; then
-            echo "WARNING: .env not found → creating from repo secrets"
-            echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" > .env
-            echo "MONGO_URI=${{ secrets.MONGO_URI }}" >> .env
+          if [ -z "${{ secrets.SECRET_KEY }}" ] || [ -z "${{ secrets.MONGO_URI }}" ]; then
+            echo "::error::SECRET_KEY or MONGO_URI repo secret is not set."
+            exit 1
           fi
+          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" > .env
+          echo "MONGO_URI=${{ secrets.MONGO_URI }}" >> .env
         shell: bash
 
       - name: Build EXE with PyInstaller
