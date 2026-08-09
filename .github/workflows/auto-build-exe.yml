@@ -6,14 +6,17 @@ permissions:
 on:
   push:
     paths:
-      - 'apps/desktop/**'
+      - 'app.py'
+      - 'static/**'
+      - 'templates/**'
+      - '.github/workflows/auto-build-exe.yml'
 
 jobs:
   build-and-release:
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: apps\desktop
+        working-directory: .
 
     steps:
       - name: Checkout repository
@@ -21,8 +24,8 @@ jobs:
         with:
           fetch-depth: 0   # needed for git describe --tags
 
-      - name: Verify apps/desktop exists at this commit
-        # The paths filter above should guarantee this, but if the folder
+      - name: Verify project files exist at this commit
+        # The paths filter above should guarantee this, but if the layout
         # was ever moved/renamed, every later step fails with an opaque
         # "directory name is invalid" OS error instead of a clear message.
         # Runs from the repo root (overriding the job's default
@@ -31,13 +34,13 @@ jobs:
         # this step exists to catch.
         working-directory: .
         run: |
-          if [ ! -d "apps/desktop" ]; then
-            echo "::error::apps/desktop does not exist at this commit. Contents of repo root:"
+          if [ ! -f "app.py" ] || [ ! -d "static" ] || [ ! -d "templates" ]; then
+            echo "::error::Required project files/folders are missing at this commit. Contents of repo root:"
             ls -la
             exit 1
           fi
-          echo "Found apps/desktop:"
-          ls -la apps/desktop
+          echo "Found expected project layout:"
+          ls -la
         shell: bash
 
       - name: Set up Python
@@ -48,7 +51,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "requirements.txt not found, continuing with explicit dependency install"
+          fi
           pip install pyinstaller Pillow
           # pywebview: the native window shell. pythonnet: lets pywebview
           # drive the EdgeChromium (WebView2) backend on Windows instead of
@@ -111,6 +118,10 @@ jobs:
           # Use a bash array for the icon arg — expanding a plain string variable
           # unquoted ($ICON_FLAG) lets word-splitting corrupt paths and can embed
           # literal quote characters in the value passed to PyInstaller.
+          EXTRA_DATA_ARGS=()
+          if [ -d "modules" ]; then
+            EXTRA_DATA_ARGS+=(--add-data "modules;modules")
+          fi
           ICON_ARGS=()
           if [ "$HAS_ICON" = "true" ]; then
             ICON_ARGS=(--icon "static/icon.ico")
@@ -118,7 +129,7 @@ jobs:
           pyinstaller --onefile --noconsole --clean \
             --add-data "templates;templates" \
             --add-data "static;static" \
-            --add-data "modules;modules" \
+            "${EXTRA_DATA_ARGS[@]}" \
             --add-data ".env;." \
             --hidden-import "webview.platforms.edgechromium" \
             --hidden-import "webview.platforms.winforms" \
@@ -159,7 +170,7 @@ jobs:
             Auto-built executable for version ${{ env.NEW_TAG }}
 
             Built from commit ${{ github.sha }}
-          files: apps/desktop/dist/groovo-${{ env.NEW_TAG }}.exe
+          files: dist/groovo-${{ env.NEW_TAG }}.exe
           fail_on_unmatched_files: true
           generate_release_notes: false
           draft: false
